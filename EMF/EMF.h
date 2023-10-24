@@ -1,13 +1,14 @@
 #pragma once
 
-#include <stdio.h>
 #include <windows.h>
-#include <string_view>
-#include <format>
-#include <filesystem>
-#include <shellapi.h>
 #include "detours.h"
-#include <tchar.h>
-#include <string.h>
+#include <filesystem>
+#include <format>
 #include <psapi.h>
+#include <shellapi.h>
+#include <stdio.h>
+#include <string.h>
+#include <string_view>
 #include <strsafe.h>
+#include <tchar.h>
+
