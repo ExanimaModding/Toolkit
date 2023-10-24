@@ -24,10 +24,10 @@
     <ClInclude Include="..\Detours\src\detver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="EMF.h">
+    <ClInclude Include="emf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="getFileNameFromHandle.h">
+    <ClInclude Include="get_file_from_handle.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -68,7 +68,7 @@
     <ClCompile Include="..\Detours\src\uimports.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="getFileNameFromHandle.cpp">
+    <ClCompile Include="get_file_from_handle.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

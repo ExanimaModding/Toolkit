@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Injector.cpp">
+    <ClCompile Include="injector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\Detours\src\creatwth.cpp">
@@ -59,7 +59,7 @@
     <ClInclude Include="..\Detours\src\detver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Injector.h">
+    <ClInclude Include="injector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

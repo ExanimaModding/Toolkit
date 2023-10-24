@@ -157,9 +157,9 @@
   <ItemGroup>
     <ClInclude Include="..\Detours\src\detours.h" />
     <ClInclude Include="..\Detours\src\detver.h" />
-    <ClInclude Include="EMF.h" />
+    <ClInclude Include="emf.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="getFileNameFromHandle.h" />
+    <ClInclude Include="get_file_from_handle.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Detours\src\creatwth.cpp" />
@@ -179,7 +179,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="getFileNameFromHandle.cpp" />
+    <ClCompile Include="get_file_from_handle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="dllmain.def" />

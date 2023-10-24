@@ -155,12 +155,12 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="Injector.cpp" />
+    <ClCompile Include="injector.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\Detours\src\detours.h" />
     <ClInclude Include="..\Detours\src\detver.h" />
-    <ClInclude Include="Injector.h" />
+    <ClInclude Include="injector.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

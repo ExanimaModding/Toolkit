@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Repacker.cpp">
+    <ClCompile Include="repacker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
