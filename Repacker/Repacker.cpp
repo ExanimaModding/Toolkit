@@ -27,8 +27,37 @@ struct RPKTableEntry {
 
 void copy_string(const char *src, char *dest, uint32_t length) {
     for (int i = 0; i < length; i++) {
-      dest[i] = src[i];
+      //if (src[i] == 0xCC) {
+      //  dest[i] = 0;
+      //}
+      //else {
+	  dest[i] = src[i];
+      //}
     }
+}
+
+std::vector<unsigned char> int_to_bytes(int src_int)
+{
+  std::vector<unsigned char> arrayofbyte(4);
+  for (int i = 0; i < 4; i++)
+    arrayofbyte[i] = (src_int >> (i * 8));
+  return arrayofbyte;
+}
+
+void readFromFile(std::vector<int>& numbers, std::ifstream& infile) {
+  int num;
+  while (infile >> num)
+    numbers.push_back(num);
+}
+
+std::vector<unsigned char> get_contents(const std::string& path) {
+  if (std::ifstream source_file{ path, std::ios::binary }; source_file) {
+    return std::vector<byte>(std::istreambuf_iterator<char>{source_file}, {});
+  }
+
+  std::cerr << "Unable to correctly open file \" << path <<\".\n";
+
+  return {};
 }
 
 int unpack(FILE* fp, char* dest) {
@@ -39,11 +68,12 @@ int unpack(FILE* fp, char* dest) {
     return 1;
   }
 
-  uint32_t table_size;
-  fread(&table_size, sizeof(uint32_t), 1, fp);
+  uint32_t table_size_bytes;
+  fread(&table_size_bytes, sizeof(uint32_t), 1, fp);
 
-  std::vector<RPKTableEntry> table((uint32_t)std::floor(table_size / 32));
-  for (uint32_t i = 0; i < (uint32_t)std::floor(table_size / 32); i++) {
+  std::vector<RPKTableEntry> table((uint32_t)std::floor(table_size_bytes / 32));
+  table.resize((uint32_t)std::floor(table_size_bytes / 32));
+  for (uint32_t i = 0; i < (uint32_t)std::floor(table_size_bytes / 32); i++) {
     uint32_t buf[8];
     fread(&buf, sizeof(uint32_t[8]), 1, fp);
     memcpy(&table[i], &buf, sizeof(RPKTableEntry));
@@ -81,33 +111,43 @@ int unpack(FILE* fp, char* dest) {
   return 0;
 }
 
+// print out each letter every time we use copy_string to find the problem
+// string utils in different file
+// string for name is getting messed up
 int pack() {
   char src[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-               "\\Exanima\\mods\\Apparel";
+               "\\Exanima\\mods\\Apparel\\";
   char dest[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-                "\\Exanima\\mods\\repacked";
+                "\\Exanima\\mods\\repacked\\";
 
-  FILE *fp;
+  FILE *output_fp;
   std::string dest_file{ dest };
-  dest_file.append("\\Apparel.rpk");
-  //fopen_s(&fp, dest_file.c_str(), "wb");
-  std::ofstream fout;
-  fout.open(dest_file.c_str(), std::ofstream::out | std::ofstream::binary | std::ofstream::app);
-  uint32_t sig = MAGIC_BYTES; // written the wrong way around, may be an issue
-  fout.write(reinterpret_cast<char*>(&sig), sizeof(sig));
-  uint32_t table_items = std::distance(fs::directory_iterator(src), fs::directory_iterator{});
-  printf("%d\n", table_items);
-  uint32_t table_size = table_items * sizeof(RPKTableEntry);
-  printf("%d %d\n", table_items, sizeof(RPKTableEntry));
-  fout.write(reinterpret_cast<char*>(&table_size), sizeof(table_size)); // writing the wrong number
-  uint32_t table_start = fout.tellp();
-  fout.seekp(table_items * sizeof(RPKTableEntry));
+  dest_file.append("Apparel.rpk");
 
-  std::vector<RPKTableEntry> table(table_items);
+  errno_t err = fopen_s(&output_fp, dest_file.c_str(), "wb");
+  if (err != 0) return err;
+
+  std::vector<unsigned char> buf_magic = int_to_bytes(MAGIC_BYTES);
+  fwrite(&buf_magic[0], buf_magic.size(), 1, output_fp);
+
+  uint32_t table_count = std::distance(fs::directory_iterator(src), fs::directory_iterator{});
+  uint32_t table_size_bytes = table_count * sizeof(RPKTableEntry);
+
+  std::vector<unsigned char> buf_table = int_to_bytes(table_size_bytes);
+  fwrite(&buf_table[0], buf_table.size(), 1, output_fp);
+
+  uint32_t table_start = ftell(output_fp);
+  uint32_t origin_data = table_size_bytes + 8;
+
+  std::vector<char> padding(table_size_bytes);
+  fwrite(&padding[0], table_size_bytes, 1, output_fp);
+  fflush(output_fp);
+
+  std::vector<RPKTableEntry> table(table_count);
   struct stat sb;
+  uint32_t i = 0;
   for (const auto& entry : fs::directory_iterator(src)) {
     RPKTableEntry rpk_entry;
-    //fs::path path = entry.path();
     std::string name = entry.path().filename().string();
     if (name.length() > 16) {
       uint32_t ext_pos = name.find_last_of('.');
@@ -116,58 +156,66 @@ int pack() {
                "File extensions (e.g. '.rfi') do not count towards character count.", name.c_str());
         return 1;
       }
-      //name = name.substr(0, ext_pos);
       std::string stripped_name = name.substr(0, ext_pos);
       copy_string(stripped_name.c_str(), rpk_entry.name, stripped_name.length());
-      printf("%s\n", rpk_entry.name);
-	 // for (int i = 0; i < stripped_name.length(); i++) {
-		//rpk_entry.name[i] = stripped_name[i];
-	 // }
-
-      //printf("%s\n", stripped_name.c_str());
     }
     else {
       copy_string(name.c_str(), rpk_entry.name, name.length());
-      printf("%s\n", rpk_entry.name);
-	 // for (int i = 0; i < name.length(); i++) {
-		//rpk_entry.name[i] = name[i];
-	 // }
     }
+	printf("%s\n", rpk_entry.name);
 
     std::string path = entry.path().string();
-    if (stat(path.c_str(), &sb) != 0) continue;
+    if (stat(path.c_str(), &sb) != 0) {
+      i++;
+      continue;
+    }
 
     if (!(sb.st_mode & S_IFDIR)) {
-      // read first 4 bytes and check if valid exanima file
-      //printf("%s\n", path.c_str());
-
-	  // open file, read data, write to struct
-	  FILE *packed;
+	  FILE *input_fp;
 	  std::string src_file{ src };
-	  src_file.append(rpk_entry.name);
-	  errno_t err = fopen_s(&packed, src_file.c_str(), "rb");
-	  if (err != 0) return err;
 
-      rpk_entry.offset = fout.tellp();
+	  char terminated_name[17] = {0};
+	  copy_string(rpk_entry.name, terminated_name, 16);
+      for (int i = 0; i < 16; i++) {
+        printf("%d\n", terminated_name[i]);
+        if (terminated_name[i] == 0 || terminated_name[i] == -52) {
+          terminated_name[i] = '\0';
+        }
+      }
+	  terminated_name[16] = '\0';
+      copy_string(terminated_name, rpk_entry.name, 16);
+
+	  src_file.append(name);
+
+      rpk_entry.offset = ftell(output_fp) - origin_data;
+
       rpk_entry.size = sb.st_size;
       rpk_entry._padding1 = 0;
       rpk_entry._padding2 = 0;
 
       table.push_back(rpk_entry);
 
-	  uint32_t *buf = new uint32_t [sb.st_size];
-	  fread(buf, sb.st_size, 1, packed);
-      fout << buf; // not being written at all maybe because of seeking
-      delete[] buf;
+      std::vector<char> data;
+      data.resize(sb.st_size);
+      std::ifstream input(path.c_str(), std::ios::in | std::ifstream::binary);
 
+      input.read(&data[0], data.size());
+      input.close();
+
+      fwrite(&data[0], data.size(), 1, output_fp);
+      fflush(output_fp);
+      memcpy(&table[i], &rpk_entry, sizeof(RPKTableEntry));
     }
     else {
       // check for metadata for folder type
       // run class pack function (rdb, rfc, etc.)
     }
+    i++;
   }
+  fseek(output_fp, table_start, SEEK_SET);
+  fwrite(&table[0], sizeof(RPKTableEntry)* table_count, 1, output_fp);
 
-  fout.close();
+  fclose(output_fp);
   return 0;
 }
 
