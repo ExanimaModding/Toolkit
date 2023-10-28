@@ -18,5 +18,13 @@
     <ClCompile Include="repacker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="string_utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="string_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

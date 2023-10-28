@@ -6,35 +6,19 @@
 #include <filesystem>
 #include <sys/stat.h>
 #include <fstream>
+#include "string_utils.h"
 
 namespace fs = std::filesystem;
 
 #define MAGIC_BYTES 0xAFBF0C01
 
 struct RPKTableEntry {
-  char name[16];
+  ex_string name;
   uint32_t offset;
   uint32_t size;
   uint32_t _padding1;
   uint32_t _padding2;
 };
-
-//struct RPKFile {
-//  uint32_t sig;
-//  uint32_t table_size;
-//  std::vector<RPKTableEntry> table;
-//};
-
-void copy_string(const char *src, char *dest, uint32_t length) {
-    for (int i = 0; i < length; i++) {
-      //if (src[i] == 0xCC) {
-      //  dest[i] = 0;
-      //}
-      //else {
-	  dest[i] = src[i];
-      //}
-    }
-}
 
 std::vector<unsigned char> int_to_bytes(int src_int)
 {
@@ -60,33 +44,28 @@ std::vector<unsigned char> get_contents(const std::string& path) {
   return {};
 }
 
-int unpack(FILE* fp, char* dest) {
+int unpack(FILE* input_fp, char* dest) {
   uint32_t sig;
-  fread(&sig, sizeof(uint32_t), 1, fp);
+  fread(&sig, sizeof(uint32_t), 1, input_fp);
   if (sig != MAGIC_BYTES) {
     printf("File signature 0x%08x does not match 0x%08x\n", sig, MAGIC_BYTES);
     return 1;
   }
 
   uint32_t table_size_bytes;
-  fread(&table_size_bytes, sizeof(uint32_t), 1, fp);
+  fread(&table_size_bytes, sizeof(uint32_t), 1, input_fp);
 
   std::vector<RPKTableEntry> table((uint32_t)std::floor(table_size_bytes / 32));
   table.resize((uint32_t)std::floor(table_size_bytes / 32));
   for (uint32_t i = 0; i < (uint32_t)std::floor(table_size_bytes / 32); i++) {
     uint32_t buf[8];
-    fread(&buf, sizeof(uint32_t[8]), 1, fp);
+    fread(&buf, sizeof(uint32_t[8]), 1, input_fp);
     memcpy(&table[i], &buf, sizeof(RPKTableEntry));
   }
 
-  int data_start = ftell(fp);
-  for (const RPKTableEntry &entry : table) {
-    char terminated_name[17] = {0};
-    copy_string(entry.name, terminated_name, 16);
-    //for (int i = 0; i < 16; i++) {
-    //  terminated_name[i] = entry.name[i];
-    //}
-    terminated_name[16] = '\0';
+  int data_start = ftell(input_fp);
+  for (RPKTableEntry &entry : table) {
+    std::string name = to_string(&entry.name);
 
     uint32_t *data = (uint32_t *)malloc(entry.size);
     if (data == NULL) {
@@ -94,26 +73,24 @@ int unpack(FILE* fp, char* dest) {
       return 1;
     }
 
-    fseek(fp, data_start + entry.offset, SEEK_SET);
-    fread(data, entry.size, 1, fp);
+    fseek(input_fp, data_start + entry.offset, SEEK_SET);
+    fread(data, entry.size, 1, input_fp);
 
-    FILE *unpacked;
-    char new_name[MAX_PATH];
-    sprintf_s(new_name, "%s\\%s", dest, terminated_name);
-
-    errno_t err = fopen_s(&unpacked, new_name, "wb");
+    FILE *output_fp;
+    std::string path = dest;
+    path.append("\\");
+    path.append(name);
+    printf("%s\n", path.c_str());
+    errno_t err = fopen_s(&output_fp, path.c_str(), "wb");
     if (err != 0) return err;
 
-    fwrite(data, entry.size, 1, unpacked);
+    fwrite(data, entry.size, 1, output_fp);
     free(data);
   }
 
   return 0;
 }
 
-// print out each letter every time we use copy_string to find the problem
-// string utils in different file
-// string for name is getting messed up
 int pack() {
   char src[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
                "\\Exanima\\mods\\Apparel\\";
@@ -149,21 +126,6 @@ int pack() {
   for (const auto& entry : fs::directory_iterator(src)) {
     RPKTableEntry rpk_entry;
     std::string name = entry.path().filename().string();
-    if (name.length() > 16) {
-      uint32_t ext_pos = name.find_last_of('.');
-      if (ext_pos > 16 || ext_pos == std::string::npos) {
-        printf("Make filename '%s' 16 characters or less.\n"
-               "File extensions (e.g. '.rfi') do not count towards character count.", name.c_str());
-        return 1;
-      }
-      std::string stripped_name = name.substr(0, ext_pos);
-      copy_string(stripped_name.c_str(), rpk_entry.name, stripped_name.length());
-    }
-    else {
-      copy_string(name.c_str(), rpk_entry.name, name.length());
-    }
-	printf("%s\n", rpk_entry.name);
-
     std::string path = entry.path().string();
     if (stat(path.c_str(), &sb) != 0) {
       i++;
@@ -171,24 +133,9 @@ int pack() {
     }
 
     if (!(sb.st_mode & S_IFDIR)) {
-	  FILE *input_fp;
-	  std::string src_file{ src };
-
-	  char terminated_name[17] = {0};
-	  copy_string(rpk_entry.name, terminated_name, 16);
-      for (int i = 0; i < 16; i++) {
-        printf("%d\n", terminated_name[i]);
-        if (terminated_name[i] == 0 || terminated_name[i] == -52) {
-          terminated_name[i] = '\0';
-        }
-      }
-	  terminated_name[16] = '\0';
-      copy_string(terminated_name, rpk_entry.name, 16);
-
-	  src_file.append(name);
-
+      ex_string ex_name = to_ex_string(name);
+      copy_ex_string(&ex_name, &rpk_entry.name);
       rpk_entry.offset = ftell(output_fp) - origin_data;
-
       rpk_entry.size = sb.st_size;
       rpk_entry._padding1 = 0;
       rpk_entry._padding2 = 0;
@@ -219,21 +166,37 @@ int pack() {
   return 0;
 }
 
+//int unpack_all() {
+//  FILE* input_fp;
+//  char src[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+//               "\\Exanima\\";
+//  for (const auto& entry : fs::directory_iterator(src)) {
+//    std::string name = entry.path().filename().string();
+//    std::string path = entry.path().string();
+//	char dest[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+//				  "\\Exanima\\mods\\";
+//    unpack(input_fp, path);
+//  }
+//}
+
+//int pack_all() {}
+
+// unpack() and pack() both output corrupted data
 int main() {
-  //FILE *fp;
+  //FILE *input_fp;
   //char src[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-  //             "\\Exanima\\mods\\Resource.rpk";
+  //             "\\Exanima\\mods\\Sound.rpk";
   //char dest[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-  //              "\\Exanima\\mods\\Resource";
-  //errno_t err = fopen_s(&fp, src, "rb");
+  //              "\\Exanima\\mods\\Sound";
+  //errno_t err = fopen_s(&input_fp, src, "rb");
   //if (err != 0) {
   //  return err;
   //}
 
-  //unpack(fp, dest);
-  //fclose(fp);
+  //unpack(input_fp, dest);
+  //fclose(input_fp);
 
-  //return 1;
+  //return 0;
 
   return pack();
 }
