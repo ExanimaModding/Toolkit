@@ -36,7 +36,6 @@ std::string to_string(ex_string *src) {
 ex_string to_ex_string(std::string src) {
   std::string validated_str = validate_string(src);
   ex_string dest;
-  printf("%s\n", validated_str.c_str());
   for (int i = 0; i < 16; i++) {
     if (i > validated_str.length() - 1) {
       dest.string[i] = 0;
@@ -44,8 +43,6 @@ ex_string to_ex_string(std::string src) {
     else {
       dest.string[i] = validated_str[i];
     }
-    printf("%d ", dest.string[i]);
   }
-  printf("\n");
   return dest;
 }

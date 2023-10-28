@@ -85,6 +85,7 @@ int unpack(FILE* input_fp, char* dest) {
     if (err != 0) return err;
 
     fwrite(data, entry.size, 1, output_fp);
+    fclose(output_fp);
     free(data);
   }
 
@@ -114,16 +115,29 @@ int pack() {
   fwrite(&buf_table[0], buf_table.size(), 1, output_fp);
 
   uint32_t table_start = ftell(output_fp);
-  uint32_t origin_data = table_size_bytes + 8;
+  uint32_t origin_data = table_start + table_size_bytes;
 
   std::vector<char> padding(table_size_bytes);
   fwrite(&padding[0], table_size_bytes, 1, output_fp);
   fflush(output_fp);
 
-  std::vector<RPKTableEntry> table(table_count);
+  std::vector<std::filesystem::directory_entry> files;
   struct stat sb;
+  for (std::filesystem::directory_entry entry : fs::directory_iterator(src)) {
+    files.push_back(entry);
+  }
+
+  std::sort(
+    files.begin(),
+    files.end(),
+    [](std::filesystem::directory_entry a, std::filesystem::directory_entry b) {
+      return a.path().filename().string() < b.path().filename().string();
+    }
+  );
+
+  std::vector<RPKTableEntry> table(table_count);
   uint32_t i = 0;
-  for (const auto& entry : fs::directory_iterator(src)) {
+  for (const auto& entry : files) {
     RPKTableEntry rpk_entry;
     std::string name = entry.path().filename().string();
     std::string path = entry.path().string();
@@ -149,6 +163,7 @@ int pack() {
       input.read(&data[0], data.size());
       input.close();
 
+      fseek(output_fp, rpk_entry.offset + origin_data, SEEK_SET);
       fwrite(&data[0], data.size(), 1, output_fp);
       fflush(output_fp);
       memcpy(&table[i], &rpk_entry, sizeof(RPKTableEntry));
@@ -193,10 +208,10 @@ int main() {
   //  return err;
   //}
 
-  //unpack(input_fp, dest);
+  //err = unpack(input_fp, dest);
   //fclose(input_fp);
 
-  //return 0;
+  //return err;
 
   return pack();
 }
