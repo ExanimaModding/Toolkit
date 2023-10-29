@@ -101,7 +101,47 @@ int unpack(std::string src, std::string dest) {
   return 0;
 }
 
+int unpack_all() {
+  std::string src = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+				    "\\Exanima\\";
+  std::string dest = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+					 "\\Exanima\\unpacked";
 
+  int i = 0;
+  for (const auto& entry : fs::directory_iterator(src)) {
+	struct _stat64 sb;
+    std::string name = entry.path().filename().string();
+    std::string path = entry.path().string();
+
+    if (
+      _stat64(path.c_str(), &sb) != 0 ||
+	  (sb.st_mode & S_IFDIR) ||
+	  !path.ends_with(".rpk")
+    ) {
+      i++;
+      continue;
+    }
+
+	FILE* input_fp;
+	errno_t result = fopen_s(&input_fp, path.c_str(), "rb");
+	if (result != 0) {
+	  return result;
+	}
+
+	std::string dest_clone = dest;
+	uint32_t ext_pos = name.find_last_of('.');
+	std::string dest_child = name.substr(0, ext_pos);
+	dest_clone.append("\\");
+	dest_clone.append(dest_child);
+	unpack(path.c_str(), dest_clone.c_str());
+
+	fclose(input_fp);
+    i++;
+  }
+  return 0;
+}
+
+// Make sure to check within the folder for metadata of the file type
 int pack(std::string src, std::string dest) {
   FILE *output_fp;
   fs::path src_path{ src };
@@ -189,22 +229,34 @@ int pack(std::string src, std::string dest) {
   return 0;
 }
 
-//int unpack_all() {
-//  FILE* input_fp;
-//  char src[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-//               "\\Exanima\\";
-//  for (const auto& entry : fs::directory_iterator(src)) {
-//    std::string name = entry.path().filename().string();
-//    std::string path = entry.path().string();
-//	char dest[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-//				  "\\Exanima\\mods\\";
-//    unpack(input_fp, path);
-//  }
-//}
+// Make sure to check within the folder for metadata of the file type
+// for now just pack every folder it detects
+int pack_all() {
+  std::string src = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+					"\\Exanima\\unpacked";
+  std::string dest = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+					 "\\Exanima\\packed";
 
-//int pack_all() {}
+  int i = 0;
+  for (const auto& entry : fs::directory_iterator(src)) {
+	struct stat sb;
+    std::string name = entry.path().filename().string();
+    std::string path = entry.path().string();
 
-// unpack() and pack() both output corrupted data
+    if (stat(path.c_str(), &sb) != 0 || !(sb.st_mode & S_IFDIR)) {
+      i++;
+      continue;
+    }
+
+    pack(path.c_str(), dest.c_str());
+
+    i++;
+  }
+  return 0;
+}
+
+// unpack() and pack() have trouble with Textures.rpk
+// Reasoning is because the file size is over 2GBs and our program is 32 bit.
 int main() {
   //std::string src_unpack = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
 		//				   "\\Exanima\\Textures.rpk";
@@ -215,6 +267,7 @@ int main() {
   //  return result;
   //}
 
+  //return unpack_all();
 
   std::string src_pack = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
 						 "\\Exanima\\unpacked\\Textures";
@@ -222,4 +275,5 @@ int main() {
 						  "\\Exanima\\packed";
   return pack(src_pack, dest_pack);
 
+  //return pack_all();
 }
