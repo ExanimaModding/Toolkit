@@ -44,7 +44,13 @@ std::vector<unsigned char> get_contents(const std::string& path) {
   return {};
 }
 
-int unpack(FILE* input_fp, char* dest) {
+int unpack(std::string src, std::string dest) {
+  FILE *input_fp;
+  errno_t result = fopen_s(&input_fp, src.c_str(), "rb");
+  if (result != 0) {
+    return result;
+  }
+
   uint32_t sig;
   fread(&sig, sizeof(uint32_t), 1, input_fp);
   if (sig != MAGIC_BYTES) {
@@ -55,6 +61,8 @@ int unpack(FILE* input_fp, char* dest) {
   uint32_t table_size_bytes;
   fread(&table_size_bytes, sizeof(uint32_t), 1, input_fp);
 
+  fs::create_directory(dest);
+
   std::vector<RPKTableEntry> table((uint32_t)std::floor(table_size_bytes / 32));
   table.resize((uint32_t)std::floor(table_size_bytes / 32));
   for (uint32_t i = 0; i < (uint32_t)std::floor(table_size_bytes / 32); i++) {
@@ -63,7 +71,7 @@ int unpack(FILE* input_fp, char* dest) {
     memcpy(&table[i], &buf, sizeof(RPKTableEntry));
   }
 
-  int data_start = ftell(input_fp);
+  uint32_t data_start = ftell(input_fp);
   for (RPKTableEntry &entry : table) {
     std::string name = to_string(&entry.name);
 
@@ -89,21 +97,21 @@ int unpack(FILE* input_fp, char* dest) {
     free(data);
   }
 
+  //fclose(input_fp);
   return 0;
 }
 
-int pack() {
-  char src[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-               "\\Exanima\\mods\\Apparel\\";
-  char dest[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-                "\\Exanima\\mods\\repacked\\";
 
+int pack(std::string src, std::string dest) {
   FILE *output_fp;
-  std::string dest_file{ dest };
-  dest_file.append("Apparel.rpk");
+  fs::path src_path{ src };
+  std::string dest_file = src_path.filename().string();
+  dest_file.append(".rpk");
+  dest.append("\\");
+  dest.append(dest_file);
 
-  errno_t err = fopen_s(&output_fp, dest_file.c_str(), "wb");
-  if (err != 0) return err;
+  errno_t result = fopen_s(&output_fp, dest.c_str(), "wb");
+  if (result != 0) return result;
 
   std::vector<unsigned char> buf_magic = int_to_bytes(MAGIC_BYTES);
   fwrite(&buf_magic[0], buf_magic.size(), 1, output_fp);
@@ -198,20 +206,20 @@ int pack() {
 
 // unpack() and pack() both output corrupted data
 int main() {
-  //FILE *input_fp;
-  //char src[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-  //             "\\Exanima\\mods\\Sound.rpk";
-  //char dest[] = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
-  //              "\\Exanima\\mods\\Sound";
-  //errno_t err = fopen_s(&input_fp, src, "rb");
-  //if (err != 0) {
-  //  return err;
+  //std::string src_unpack = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+		//				   "\\Exanima\\Textures.rpk";
+  //std::string dest_unpack = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+		//				    "\\Exanima\\unpacked\\Textures";
+  //int result = unpack(src_unpack, dest_unpack);
+  //if (result != 0) {
+  //  return result;
   //}
 
-  //err = unpack(input_fp, dest);
-  //fclose(input_fp);
 
-  //return err;
+  std::string src_pack = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+						 "\\Exanima\\unpacked\\Textures";
+  std::string dest_pack = "C:\\Program Files (x86)\\Steam\\steamapps\\common"
+						  "\\Exanima\\packed";
+  return pack(src_pack, dest_pack);
 
-  return pack();
 }
