@@ -6,9 +6,9 @@ void copy_ex_string(ex_string *src, ex_string *dest) {
   }
 }
 
-std::string validate_string(std::string src) {
+std::string validate_string(std::string src, bool strip_ext) {
   std::string dest;
-  if (src.length() > 16) {
+  if (strip_ext || src.length() > 16) {
     uint32_t ext_pos = src.find_last_of('.');
     if (ext_pos > 16 || ext_pos == std::string::npos) {
       printf("Make filename '%s' 16 characters or less.\n"
@@ -33,7 +33,7 @@ std::string to_string(ex_string *src) {
   return dest;
 }
 
-ex_string to_ex_string(std::string src) {
+ex_string to_ex_string(std::string src, bool strip_ext) {
   std::string validated_str = validate_string(src);
   ex_string dest;
   for (int i = 0; i < 16; i++) {
