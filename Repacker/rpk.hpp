@@ -1,6 +1,6 @@
 #pragma once
 
-#include "string_utils.h"
+#include "string_utils.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
