@@ -1,4 +1,4 @@
-#include "rpk.h"
+#include "rpk.hpp"
 
 std::vector<unsigned char> RPK::int_to_bytes(int src_int) {
   std::vector<unsigned char> arrayofbyte(4);

@@ -1,4 +1,4 @@
-#include "main.h"
+#include "main.hpp"
 
 int hookExecutable(std::string executable) {
   auto pInjectDllPath = std::string("EMF.dll");

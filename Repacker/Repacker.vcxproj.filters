@@ -24,6 +24,9 @@
     <ClCompile Include="rpk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="metadata.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="string_utils.h">
@@ -32,5 +35,11 @@
     <ClInclude Include="rpk.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="metadata.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

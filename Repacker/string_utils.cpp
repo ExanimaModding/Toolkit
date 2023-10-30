@@ -1,4 +1,4 @@
-#include "string_utils.h"
+#include "string_utils.hpp"
 
 void copy_ex_string(ex_string *src, ex_string *dest) {
   for (int i = 0; i < 16; i++) {
