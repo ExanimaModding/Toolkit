@@ -46,7 +46,9 @@ int RPK::unpack(std::string src, std::string dest) {
     FILE *output_fp;
 
     std::string path = dest;
-    path.append("\\");
+    if (!path.ends_with("\\")) {
+      path.append("\\");
+    }
     path.append(entry_name);
 
     errno_t err = fopen_s(&output_fp, path.c_str(), "wb");
@@ -79,7 +81,9 @@ int RPK::unpack_all(std::string src, std::string dest) {
     std::string dest_clone = dest;
     uint32_t ext_pos = name.find_last_of('.');
     std::string dest_child = name.substr(0, ext_pos);
-    dest_clone.append("\\");
+    if (!dest_clone.ends_with("\\")) {
+      dest_clone.append("\\");
+    }
     dest_clone.append(dest_child);
     unpack(path.c_str(), dest_clone.c_str());
 
@@ -94,7 +98,9 @@ int RPK::pack(std::string src, std::string dest) {
   fs::path src_path{src};
   std::string dest_file = src_path.filename().string();
   dest_file.append(".rpk");
-  dest.append("\\");
+  if (!dest.ends_with("\\")) {
+    dest.append("\\");
+  }
   dest.append(dest_file);
 
   errno_t err = fopen_s(&output_fp, dest.c_str(), "wb");
