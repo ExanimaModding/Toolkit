@@ -60,6 +60,10 @@ int RPK::unpack(std::string src, std::string dest) {
 
   fclose(input_fp);
 
+  Metadata<RPK::Meta> metadata;
+  metadata.data.filetype = "test";
+  metadata.save(dest + "metadata.json");
+
   return 0;
 }
 

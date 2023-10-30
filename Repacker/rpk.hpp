@@ -1,5 +1,6 @@
 #pragma once
 
+#include "metadata.hpp"
 #include "string_utils.hpp"
 #include <filesystem>
 #include <fstream>
@@ -23,6 +24,23 @@ public:
     uint32_t _padding2;
   };
 #pragma pack(0)
+
+  struct Meta {
+    std::string filetype = "rpk";
+    bool use_file_extensions = false;
+
+    Meta() {}
+
+    explicit Meta(json data) {
+      filetype = data["filetype"];
+      use_file_extensions = data["use_file_extensions"];
+    }
+
+    operator json() {
+      return {{"filetype", filetype},
+              {"use_file_extensions", use_file_extensions}};
+    }
+  };
 
   static const uint32_t MAGIC_BYTES = 0xAFBF0C01;
 

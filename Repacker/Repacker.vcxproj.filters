@@ -24,18 +24,15 @@
     <ClCompile Include="rpk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="metadata.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="string_utils.h">
+    <ClInclude Include="string_utils.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="rpk.h">
+    <ClInclude Include="rpk.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="metadata.h">
+    <ClInclude Include="metadata.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -140,14 +140,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="metadata.cpp" />
     <ClCompile Include="rpk.cpp" />
     <ClCompile Include="string_utils.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="metadata.h" />
-    <ClInclude Include="rpk.h" />
-    <ClInclude Include="string_utils.h" />
+    <ClInclude Include="metadata.hpp" />
+    <ClInclude Include="rpk.hpp" />
+    <ClInclude Include="string_utils.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
