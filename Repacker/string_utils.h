@@ -1,11 +1,13 @@
 #pragma once
 
-#include <string>
 #include <stdexcept>
+#include <string>
 
-typedef struct ex_string { char string[16]; } ex_string;
+typedef struct ex_string {
+  char string[16];
+} ex_string;
 
-void copy_ex_string(ex_string* src, ex_string* dest);
+void copy_ex_string(ex_string *src, ex_string *dest);
 
 std::string validate_string(std::string src, bool strip_ext = false);
 
