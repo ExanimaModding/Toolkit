@@ -1,35 +1,13 @@
-#include "string_utils.h"
-#include <filesystem>
-#include <fstream>
-#include <iostream>
-#include <stdio.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <vector>
-#include <windows.h>
+#include "rpk.h"
 
-namespace fs = std::filesystem;
-
-#define MAGIC_BYTES 0xAFBF0C01
-
-#pragma pack(1)
-struct RPKTableEntry {
-  ex_string name;
-  uint32_t offset;
-  uint32_t size;
-  uint32_t _padding1;
-  uint32_t _padding2;
-};
-#pragma pack(0)
-
-std::vector<unsigned char> int_to_bytes(int src_int) {
+std::vector<unsigned char> RPK::int_to_bytes(int src_int) {
   std::vector<unsigned char> arrayofbyte(4);
   for (int i = 0; i < 4; i++)
     arrayofbyte[i] = (src_int >> (i * 8));
   return arrayofbyte;
 }
 
-int unpack(std::string src, std::string dest) {
+int RPK::unpack(std::string src, std::string dest) {
   FILE *input_fp;
   errno_t err = fopen_s(&input_fp, src.c_str(), "rb");
   if (err != 0) return err;
@@ -46,18 +24,18 @@ int unpack(std::string src, std::string dest) {
   uint32_t header_tbl_size_bytes;
   fread(&header_tbl_size_bytes, sizeof(uint32_t), 1, input_fp);
   uint32_t header_tbl_length =
-      (uint32_t)std::floor(header_tbl_size_bytes / sizeof(RPKTableEntry));
+      (uint32_t)std::floor(header_tbl_size_bytes / sizeof(TableEntry));
 
-  std::vector<RPKTableEntry> table(header_tbl_length);
+  std::vector<TableEntry> table(header_tbl_length);
   for (uint32_t i = 0; i < header_tbl_length; i++) {
-    RPKTableEntry buf;
-    fread(&buf, sizeof(RPKTableEntry), 1, input_fp);
-    memcpy(&table[i], &buf, sizeof(RPKTableEntry));
+    TableEntry buf;
+    fread(&buf, sizeof(TableEntry), 1, input_fp);
+    memcpy(&table[i], &buf, sizeof(TableEntry));
   }
 
   long long entries_data_start_offset = ftell(input_fp);
 
-  for (RPKTableEntry entry : table) {
+  for (TableEntry entry : table) {
     std::string entry_name = to_string(&entry.name);
 
     _fseeki64(input_fp, entries_data_start_offset + entry.offset, SEEK_SET);
@@ -83,12 +61,7 @@ int unpack(std::string src, std::string dest) {
   return 0;
 }
 
-int unpack_all() {
-  std::string src = "M:\\Games\\Steam Library\\steamapps\\common"
-                    "\\Exanima\\";
-  std::string dest = "M:\\Games\\Steam Library\\steamapps\\common"
-                     "\\Exanima\\unpacked";
-
+int RPK::unpack_all(std::string src, std::string dest) {
   for (const auto &entry : fs::directory_iterator(src)) {
     struct _stat64 sb;
     std::string name = entry.path().filename().string();
@@ -116,7 +89,7 @@ int unpack_all() {
 }
 
 // Make sure to check within the folder for metadata of the file type
-int pack(std::string src, std::string dest) {
+int RPK::pack(std::string src, std::string dest) {
   FILE *output_fp;
   fs::path src_path{src};
   std::string dest_file = src_path.filename().string();
@@ -132,7 +105,7 @@ int pack(std::string src, std::string dest) {
 
   uint32_t table_count =
       std::distance(fs::directory_iterator(src), fs::directory_iterator{});
-  uint32_t table_size_bytes = table_count * sizeof(RPKTableEntry);
+  uint32_t table_size_bytes = table_count * sizeof(TableEntry);
 
   std::vector<byte> buf_table = int_to_bytes(table_size_bytes);
   fwrite(&buf_table[0], buf_table.size(), 1, output_fp);
@@ -159,7 +132,7 @@ int pack(std::string src, std::string dest) {
     if (stat(path.string().c_str(), &sb) != 0) continue;
     if ((sb.st_mode & S_IFDIR)) continue;
 
-    RPKTableEntry rpkTableEntry;
+    TableEntry rpkTableEntry;
 
     ex_string ex_name = to_ex_string(path.filename().string());
 
@@ -169,7 +142,7 @@ int pack(std::string src, std::string dest) {
     rpkTableEntry._padding1 = 0;
     rpkTableEntry._padding2 = 0;
 
-    fwrite(&rpkTableEntry, sizeof(RPKTableEntry), 1, output_fp);
+    fwrite(&rpkTableEntry, sizeof(TableEntry), 1, output_fp);
 
     offset += sb.st_size;
   }
@@ -202,12 +175,7 @@ int pack(std::string src, std::string dest) {
 
 // Make sure to check within the folder for metadata of the file type
 // for now just pack every folder it detects
-int pack_all() {
-  std::string src = "M:\\Games\\Steam Library\\steamapps\\common"
-                    "\\Exanima\\unpacked";
-  std::string dest = "M:\\Games\\Steam Library\\steamapps\\common"
-                     "\\Exanima\\packed";
-
+int RPK::pack_all(std::string src, std::string dest) {
   for (const auto &entry : fs::directory_iterator(src)) {
     struct stat sb;
     std::string name = entry.path().filename().string();
@@ -220,30 +188,4 @@ int pack_all() {
     pack(path.c_str(), dest.c_str());
   }
   return 0;
-}
-
-int main() {
-  // std::string src_unpack = "M:\\Games\\Steam Library\\steamapps\\common"
-  // 				   "\\Exanima\\Textures.rpk";
-  // std::string dest_unpack = "M:\\Games\\Steam Library\\steamapps\\common"
-  // 				    "\\Exanima\\unpacked\\Textures";
-  // clang-format off
-  //int result_unpack = unpack(src_unpack, dest_unpack);
-  //if (result_unpack != 0) {
-  //  return result_unpack;
-  //}
-
-  int result_unpack_all = unpack_all();
-  if (result_unpack_all != 0) {
-    return result_unpack_all;
-  }
-
-  // std::string src_pack = "M:\\Games\\Steam Library\\steamapps\\common"
-  //                        "\\Exanima\\unpacked\\Textures";
-  // std::string dest_pack = "M:\\Games\\Steam Library\\steamapps\\common"
-  //                         "\\Exanima\\packed";
-  // return pack(src_pack, dest_pack);
-  // clang-format off
-
-  return pack_all();
 }
