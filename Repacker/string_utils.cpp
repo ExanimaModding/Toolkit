@@ -17,6 +17,11 @@ std::string validate_string(std::string src, bool strip_ext) {
              src.c_str());
       throw std::invalid_argument("Invalid filename");
     }
+    if (!strip_ext) {
+      // packing Objlib doesn't strip extensions
+      printf("string_utils.cpp: Possible bug with filename, '%s'\n",
+             src.c_str());
+    }
     dest = src.substr(0, ext_pos);
   } else {
     dest = src;
@@ -35,7 +40,7 @@ std::string to_string(ex_string *src) {
 }
 
 ex_string to_ex_string(std::string src, bool strip_ext) {
-  std::string validated_str = validate_string(src);
+  std::string validated_str = validate_string(src, strip_ext);
   ex_string dest;
   for (int i = 0; i < 16; i++) {
     if (i > validated_str.length() - 1) {

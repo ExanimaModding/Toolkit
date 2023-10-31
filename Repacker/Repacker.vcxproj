@@ -139,14 +139,32 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="formats\ftb.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="rpk.cpp" />
+    <ClCompile Include="formats\pwr.cpp" />
+    <ClCompile Include="formats\rfc.cpp" />
+    <ClCompile Include="formats\rfi.cpp" />
+    <ClCompile Include="formats\rfp.cpp" />
+    <ClCompile Include="formats\rft.cpp" />
+    <ClCompile Include="formats\rpk.cpp" />
+    <ClCompile Include="formats\rsg.cpp" />
+    <ClCompile Include="formats\rsq.cpp" />
     <ClCompile Include="string_utils.cpp" />
+    <ClCompile Include="validator.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="formats\ftb.hpp" />
     <ClInclude Include="metadata.hpp" />
-    <ClInclude Include="rpk.hpp" />
+    <ClInclude Include="formats\pwr.hpp" />
+    <ClInclude Include="formats\rfc.hpp" />
+    <ClInclude Include="formats\rfi.hpp" />
+    <ClInclude Include="formats\rfp.hpp" />
+    <ClInclude Include="formats\rft.hpp" />
+    <ClInclude Include="formats\rpk.hpp" />
+    <ClInclude Include="formats\rsg.hpp" />
+    <ClInclude Include="formats\rsq.hpp" />
     <ClInclude Include="string_utils.hpp" />
+    <ClInclude Include="validator.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

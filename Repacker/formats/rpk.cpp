@@ -14,8 +14,9 @@ int RPK::unpack(std::string src, std::string dest) {
 
   uint32_t sig;
   fread(&sig, sizeof(uint32_t), 1, input_fp);
-  if (sig != MAGIC_BYTES) {
-    printf("File signature 0x%08x does not match 0x%08x\n", sig, MAGIC_BYTES);
+  if (sig != RPK_MAGIC_BYTES) {
+    printf("File signature 0x%08x does not match 0x%08x\n", sig,
+           RPK_MAGIC_BYTES);
     return 1;
   }
 
@@ -35,6 +36,7 @@ int RPK::unpack(std::string src, std::string dest) {
 
   long long entries_data_start_offset = ftell(input_fp);
 
+  bool file_extensions_exist = false;
   for (TableEntry entry : table) {
     std::string entry_name = to_string(&entry.name);
 
@@ -49,6 +51,18 @@ int RPK::unpack(std::string src, std::string dest) {
     if (!path.ends_with("\\")) path.append("\\");
     path.append(entry_name);
 
+    if (entry_name.find_last_of(".") != std::string::npos) {
+      // stool_brass c2. in Objlib.rpk is causing this to flip
+      printf("%s\n", entry_name.c_str());
+      file_extensions_exist = true;
+    }
+
+    if (!file_extensions_exist) {
+      uint32_t magic_bytes = *(uint32_t *)&buf[0];
+      std::string f_ext = Validator::get_file_extension_from(magic_bytes);
+      path.append("." + f_ext);
+    }
+
     errno_t err = fopen_s(&output_fp, path.c_str(), "wb");
     if (err != 0) return err;
 
@@ -60,7 +74,8 @@ int RPK::unpack(std::string src, std::string dest) {
 
   if (!dest.ends_with("\\")) dest.append("\\");
   Metadata<RPK::Meta> metadata;
-  metadata.save(dest + "\\metadata.json");
+  metadata.data.use_file_extensions = file_extensions_exist;
+  metadata.save(dest + "metadata.json");
 
   return 0;
 }
@@ -83,9 +98,7 @@ int RPK::unpack_all(std::string src, std::string dest) {
     std::string dest_clone = dest;
     uint32_t ext_pos = name.find_last_of('.');
     std::string dest_child = name.substr(0, ext_pos);
-    if (!dest_clone.ends_with("\\")) {
-      dest_clone.append("\\");
-    }
+    if (!dest_clone.ends_with("\\")) dest_clone.append("\\");
     dest_clone.append(dest_child);
     unpack(path.c_str(), dest_clone.c_str());
 
@@ -100,15 +113,13 @@ int RPK::pack(std::string src, std::string dest) {
   fs::path src_path{src};
   std::string dest_file = src_path.filename().string();
   dest_file.append(".rpk");
-  if (!dest.ends_with("\\")) {
-    dest.append("\\");
-  }
+  if (!dest.ends_with("\\")) dest.append("\\");
   dest.append(dest_file);
 
   errno_t err = fopen_s(&output_fp, dest.c_str(), "wb");
   if (err != 0) return err;
 
-  std::vector<byte> buf_magic = int_to_bytes(MAGIC_BYTES);
+  std::vector<byte> buf_magic = int_to_bytes(RPK_MAGIC_BYTES);
   fwrite(&buf_magic[0], buf_magic.size(), 1, output_fp);
 
   uint32_t table_count =
@@ -120,6 +131,23 @@ int RPK::pack(std::string src, std::string dest) {
 
   std::vector<std::filesystem::directory_entry> files;
   for (std::filesystem::directory_entry entry : fs::directory_iterator(src)) {
+    // check if directory
+    // if directory true, check for metadata
+    // if metadata, pack the folder and push
+    // back newly created file from packing
+    //
+    // Considerations:
+    // - if `RPK::pack()` is called twice on the same
+    // input folder, this for loop will overwrite
+    // the old file, but the old file will still
+    // be in `files` vector while the new one gets
+    // pushed back into `files`.
+    //
+    // Solution:
+    // - std::find() lambda, check if file is already in
+    // files
+
+    if (entry.path().filename().string() == "metadata.json") continue;
     files.push_back(entry);
   }
 
@@ -132,17 +160,33 @@ int RPK::pack(std::string src, std::string dest) {
                      b.path().filename().string();
             });
 
+  if (!src.ends_with("\\")) src.append("\\");
+  Metadata<RPK::Meta> metadata =
+      Metadata<RPK::Meta>::from(src + "metadata.json");
+
   uint32_t offset = 0;
   for (const auto &entry : files) {
     struct stat sb;
 
-    fs::path path = entry.path();
-    if (stat(path.string().c_str(), &sb) != 0) continue;
-    if ((sb.st_mode & S_IFDIR)) continue;
+    std::string name = entry.path().filename().string();
+    std::string path = entry.path().string();
+    uint32_t sig = Validator::get_magic_bytes_from(path);
+    bool is_bytes_valid = Validator::is_magic_bytes_valid(sig);
+    if (stat(path.c_str(), &sb) != 0 || (sb.st_mode & S_IFDIR)) continue;
+    // hard coding rdb and rcd temporarily until
+    // a better solution presents itself
+    // more testing needed if path.ends_with() is working
+    // printf("%s\n", path.c_str());
+    if ((!is_bytes_valid && !path.ends_with(".rdb")) ||
+        (!is_bytes_valid && !path.ends_with(".rcd"))) {
+      printf("rpk.cpp RPK::pack : Ignoring '%s' (0x%08x) at '%s'\n",
+             name.c_str(), sig, path.c_str());
+      continue;
+    }
 
     TableEntry rpkTableEntry;
 
-    ex_string ex_name = to_ex_string(path.filename().string());
+    ex_string ex_name = to_ex_string(name, !metadata.data.use_file_extensions);
 
     copy_ex_string(&ex_name, &rpkTableEntry.name);
     rpkTableEntry.offset = offset;
@@ -160,14 +204,13 @@ int RPK::pack(std::string src, std::string dest) {
 
     std::string name = entry.path().filename().string();
     std::string path = entry.path().string();
+    // Reading the same file twice with
+    // `get_magic_bytes_from()` and `input.read()`
+    uint32_t sig = Validator::get_magic_bytes_from(path);
 
-    if (stat(path.c_str(), &sb) != 0) continue;
-
-    if (sb.st_mode & S_IFDIR) {
-      // check for metadata for folder type
-      // run class pack function (rdb, rfc, etc.)
+    if (stat(path.c_str(), &sb) != 0 || (sb.st_mode & S_IFDIR) ||
+        !Validator::is_magic_bytes_valid(sig))
       continue;
-    }
 
     std::vector<char> data(sb.st_size);
     std::ifstream input(path.c_str(), std::ios::in | std::ifstream::binary);

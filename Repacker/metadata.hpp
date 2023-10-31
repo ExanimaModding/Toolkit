@@ -6,10 +6,10 @@
 
 using json = nlohmann::json;
 
-template <class T> // concept
+template <class T>
 concept is_class = std::is_class<T>::value;
 
-template <is_class T> // use the concept
+template <is_class T>
 
 class Metadata {
 public:
@@ -18,7 +18,8 @@ public:
   static Metadata<T> from(std::string path) {
     std::ifstream f(path);
     Metadata<T> m;
-    m.data = json::parse(f);
+    json j = json::parse(f);
+    m.data = T{j};
     return m;
   }
 

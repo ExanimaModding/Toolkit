@@ -1,7 +1,8 @@
 #pragma once
 
-#include "metadata.hpp"
-#include "string_utils.hpp"
+#include "../metadata.hpp"
+#include "../string_utils.hpp"
+#include "../validator.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -41,8 +42,6 @@ public:
               {"use_file_extensions", use_file_extensions}};
     }
   };
-
-  static const uint32_t MAGIC_BYTES = 0xAFBF0C01;
 
   static std::vector<unsigned char> int_to_bytes(int src_int);
 
