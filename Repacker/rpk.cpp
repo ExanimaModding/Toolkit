@@ -46,9 +46,7 @@ int RPK::unpack(std::string src, std::string dest) {
     FILE *output_fp;
 
     std::string path = dest;
-    if (!path.ends_with("\\")) {
-      path.append("\\");
-    }
+    if (!path.ends_with("\\")) path.append("\\");
     path.append(entry_name);
 
     errno_t err = fopen_s(&output_fp, path.c_str(), "wb");
@@ -60,9 +58,9 @@ int RPK::unpack(std::string src, std::string dest) {
 
   fclose(input_fp);
 
+  if (!dest.ends_with("\\")) dest.append("\\");
   Metadata<RPK::Meta> metadata;
-  metadata.data.filetype = "test";
-  metadata.save(dest + "metadata.json");
+  metadata.save(dest + "\\metadata.json");
 
   return 0;
 }

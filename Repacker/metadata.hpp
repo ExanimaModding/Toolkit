@@ -23,10 +23,6 @@ public:
   }
 
   int save(std::string path) {
-    if constexpr (!std::is_convertible_v<
-                      T, nlohmann::json_abi_v3_11_2::basic_json>) {
-      return 1;
-    }
     std::ofstream f(path);
     json j = (json)data;
     f << std::setw(4) << j << std::endl;
