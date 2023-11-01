@@ -2,12 +2,9 @@
 #include <string.h>
 
 int main() {
-  // string_utils.cpp in validate_string(): packing Objlib doesn't strip
-  // extensions
-  // rpk.cpp in unpack(): stool_brass c2. in Objlib.rpk is causing
-  // this to flip
-  // rpk.cpp in pack(): path.ends_with("rdb") and
-  // path.ends_with("rcd") not working
+  // Have extra checks for rpk, rml, fds, flb, rsg, and rcp to verify what the
+  // file extension is
+  // In unpack(), if file has extension, write extension to metadata
 
   // clang-format off
   //std::string src_unpack = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\"

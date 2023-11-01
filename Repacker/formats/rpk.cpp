@@ -51,9 +51,9 @@ int RPK::unpack(std::string src, std::string dest) {
     if (!path.ends_with("\\")) path.append("\\");
     path.append(entry_name);
 
-    if (entry_name.find_last_of(".") != std::string::npos) {
-      // stool_brass c2. in Objlib.rpk is causing this to flip
-      printf("%s\n", entry_name.c_str());
+    // 'stool_brass c2.' in Objlib.rpk ends with a '.'
+    uint32_t ext_pos = entry_name.find_last_of(".");
+    if (ext_pos != std::string::npos && ext_pos != entry_name.length() - 1) {
       file_extensions_exist = true;
     }
 
@@ -175,10 +175,7 @@ int RPK::pack(std::string src, std::string dest) {
     if (stat(path.c_str(), &sb) != 0 || (sb.st_mode & S_IFDIR)) continue;
     // hard coding rdb and rcd temporarily until
     // a better solution presents itself
-    // more testing needed if path.ends_with() is working
-    // printf("%s\n", path.c_str());
-    if ((!is_bytes_valid && !path.ends_with(".rdb")) ||
-        (!is_bytes_valid && !path.ends_with(".rcd"))) {
+    if (!is_bytes_valid && !(path.ends_with("rcd") || path.ends_with("rdb"))) {
       printf("rpk.cpp RPK::pack : Ignoring '%s' (0x%08x) at '%s'\n",
              name.c_str(), sig, path.c_str());
       continue;
