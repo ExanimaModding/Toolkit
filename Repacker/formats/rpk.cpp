@@ -74,6 +74,11 @@ int RPK::unpack(std::string src, std::string dest) {
 
   if (!dest.ends_with("\\")) dest.append("\\");
   Metadata<RPK::Meta> metadata;
+  uint32_t ext_pos = src.find_last_of('.');
+  if (ext_pos != std::string::npos) {
+    metadata.data.filetype = src.substr(ext_pos + 1, src.length());
+    printf("%s\n", src.substr(ext_pos + 1, src.length()).c_str());
+  }
   metadata.data.use_file_extensions = file_extensions_exist;
   metadata.save(dest + "metadata.json");
 
