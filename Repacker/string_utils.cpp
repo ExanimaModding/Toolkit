@@ -10,6 +10,8 @@ std::string validate_string(std::string src, bool strip_ext) {
   std::string dest;
   if (strip_ext || src.length() > 16) {
     uint32_t ext_pos = src.find_last_of('.');
+    // throws when trying to pack Factories.rpk because there are no
+    // extensions to strip when there should be
     if (ext_pos > 16 || ext_pos == std::string::npos) {
       printf("Make filename '%s' 16 characters or less.\n"
              "File extensions (e.g. '.rfi') do not count "
@@ -18,7 +20,6 @@ std::string validate_string(std::string src, bool strip_ext) {
       throw std::invalid_argument("Invalid filename");
     }
     if (!strip_ext) {
-      // packing Objlib doesn't strip extensions
       printf("string_utils.cpp: Possible bug with filename, '%s'\n",
              src.c_str());
     }

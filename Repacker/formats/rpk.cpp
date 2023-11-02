@@ -54,6 +54,15 @@ int RPK::unpack(std::string src, std::string dest) {
     // 'stool_brass c2.' in Objlib.rpk ends with a '.'
     uint32_t ext_pos = entry_name.find_last_of(".");
     if (ext_pos != std::string::npos && ext_pos != entry_name.length() - 1) {
+      // Considerations:
+      // - If a file is ever updated to the game that includes content
+      // involving a mix of filenames with extensions and without extensions,
+      // packing the unpacked folder will be corrupted due to all the
+      // filenames being packed with the extension in the name when
+      // only some filenames should have the extension
+      //
+      // Solution:
+      // - Keep a list of filename exceptions in the metadata
       file_extensions_exist = true;
     }
 
@@ -74,6 +83,15 @@ int RPK::unpack(std::string src, std::string dest) {
 
   if (!dest.ends_with("\\")) dest.append("\\");
   Metadata<RPK::Meta> metadata;
+  // Considerations:
+  // - This will always assume the last period in the filename
+  // is where the file extension is
+  //
+  // Solution:
+  // - Hard coding names of the file extensions
+  //
+  // Extension in the filename takes priority over
+  // the default filetype in metadata
   uint32_t ext_pos = src.find_last_of('.');
   if (ext_pos != std::string::npos) {
     metadata.data.filetype = src.substr(ext_pos + 1, src.length());
