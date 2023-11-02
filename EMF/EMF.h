@@ -11,4 +11,4 @@
 #include <string_view>
 #include <strsafe.h>
 #include <tchar.h>
-
+#include <libloaderapi.h>
