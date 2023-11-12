@@ -38,13 +38,16 @@ pub fn pack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>>
             continue;
         }
 
-        RPK::pack(path.to_str().unwrap(), dest)?;
+        if let Err(e) = RPK::pack(path.to_str().unwrap(), dest) {
+            eprintln!("Skipping folder at '{}': {}", path.to_str().unwrap(), e);
+            continue;
+        };
     }
 
     Ok(())
 }
 
-pub fn unpack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn unpack_all(src: &str, dest: &str) -> Result<(), std::io::Error> {
     let src_path = PathBuf::from(src);
 
     for entry in src_path.read_dir()? {
@@ -64,7 +67,10 @@ pub fn unpack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error
         let mut dest_path = PathBuf::from(dest);
         dest_path.push(path.with_extension("").file_name().unwrap());
 
-        RPK::unpack(path.to_str().unwrap(), dest_path.to_str().unwrap())?;
+        if let Err(e) = RPK::unpack(path.to_str().unwrap(), dest_path.to_str().unwrap()) {
+            eprintln!("{}", e);
+            continue;
+        };
     }
 
     Ok(())

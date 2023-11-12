@@ -1,14 +1,14 @@
+[package]
+edition = "2021"
+name = "exanima_mod"
+version = "0.1.0"
+
 [workspace]
 members = [
   "emf",
+  "repacker",
+  "repacker_cli",
 ]
-
-[package]
-edition = "2021"
-name = "repacker_rs"
-version = "0.1.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 bitstream-io = "1.7.0"
@@ -17,6 +17,7 @@ libmem = "4.2.1"
 serde = {version = "1.0.190", features = ["derive"]}
 toml = "0.8.6"
 winapi = {version = "0.3.9", features = ["minwindef", "windef", "winnt", "minwinbase", "processthreadsapi"]}
+repacker = { path = "./repacker" }
 
 [build-dependencies]
 cmake = "0.1.50"
