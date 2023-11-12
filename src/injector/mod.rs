@@ -21,13 +21,10 @@ pub unsafe fn inject(dll_path: &str, target_exe: &str) -> std::io::Result<()> {
     let mut process_info: PROCESS_INFORMATION = MaybeUninit::zeroed().assume_init();
     let mut startup_info: STARTUPINFOA = MaybeUninit::zeroed().assume_init();
 
+    // This is required for Steam to recognize the game as running.
+    // Only do this in release builds so that it doesn't spam "now playing".
     #[cfg(not(debug_assertions))]
-    let lp_environment = "SteamGameId=362490\0".as_ptr() as PCWSTR;
-
-    #[cfg(debug_assertions)]
-    let lp_environment = null_mut();
-
-    dbg!(&cstr_target_exe);
+    std::env::set_var("SteamAppId", "362490");
 
     let result = CreateProcessA(
         null_mut(),
@@ -36,7 +33,7 @@ pub unsafe fn inject(dll_path: &str, target_exe: &str) -> std::io::Result<()> {
         null_mut(),
         0,
         CREATE_SUSPENDED,
-        lp_environment,
+        null_mut(),
         null_mut(),
         &mut startup_info as *mut _,
         &mut process_info as *mut _,
