@@ -1,0 +1,20 @@
+[package]
+edition = "2021"
+name = "emf"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+detour = {version = "0.8.1", default-features = false}
+dll-syringe = "0.15.2"
+exe = "0.5.6"
+libmem = "4.2.1"
+winapi = {version = "0.3.9", features = ["minwindef", "winuser", "libloaderapi", "memoryapi", "processthreadsapi", "psapi"]}
+
+[build-dependencies]
+cmake = "0.1.50"
+winreg = "0.51.0"
