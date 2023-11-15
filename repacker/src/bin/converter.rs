@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 meta_path.push("metadata.toml");
 
                 if meta_path.exists() {
-                    RPK::pack(args.src.as_str(), args.dest.as_str()).await?;
+                    RPK::pack(args.src.as_str(), args.dest.as_str())?;
                 } else {
                     pack_all(args.src.as_str(), args.dest.as_str()).await?;
                 }

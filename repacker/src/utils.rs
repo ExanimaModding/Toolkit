@@ -37,9 +37,11 @@ pub fn is_file_valid(entry: &DirEntry) -> bool {
     true
 }
 
-pub fn pack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn pack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
     let src_path = PathBuf::from(src);
 
+    let mut handles = vec![];
+    let dest = String::from(dest);
     for entry in src_path.read_dir()? {
         let entry = entry?;
         let path = entry.path();
@@ -48,11 +50,14 @@ pub fn pack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>>
             continue;
         }
 
-        if let Err(e) = RPK::pack(path.to_str().unwrap(), dest) {
-            eprintln!("Skipping folder at '{}': {}", path.to_str().unwrap(), e);
-            continue;
-        };
+        let dest = dest.clone();
+        handles.push(tokio::spawn(async move {
+            if let Err(e) = RPK::pack(path.to_str().unwrap(), dest.as_str()) {
+                eprintln!("Skipping folder at '{}': {}", path.to_str().unwrap(), e);
+            };
+        }));
     }
+    futures::future::join_all(handles).await;
 
     Ok(())
 }
@@ -60,6 +65,7 @@ pub fn pack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>>
 pub async fn unpack_all(src: &str, dest: &str) -> Result<(), std::io::Error> {
     let src_path = PathBuf::from(src);
 
+    let mut handles = vec![];
     for entry in src_path.read_dir()? {
         let entry = entry?;
         let path = entry.path();
@@ -77,10 +83,13 @@ pub async fn unpack_all(src: &str, dest: &str) -> Result<(), std::io::Error> {
         let mut dest_path = PathBuf::from(dest);
         dest_path.push(path.with_extension("").file_name().unwrap());
 
-        if let Err(e) = RPK::unpack(path.to_str().unwrap(), dest_path.to_str().unwrap()).await {
-            eprintln!("{}", e);
-        };
+        handles.push(tokio::spawn(async move {
+            if let Err(e) = RPK::unpack(path.to_str().unwrap(), dest_path.to_str().unwrap()).await {
+                eprintln!("{}", e);
+            };
+        }));
     }
+    futures::future::join_all(handles).await;
 
     Ok(())
 }

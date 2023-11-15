@@ -71,9 +71,6 @@ impl RPK {
             panic!("❗ Folder, '{}', is not an RPK format", red(src_name_str))
         }
 
-        let mut writer = BitWriter::endian(File::create(dest_path)?, LittleEndian);
-        writer.write(32, magic as u32)?;
-
         let mut table_length: u32 = 0;
 
         // Filter out non-game files
@@ -83,10 +80,8 @@ impl RPK {
             .filter_map(|r| {
                 let entry = r.as_ref().unwrap();
                 if !is_file_valid(&entry) {
-                    let mut reader = bitstream_io::BitReader::endian(
-                        std::fs::File::open(&entry.path()).unwrap(),
-                        bitstream_io::LittleEndian,
-                    );
+                    let mut reader =
+                        BitReader::endian(File::open(&entry.path()).unwrap(), LittleEndian);
                     let invalid_magic = match reader.read::<u32>(32) {
                         Ok(magic) => magic,
                         Err(_) => 0,
@@ -125,6 +120,9 @@ impl RPK {
         //     // check for metadata
         //     // if metadata, pack the folder into .packed folder
         // }
+
+        let mut writer = BitWriter::endian(File::create(dest_path)?, LittleEndian);
+        writer.write(32, magic as u32)?;
 
         let table_size_bytes = table_length * 32;
         unsafe {
@@ -228,8 +226,6 @@ impl RPK {
             }
         };
 
-        // let mut set = JoinSet::new();
-        let mut handles = vec![];
         for (i, entry) in table_entries.iter().enumerate() {
             let mut name = RPK::get_name(entry.name, i);
 
@@ -238,7 +234,7 @@ impl RPK {
             let buf = reader.read_to_vec(entry.size as usize)?;
 
             let dest_path = dest_path.clone();
-            handles.push(tokio::spawn(async move {
+            let handle = tokio::spawn(async move {
                 // 'stool_brass c2.' in Objlib.rpk ends with a '.'
                 let mut dest_path = dest_path.clone();
                 if name.ends_with(".") {
@@ -277,9 +273,9 @@ impl RPK {
                 }
 
                 write(&dest_path, buf).unwrap();
-            }));
+            });
+            handle.await.unwrap();
         }
-        futures::future::join_all(handles).await;
 
         let ext = String::from(src_path.extension().unwrap().to_str().unwrap());
         dest_path.push("metadata.toml");
