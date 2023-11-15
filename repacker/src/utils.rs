@@ -1,7 +1,17 @@
-use crate::metadata::MagicBytes;
-use crate::types::rpk::RPK;
-use std::fs::DirEntry;
-use std::path::PathBuf;
+use crate::{metadata::MagicBytes, types::rpk::RPK};
+use std::{fs::DirEntry, path::PathBuf};
+
+pub fn red(s: &str) -> String {
+    format!("\x1b[31m{}\x1b[0m", s)
+}
+
+pub fn green(s: &str) -> String {
+    format!("\x1b[32m{}\x1b[0m", s)
+}
+
+pub fn yellow(s: &str) -> String {
+    format!("\x1b[33m{}\x1b[0m", s)
+}
 
 pub unsafe fn any_as_u8_slice<T: Sized>(p: &T) -> &[u8] {
     ::core::slice::from_raw_parts((p as *const T) as *const u8, ::core::mem::size_of::<T>())
@@ -47,7 +57,7 @@ pub fn pack_all(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-pub fn unpack_all(src: &str, dest: &str) -> Result<(), std::io::Error> {
+pub async fn unpack_all(src: &str, dest: &str) -> Result<(), std::io::Error> {
     let src_path = PathBuf::from(src);
 
     for entry in src_path.read_dir()? {
@@ -67,9 +77,8 @@ pub fn unpack_all(src: &str, dest: &str) -> Result<(), std::io::Error> {
         let mut dest_path = PathBuf::from(dest);
         dest_path.push(path.with_extension("").file_name().unwrap());
 
-        if let Err(e) = RPK::unpack(path.to_str().unwrap(), dest_path.to_str().unwrap()) {
+        if let Err(e) = RPK::unpack(path.to_str().unwrap(), dest_path.to_str().unwrap()).await {
             eprintln!("{}", e);
-            continue;
         };
     }
 

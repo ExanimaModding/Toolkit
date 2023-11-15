@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
-use repacker::types::rpk::RPK;
-use repacker::utils::{pack_all, unpack_all};
+use repacker::{
+    types::rpk::RPK,
+    utils::{pack_all, unpack_all},
+};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -41,7 +43,8 @@ struct Args {
     dest: String,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
@@ -52,9 +55,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 meta_path.push("metadata.toml");
 
                 if meta_path.exists() {
-                    RPK::pack(args.src.as_str(), args.dest.as_str())?;
+                    RPK::pack(args.src.as_str(), args.dest.as_str()).unwrap();
                 } else {
-                    pack_all(args.src.as_str(), args.dest.as_str())?;
+                    pack_all(args.src.as_str(), args.dest.as_str()).unwrap();
                 }
             } else {
                 eprintln!("Invalid path for source. Doing nothing");
@@ -66,14 +69,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut dest_path = PathBuf::from(&cli.dest);
                 dest_path.push(&src_path.file_stem().unwrap());
 
-                RPK::unpack(cli.src.as_str(), dest_path.to_str().unwrap())?;
+                RPK::unpack(cli.src.as_str(), dest_path.to_str().unwrap())
+                    .await
+                    .unwrap();
             } else if src_path.is_dir() {
-                unpack_all(cli.src.as_str(), cli.dest.as_str())?;
+                unpack_all(cli.src.as_str(), cli.dest.as_str())
+                    .await
+                    .unwrap();
             } else {
                 eprintln!("Invalid path for source. Doing nothing.");
             }
         }
-    }
+    };
 
     Ok(())
 }

@@ -1,9 +1,13 @@
-use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
-use std::convert::{From, TryFrom};
-use std::fmt::{Display, Formatter};
-use std::fs::File;
-use std::io::{BufReader, Read, Result, Write};
+use serde::{
+    de::DeserializeOwned,
+    {Deserialize, Serialize},
+};
+use std::{
+    convert::{From, TryFrom},
+    fmt::{Display, Formatter},
+    fs::File,
+    io::{BufReader, Read, Result, Write},
+};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Metadata<T>(pub T);
