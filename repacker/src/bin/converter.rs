@@ -55,9 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 meta_path.push("metadata.toml");
 
                 if meta_path.exists() {
-                    RPK::pack(args.src.as_str(), args.dest.as_str()).unwrap();
+                    RPK::pack(args.src.as_str(), args.dest.as_str()).await?;
                 } else {
-                    pack_all(args.src.as_str(), args.dest.as_str()).unwrap();
+                    pack_all(args.src.as_str(), args.dest.as_str()).await?;
                 }
             } else {
                 eprintln!("Invalid path for source. Doing nothing");
@@ -69,13 +69,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let mut dest_path = PathBuf::from(&cli.dest);
                 dest_path.push(&src_path.file_stem().unwrap());
 
-                RPK::unpack(cli.src.as_str(), dest_path.to_str().unwrap())
-                    .await
-                    .unwrap();
+                RPK::unpack(cli.src.as_str(), dest_path.to_str().unwrap()).await?;
             } else if src_path.is_dir() {
-                unpack_all(cli.src.as_str(), cli.dest.as_str())
-                    .await
-                    .unwrap();
+                unpack_all(cli.src.as_str(), cli.dest.as_str()).await?;
             } else {
                 eprintln!("Invalid path for source. Doing nothing.");
             }

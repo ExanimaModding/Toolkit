@@ -841,19 +841,11 @@ name = "repacker"
 version = "0.1.0"
 dependencies = [
  "bitstream-io",
+ "clap",
  "futures",
  "serde",
  "tokio",
  "toml",
-]
-
-[[package]]
-name = "repacker_cli"
-version = "0.1.0"
-dependencies = [
- "clap",
- "repacker",
- "tokio",
 ]
 
 [[package]]

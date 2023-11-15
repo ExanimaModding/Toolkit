@@ -1,9 +1,0 @@
-[package]
-name = "repacker_cli"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-clap = { version = "4.4.8", features = ["derive"] }
-repacker = { path = "../repacker" }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

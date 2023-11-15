@@ -7,7 +7,8 @@ edition = "2021"
 
 [dependencies]
 bitstream-io = "1.7.0"
+clap = { version = "4.4.8", features = ["derive"] }
 futures = "0.3.29"
 serde = { version = "1.0.190", features = ["derive"] }
-tokio = { version = "1", features = ["fs", "rt-multi-thread", "io-util"] }
+tokio = { version = "1", features = ["fs", "io-util", "macros", "rt-multi-thread"] }
 toml = "0.8.6"
