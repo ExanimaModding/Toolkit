@@ -1,3 +1,7 @@
+// Exanima Modding Toolkit
+// Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
+// SPDX-License-Identifier: GPL-3.0-only
+
 use std::{ffi::CString, mem::MaybeUninit};
 
 use std::ptr::null_mut;

@@ -1,3 +1,7 @@
+// Exanima Modding Toolkit
+// Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
+// SPDX-License-Identifier: GPL-3.0-only
+
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
 pub struct ExanimaString([u8; 16]);
