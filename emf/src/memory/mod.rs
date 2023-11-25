@@ -5,6 +5,10 @@
 pub mod sigscanner;
 
 use winapi::shared::minwindef::DWORD;
+use winapi::um::memoryapi::WriteProcessMemory;
+use winapi::um::processthreadsapi::GetCurrentProcess;
+
+use self::sigscanner::SigScanner;
 
 pub struct Ptr;
 
@@ -24,5 +28,40 @@ impl Ptr {
 
     pub fn offset<T>(ptr: DWORD, offset: i32) -> *mut T {
         (ptr as i32 + offset) as *mut T
+    }
+}
+
+#[allow(non_camel_case_types, clippy::enum_variant_names)]
+pub enum _MEMORY_INFORMATION_CLASS {
+    MemoryBasicInformation,          // MEMORY_BASIC_INFORMATION
+    MemoryWorkingSetInformation,     // MEMORY_WORKING_SET_INFORMATION
+    MemoryMappedFilenameInformation, // UNICODE_STRING
+    MemoryRegionInformation,         // MEMORY_REGION_INFORMATION
+    MemoryWorkingSetExInformation,   // MEMORY_WORKING_SET_EX_INFORMATION
+    MemorySharedCommitInformation,   // MEMORY_SHARED_COMMIT_INFORMATION
+    MemoryImageInformation,          // MEMORY_IMAGE_INFORMATION
+}
+
+pub struct MemPatch;
+
+impl MemPatch {
+    pub unsafe fn many(sig: &str, size: usize, replace: &mut [u8]) -> Result<(), String> {
+        loop {
+            let addr = SigScanner::new(sig).exec();
+            if let Some(addr) = addr.value() {
+                let addr = addr as *mut [u8; 6];
+                WriteProcessMemory(
+                    GetCurrentProcess() as _,
+                    addr as _,
+                    replace.as_mut_ptr() as _,
+                    size,
+                    &mut 0,
+                );
+                println!("Wrote to addr {:#08x}", addr as u32);
+            } else {
+                break;
+            }
+        }
+        Ok(())
     }
 }

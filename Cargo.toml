@@ -7,17 +7,19 @@ version = "0.1.0"
 members = [
   "emf",
   "repacker",
+  "detours",
 ]
 
 [dependencies]
 bitstream-io = "1.7.0"
-dll-syringe = "0.15.2"
+detours-sys = {path = "./detours"}
 libmem = "4.2.1"
+repacker = {path = "./repacker"}
 serde = {version = "1.0.190", features = ["derive"]}
 toml = "0.8.6"
-winapi = {version = "0.3.9", features = ["minwindef", "windef", "winnt", "minwinbase", "processthreadsapi"]}
-repacker = { path = "./repacker" }
+widestring = "1.0.2"
+winapi = {version = "0.3.9", features = ["minwindef", "windef", "winnt", "minwinbase", "processthreadsapi", "handleapi"]}
 
 [build-dependencies]
 cmake = "0.1.50"
-winreg = "0.51.0"
+winreg = "0.52.0"

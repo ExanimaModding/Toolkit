@@ -1,6 +1,3 @@
-[submodule "Detours"]
-	path = Detours
-	url = git@github.com:microsoft/Detours.git
-[submodule "Repacker-RS/detours"]
-	path = Repacker-RS/detours-sys
-	url = git@github.com:DianaNites/detours.git
+[submodule "detours/ext/detours"]
+	path = detours/ext/detours
+	url = git@github.com:microsoft/detours.git

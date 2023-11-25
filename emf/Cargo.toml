@@ -10,11 +10,14 @@ crate-type = ["cdylib"]
 
 [dependencies]
 detour = {version = "0.8.1", default-features = false}
-dll-syringe = "0.15.2"
+detours-sys = {path = "../detours"}
 exe = "0.5.6"
+lazy_static = "1.4.0"
 libmem = "4.2.1"
-winapi = {version = "0.3.9", features = ["minwindef", "winuser", "libloaderapi", "memoryapi", "processthreadsapi", "psapi"]}
+pelite = "0.10.0"
+winapi = {version = "0.3.9", features = ["minwindef", "winuser", "libloaderapi", "memoryapi", "processthreadsapi", "psapi", "errhandlingapi", "consoleapi", "winbase"]}
 
 [build-dependencies]
+cc = "1.0.83"
 cmake = "0.1.50"
-winreg = "0.51.0"
+winreg = "0.52.0"

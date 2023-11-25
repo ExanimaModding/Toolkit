@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use libmem::LM_SigScan;
+use pelite::pe32::Pe;
 use winapi::shared::minwindef::DWORD;
 
 use crate::utils::pe32::PE32;
@@ -63,10 +64,20 @@ impl SigScanner {
 
     pub unsafe fn new(signature: &str) -> Self {
         let h_module = PE32::get_module_information();
+        let sections = h_module.section_headers();
+
+        let text = sections
+            .iter()
+            .find(|section| section.name().unwrap() == ".text")
+            .unwrap();
+
+        let search_start = h_module.optional_header().ImageBase as DWORD + text.VirtualAddress;
+        let search_length = text.VirtualSize as usize;
+
         Self {
             signature: signature.to_string(),
-            search_start: h_module.lpBaseOfDll as DWORD,
-            search_length: h_module.SizeOfImage as usize,
+            search_start,
+            search_length,
         }
     }
 
