@@ -83,13 +83,10 @@ impl RPK {
             .unwrap()
             .filter_map(|r| {
                 let entry = r.as_ref().unwrap();
-                if !is_file_valid(&entry) {
+                if !is_file_valid(entry) {
                     let mut reader =
-                        BitReader::endian(File::open(&entry.path()).unwrap(), LittleEndian);
-                    let invalid_magic = match reader.read::<u32>(32) {
-                        Ok(magic) => magic,
-                        Err(_) => 0,
-                    };
+                        BitReader::endian(File::open(entry.path()).unwrap(), LittleEndian);
+                    let invalid_magic = reader.read::<u32>(32).unwrap_or(0);
 
                     if entry.file_name().to_str().unwrap() != "metadata.toml" {
                         eprintln!(
@@ -125,7 +122,7 @@ impl RPK {
         //     // if metadata, pack the folder into .packed folder
         // }
 
-        let mut writer = BitWriter::endian(File::create(dest_path)?, LittleEndian);
+        let mut writer = BitWriter::endian(File::create(&dest_path)?, LittleEndian);
         writer.write(32, magic as u32)?;
 
         let table_size_bytes = table_length * 32;
@@ -156,7 +153,7 @@ impl RPK {
             }
             let ex_name = ex_name.unwrap();
 
-            let bytes = read(&path)?;
+            let bytes = read(path)?;
             let table_entry = TableEntry {
                 name: ex_name,
                 offset,
@@ -174,7 +171,7 @@ impl RPK {
 
         // Write raw data
         for path in &paths {
-            let bytes = read(&path)?;
+            let bytes = read(path)?;
             writer.write_bytes(bytes.as_slice())?;
         }
 
@@ -188,7 +185,7 @@ impl RPK {
     ) -> Result<T, Box<dyn std::error::Error>> {
         let vec = reader.read_to_vec(mem::size_of::<T>())?;
         let (_, body, _tail) = vec.align_to::<T>();
-        Ok((&body[0]).clone())
+        Ok(body[0])
     }
 
     pub async fn unpack(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -203,7 +200,7 @@ impl RPK {
         if magic != MagicBytes::RPK {
             // Since magic is valid, use corresponding file type's
             // unpack() and return instead of doing panic!()
-            panic!("❗ '{}' must be an RPK format", red(src_name_str));
+            panic!("❗ '{}' must be a RPK format", red(src_name_str));
         }
 
         let table_size_bytes = reader.read::<u32>(32)?;
@@ -219,12 +216,12 @@ impl RPK {
         let data_start_pos = reader.position_in_bits()?;
         // Inaccurate if there are a mix of files with and without extensions.
         let file_ext_exists = {
-            let name = RPK::get_name(table_entries.get(0).unwrap().name, 0);
+            let name = RPK::get_name(table_entries.first().unwrap().name, 0);
             let mut dest_path = dest_path.clone();
             dest_path.push(&name);
 
             match dest_path.extension() {
-                Some(ext) if ext.len() == 0 => false,
+                Some(ext) if ext.is_empty() => false,
                 Some(_) => true,
                 None => false,
             }
@@ -241,7 +238,7 @@ impl RPK {
             let handle = tokio::spawn(async move {
                 // 'stool_brass c2.' in Objlib.rpk ends with a '.'
                 let mut dest_path = dest_path.clone();
-                if name.ends_with(".") {
+                if name.ends_with('.') {
                     name.push('.');
                 }
                 dest_path.push(&name);
@@ -260,7 +257,7 @@ impl RPK {
                                     yellow(&name),
                                     &magic,
                                     green(
-                                        &dest_path
+                                        dest_path
                                             .parent()
                                             .unwrap()
                                             .file_name()
