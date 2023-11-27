@@ -3,10 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use clap::{Parser, Subcommand};
-use repacker::{
-    types::rpk::RPK,
-    utils::{pack_all, unpack_all},
-};
+use repacker::{pack, types::rpk::RPK, unpack};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -61,7 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if meta_path.exists() {
                     RPK::pack(args.src.as_str(), args.dest.as_str())?;
                 } else {
-                    pack_all(args.src.as_str(), args.dest.as_str()).await?;
+                    pack(args.src.as_str(), args.dest.as_str()).await?;
                 }
             } else {
                 eprintln!("Invalid path for source. Doing nothing");
@@ -71,11 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let src_path = PathBuf::from(&cli.src);
             if src_path.is_file() {
                 let mut dest_path = PathBuf::from(&cli.dest);
-                dest_path.push(&src_path.file_stem().unwrap());
+                dest_path.push(src_path.file_stem().unwrap());
 
                 RPK::unpack(cli.src.as_str(), dest_path.to_str().unwrap()).await?;
             } else if src_path.is_dir() {
-                unpack_all(cli.src.as_str(), cli.dest.as_str()).await?;
+                unpack(cli.src.as_str(), cli.dest.as_str()).await?;
             } else {
                 eprintln!("Invalid path for source. Doing nothing.");
             }
