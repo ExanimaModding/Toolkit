@@ -2,6 +2,7 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
+pub mod asm;
 pub mod sigscanner;
 
 use winapi::shared::minwindef::DWORD;
@@ -9,6 +10,15 @@ use winapi::um::memoryapi::WriteProcessMemory;
 use winapi::um::processthreadsapi::GetCurrentProcess;
 
 use self::sigscanner::SigScanner;
+
+trait AsPtr<T> {
+    fn as_ptr(&self) -> *const T;
+    fn as_mut_ptr(&mut self) -> *mut T;
+}
+
+trait AsNum<T> {
+    fn as_num(&self) -> T;
+}
 
 pub struct Ptr;
 
@@ -20,6 +30,10 @@ impl Ptr {
 
     pub fn as_mut<T>(ptr: DWORD) -> *mut T {
         ptr as *mut T
+    }
+
+    pub fn as_i32(ptr: *const DWORD) -> i32 {
+        ptr as i32
     }
 
     pub unsafe fn deref(ptr: DWORD) -> *mut DWORD {

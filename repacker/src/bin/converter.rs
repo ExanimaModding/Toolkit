@@ -71,7 +71,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let src_path = PathBuf::from(&cli.src);
             if src_path.is_file() {
                 let mut dest_path = PathBuf::from(&cli.dest);
-                dest_path.push(&src_path.file_stem().unwrap());
+                dest_path.push(src_path.file_stem().unwrap());
 
                 RPK::unpack(cli.src.as_str(), dest_path.to_str().unwrap()).await?;
             } else if src_path.is_dir() {

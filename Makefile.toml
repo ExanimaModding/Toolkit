@@ -25,6 +25,10 @@ command = "cargo"
 args = ["build", "-p", "emtk", "--target", "x86_64-pc-windows-msvc", "--out-dir", "target/dist", "-Z", "unstable-options"]
 command = "cargo"
 
+[tasks.run]
+command = "./emtk.exe"
+cwd = "target/dist"
+
 [tasks.build]
 clear = true
 dependencies = [

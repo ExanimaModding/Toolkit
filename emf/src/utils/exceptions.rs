@@ -37,6 +37,7 @@ impl Handler {
     }
 }
 
+// TODO: There's probably a better way to do this.
 lazy_static! {
     pub static ref HANDLERS: Handler = Handler {
         handlers: Mutex::new(HashMap::new()),

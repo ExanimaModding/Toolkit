@@ -6,7 +6,10 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-winapi = {version = "0.3.9", features = ["minwindef", "processthreadsapi", "synchapi", "sysinfoapi"]}
+winapi = {workspace = true}
+
+# Keeping the below, just in case synchapi and sysinfoapi are needed in workspace cargo.toml later
+# winapi = {version = "0.3.9", features = ["minwindef", "processthreadsapi", "synchapi", "sysinfoapi"]}
 
 [build-dependencies]
 bindgen = "0.69.1"
