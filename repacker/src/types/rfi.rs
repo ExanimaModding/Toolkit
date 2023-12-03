@@ -144,8 +144,8 @@ impl RFI {
         // Seek past RFI header
         reader.seek_bits(SeekFrom::Start(32 * 8))?;
 
-        let vec = reader.read_to_vec((self.header.size) as usize)?;
-        writer.write_bytes(vec.as_slice())?;
+        let data = reader.read_to_vec((self.header.size) as usize)?;
+        writer.write_bytes(data.as_slice())?;
 
         Ok(())
     }
