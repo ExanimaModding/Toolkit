@@ -5,12 +5,12 @@
 pub mod injector;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    unsafe {
-        injector::inject(
-            r"emf.dll",
-            r"M:\Games\Steam Library\steamapps\common\Exanima\Exanima.exe",
-        )
-        .unwrap();
-    }
-    Ok(())
+	unsafe {
+		injector::inject(
+			r"emf.dll",
+			r"M:\Games\Steam Library\steamapps\common\Exanima\Exanima.exe",
+		)
+		.unwrap();
+	}
+	Ok(())
 }
