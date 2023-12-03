@@ -5,19 +5,13 @@ version = "0.1.0"
 
 [lib]
 crate-type = ["cdylib"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+required-features = []
 
 [dependencies]
-detour = {version = "0.8.1", default-features = false}
-detours-sys = {path = "../detours"}
+detours-sys = {workspace = true}
+dynasmrt = "2.0.0"
 exe = "0.5.6"
 lazy_static = "1.4.0"
-libmem = "4.2.1"
+libmem = {workspace = true}
 pelite = "0.10.0"
-winapi = {version = "0.3.9", features = ["minwindef", "winuser", "libloaderapi", "memoryapi", "processthreadsapi", "psapi", "errhandlingapi", "consoleapi", "winbase"]}
-
-[build-dependencies]
-cc = "1.0.83"
-cmake = "0.1.50"
-winreg = "0.52.0"
+winapi = {workspace = true}

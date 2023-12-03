@@ -96,4 +96,3 @@ impl PixelFormat {
         Ok(pf)
     }
 }
-
