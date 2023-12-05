@@ -7,10 +7,6 @@
 mod framework;
 mod internal;
 
-// mod api;
-// mod memory;
-// mod utils;
-
 use std::ffi::c_void;
 
 use detours_sys::{DetourIsHelperProcess, DetourRestoreAfterWith};

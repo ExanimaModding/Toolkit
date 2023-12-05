@@ -7,8 +7,8 @@ pub mod hooks;
 pub struct LuaRuntime(Option<Lua>);
 
 impl LuaRuntime {
-	pub fn new() -> Self {
-		Self(Some(Lua::new()))
+	pub unsafe fn new() -> Self {
+		Self(Some(Lua::unsafe_new()))
 	}
 
 	pub fn get(&self) -> &Lua {

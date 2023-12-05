@@ -9,6 +9,16 @@ pub struct Hooks {
 
 #[allow(unused)]
 impl Hooks {
+	pub unsafe fn attach_hook(&mut self, name: &str) -> bool {
+		let hook = self.get_hook_mut(name).unwrap();
+		hook.get_hook_mut().attach()
+	}
+
+	pub unsafe fn detach_hook(&mut self, name: &str) -> bool {
+		let hook = self.get_hook_mut(name).unwrap();
+		hook.get_hook_mut().detach()
+	}
+
 	pub fn add_hook(&mut self, hook: Hook) -> &mut Hook {
 		let name = hook.get_name().to_owned();
 		self.hooks.push(hook);

@@ -2,6 +2,8 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
+mod hooks;
+
 use winapi::shared::minwindef::DWORD;
 
 use crate::internal::{
@@ -200,15 +202,22 @@ impl Player {
 pub unsafe fn init_api() {
 	// let error_handler: PVECTORED_EXCEPTION_HANDLER = Some(exceptions::error_handler);
 	// AddVectoredExceptionHandler(1, error_handler);
-	PLAYER_STATE.player.health.init();
-	// let view = PE32::get_module_information();
-	// dbg!(view.optional_header());
-	println!("[EMF] API Initialized");
-
 	if let Err(e) = lua::init_lua() {
 		println!("[EMF] LuaJIT Failed to Initialize");
 		eprint!("{:?}", e);
 	} else {
 		println!("[EMF] LuaJIT Initialized");
 	}
+
+	if let Err(e) = hooks::init() {
+		println!("[EMF] Hooks Failed to Initialize");
+		eprint!("{:?}", e);
+	} else {
+		println!("[EMF] Hooks Initialized");
+	}
+
+	PLAYER_STATE.player.health.init();
+	// let view = PE32::get_module_information();
+	// dbg!(view.optional_header());
+	println!("[EMF] API Initialized");
 }

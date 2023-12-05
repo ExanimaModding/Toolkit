@@ -105,8 +105,6 @@ pub unsafe extern "cdecl" fn lua_exec(stack: *mut usize) -> bool {
 	}
 	let hook = &*hook;
 
-	println!("Hook {} is {:?}", hook.lua_code, hook.lua_code_type);
-
 	if let LuaCodeType::Function(arg_count) = hook.lua_code_type {
 		let mut code_args = Vec::new();
 

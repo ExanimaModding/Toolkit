@@ -1,0 +1,95 @@
+use mlua::{chunk, prelude::*};
+
+use crate::internal::{
+	hooking::{
+		hooks::{
+			database::HookDB,
+			lua::{LuaCodeType, LuaHook},
+			Hook, NewHook,
+		},
+		HookName,
+	},
+	lua::luaRuntime,
+};
+
+pub unsafe fn init() -> LuaResult<()> {
+	let runtime = luaRuntime.get();
+
+	let table = runtime.create_table().unwrap();
+
+	let get_hook = runtime.create_function(|_, name: String| {
+		let table = luaRuntime.get().create_table()?;
+
+		let name_attach = name.to_owned();
+		let attach = luaRuntime
+			.get()
+			.create_function(move |_, ()| Ok(HookDB.attach_hook(&name_attach)))?;
+
+		table.set("attach", attach)?;
+
+		let name_detach = name.to_owned();
+		let detach = luaRuntime
+			.get()
+			.create_function(move |_, ()| Ok(HookDB.detach_hook(&name_detach)))?;
+
+		table.set("detach", detach)?;
+
+		table.set("name", name)?;
+
+		Ok(table)
+	})?;
+
+	table.set("get_hook", get_hook)?;
+
+	let create_hook = runtime.create_function(
+		|_,
+		 (module, name, address, code_to_run, args_count): (
+			String,
+			String,
+			usize,
+			String,
+			usize,
+		)| {
+			let hook_name = HookName::user(
+				&module,
+				&format!("{}::{}::{}::{}", name, address, code_to_run, args_count),
+			);
+
+			let hook = Hook::new(
+				hook_name.to_string(),
+				LuaHook::new(address, &code_to_run, LuaCodeType::Function(args_count)),
+			);
+
+			HookDB.add_hook(hook);
+
+			Ok(hook_name.to_string())
+		},
+	)?;
+
+	table.set("create_hook", create_hook)?;
+
+	runtime.globals().set("hooks", table)?;
+
+	runtime
+		.load(chunk! {
+			first_attacked = 0
+			function prevent_damage(actor)
+				actor_str = string.format("0x%x", tonumber(actor))
+				if first_attacked == 0 or first_attacked == actor then
+					first_attacked = actor
+					print("Blocking damage for actor:", actor_str)
+					return true
+				end
+
+				print("Not blocking damage for actor:", actor_str)
+				return false
+			end
+
+			hook = hooks.create_hook("MyMod", "PreventDamage", 0x0056c64c, "prevent_damage", 1)
+			hook = hooks.get_hook(hook)
+			hook.attach()
+		})
+		.exec()?;
+
+	Ok(())
+}
