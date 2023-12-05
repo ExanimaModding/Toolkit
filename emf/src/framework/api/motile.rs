@@ -4,7 +4,7 @@
 
 use winapi::shared::minwindef::DWORD;
 
-use crate::memory::Ptr;
+use crate::internal::memory::Ptr;
 
 pub const PTR_STAMINA: DWORD = 0xb30;
 pub const PTR_MAX_STAMINA: DWORD = 0xb34;

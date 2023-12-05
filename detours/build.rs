@@ -36,7 +36,6 @@ fn add_target_options(build: &mut cc::Build) -> &mut cc::Build {
 			.cpp(true)
 			.flag("-fms-extensions")
 			.flag("-Wno-everything")
-		// .target("i686-pc-windows-msvc")
 	} else {
 		build //.target("i686-pc-windows-msvc")
 	}

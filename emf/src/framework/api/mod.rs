@@ -4,7 +4,10 @@
 
 use winapi::shared::minwindef::DWORD;
 
-use crate::memory::{sigscanner::SigScanner, MemPatch, Ptr};
+use crate::internal::{
+	lua,
+	memory::{sigscanner::SigScanner, MemPatch, Ptr},
+};
 use std::result::Result;
 
 pub mod motile;
@@ -201,4 +204,11 @@ pub unsafe fn init_api() {
 	// let view = PE32::get_module_information();
 	// dbg!(view.optional_header());
 	println!("[EMF] API Initialized");
+
+	if let Err(e) = lua::init_lua() {
+		println!("[EMF] LuaJIT Failed to Initialize");
+		eprint!("{:?}", e);
+	} else {
+		println!("[EMF] LuaJIT Initialized");
+	}
 }

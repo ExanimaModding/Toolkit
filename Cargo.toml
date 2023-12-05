@@ -20,6 +20,7 @@ winapi = {version = "0.3.9", features = [
   "minwindef",
   "windef",
   "winnt",
+	"processenv",
   "minwinbase",
   "winbase",
   "handleapi",

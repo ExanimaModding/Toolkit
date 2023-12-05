@@ -22,7 +22,7 @@ use winapi::{
 
 use pelite::pe32::PeView;
 
-use crate::utils::ntdll::NtStatus;
+use crate::internal::utils::ntdll::NtStatus;
 
 use super::ntdll::{NtCreateSection, NtMapViewOfSection, NtUnmapViewOfSection};
 

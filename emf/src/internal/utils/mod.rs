@@ -8,11 +8,14 @@ pub mod pe32;
 
 use pelite::pe32::Pe;
 use winapi::{
-	shared::minwindef::{BOOL, DWORD, LPVOID},
-	um::memoryapi::VirtualProtect,
+	shared::{
+		minwindef::{BOOL, DWORD, LPVOID},
+		ntdef::HANDLE,
+	},
+	um::{memoryapi::VirtualProtect, winnt::PAGE_EXECUTE_READWRITE},
 };
 
-use self::pe32::PE32;
+use self::pe32::{remap_view_of_section, PE32};
 
 #[allow(unused)]
 pub unsafe fn virtual_protect(
@@ -33,4 +36,12 @@ pub unsafe fn virtual_protect_module(permissions: DWORD) -> BOOL {
 		permissions,
 		&mut 0,
 	)
+}
+
+pub unsafe fn remap_image() -> Result<(), String> {
+	let info = PE32::get_module_information().optional_header();
+	let page_start = info.ImageBase as HANDLE;
+	let page_size = info.SizeOfImage as usize;
+
+	remap_view_of_section(page_start, page_size, PAGE_EXECUTE_READWRITE)
 }

@@ -6,7 +6,7 @@ use libmem::LM_SigScan;
 use pelite::pe32::Pe;
 use winapi::shared::minwindef::DWORD;
 
-use crate::utils::pe32::PE32;
+use crate::internal::utils::pe32::PE32;
 
 use super::Ptr;
 
