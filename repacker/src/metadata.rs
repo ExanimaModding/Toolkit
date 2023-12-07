@@ -2,6 +2,10 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
+use crate::{
+	types::{rfi::RFI, rpk::RPK},
+	utils::SourceData,
+};
 use serde::{
 	de::DeserializeOwned,
 	{Deserialize, Serialize},
@@ -12,6 +16,15 @@ use std::{
 	fs::File,
 	io::{BufReader, Read, Result, Write},
 };
+
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
+	#[error("Conversion unsupported")]
+	UnsupportedConversion(&'static str),
+
+	#[error("Magic is invalid")]
+	InvalidMagic(&'static str),
+}
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Metadata<T>(pub T);
@@ -68,6 +81,25 @@ pub enum MagicBytes {
 	IDK7 = 0xCAEC66C6,
 }
 
+impl MagicBytes {
+	pub async fn unpack(
+		&self,
+		src: SourceData,
+		dest: &str,
+	) -> std::result::Result<(), Box<dyn std::error::Error>> {
+		match self {
+			MagicBytes::RPK => Ok(RPK::unpack(src, dest).await?),
+			// These unpack functions below should never need to run.
+			// They are needed if recursive unpacking is disabled.
+			// Only useful for debugging purposes.
+			MagicBytes::RFI => Ok(RFI::unpack(&RFI::new(src.clone())?, src, dest)?),
+			_ => Err(Box::new(Error::UnsupportedConversion(
+				"Failed unpacking file",
+			))),
+		}
+	}
+}
+
 impl Display for MagicBytes {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{:#08X}", *self as u32)
@@ -104,7 +136,7 @@ impl TryFrom<u32> for MagicBytes {
 			0x7EF6D0A6 => Ok(MagicBytes::IDK5),
 			0xD2C8CCCC => Ok(MagicBytes::IDK6),
 			0xCAEC66C6 => Ok(MagicBytes::IDK7),
-			_ => Err("Cannot get magic from number"),
+			_ => Err("Can not get magic from number"),
 		}
 	}
 }

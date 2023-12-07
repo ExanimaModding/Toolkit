@@ -3,7 +3,20 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use crate::metadata::MagicBytes;
-use std::fs::DirEntry;
+use std::{
+	fs::DirEntry,
+	io::{Read, Seek},
+};
+
+pub trait ReadSeek: Seek + Read + Send + Sync {}
+
+impl<T: Seek + Read + Send + Sync> ReadSeek for T {}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum SourceData {
+	Path(String),
+	Buffer(String, Vec<u8>),
+}
 
 pub fn red(s: &str) -> String {
 	format!("\x1b[31m{}\x1b[0m", s)

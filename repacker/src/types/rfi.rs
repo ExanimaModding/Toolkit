@@ -5,7 +5,7 @@
 use crate::{
 	metadata::MagicBytes,
 	types::dds,
-	utils::{any_as_u8_slice, red},
+	utils::{any_as_u8_slice, red, ReadSeek, SourceData},
 };
 use bitstream_io::{
 	read::{BitRead, BitReader},
@@ -14,7 +14,7 @@ use bitstream_io::{
 };
 use std::{
 	fs::{create_dir_all, File},
-	io::SeekFrom,
+	io::{Cursor, SeekFrom},
 	path::PathBuf,
 };
 
@@ -72,10 +72,19 @@ pub struct Header {
 }
 
 impl Header {
-	pub fn new(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
-		let path = PathBuf::from(path);
+	pub fn new(src: SourceData) -> Result<Self, Box<dyn std::error::Error>> {
+		let path_str = match src.clone() {
+			SourceData::Path(path) => path,
+			SourceData::Buffer(path, _) => path,
+		};
+		let path = PathBuf::from(path_str);
 
-		let mut reader = BitReader::endian(File::open(&path)?, LittleEndian);
+		let buffer = match src {
+			SourceData::Path(path) => Box::new(File::open(path)?) as Box<dyn ReadSeek>,
+			SourceData::Buffer(_, buf) => Box::new(Cursor::new(buf)) as Box<dyn ReadSeek>,
+		};
+
+		let mut reader = BitReader::endian(buffer, LittleEndian);
 
 		let magic = reader.read::<u32>(32)?;
 		let magic = MagicBytes::try_from(magic)?;
@@ -106,13 +115,13 @@ pub struct RFI {
 }
 
 impl RFI {
-	pub fn new(path: &str) -> Result<Self, Box<dyn std::error::Error>> {
+	pub fn new(path: SourceData) -> Result<Self, Box<dyn std::error::Error>> {
 		Ok(RFI {
 			header: Header::new(path)?,
 		})
 	}
 
-	pub fn unpack(&self, src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
+	pub fn unpack(&self, src: SourceData, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let is_rle = self.header.flags & 0x40000000 == 0x40000000;
 		if is_rle {
 			return Err(Box::new(Error::UnsupportedRLE(String::from(
@@ -120,7 +129,11 @@ impl RFI {
 			))));
 		}
 
-		let src_path = PathBuf::from(src);
+		let src_str = match src.clone() {
+			SourceData::Path(path) => path,
+			SourceData::Buffer(path, _) => path,
+		};
+		let src_path = PathBuf::from(src_str);
 		let mut dest_path = PathBuf::from(dest);
 
 		let dds = dds::Header::new(self)?;
@@ -139,7 +152,12 @@ impl RFI {
 			writer.write_bytes(header)?;
 		}
 
-		let mut reader = BitReader::endian(File::open(&src_path)?, LittleEndian);
+		let buffer = match src {
+			SourceData::Path(path) => Box::new(File::open(path)?) as Box<dyn ReadSeek>,
+			SourceData::Buffer(_, buf) => Box::new(Cursor::new(buf)) as Box<dyn ReadSeek>,
+		};
+
+		let mut reader = BitReader::endian(buffer, LittleEndian);
 
 		// Seek past RFI header
 		reader.seek_bits(SeekFrom::Start(32 * 8))?;

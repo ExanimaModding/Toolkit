@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use clap::{Parser, Subcommand};
-use repacker::{pack, types::rpk::RPK, unpack};
+use repacker::{pack, types::rpk::RPK};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -65,17 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			}
 		}
 		None => {
-			let src_path = PathBuf::from(&cli.src);
-			if src_path.is_file() {
-				let mut dest_path = PathBuf::from(&cli.dest);
-				dest_path.push(src_path.file_stem().unwrap());
-
-				RPK::unpack(cli.src.as_str(), dest_path.to_str().unwrap()).await?;
-			} else if src_path.is_dir() {
-				unpack(cli.src.as_str(), cli.dest.as_str()).await?;
-			} else {
-				eprintln!("Invalid path for source. Doing nothing.");
-			}
+			repacker::unpack(cli.src.as_str(), cli.dest.as_str()).await?;
 		}
 	};
 

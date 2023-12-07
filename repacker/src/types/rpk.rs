@@ -4,18 +4,19 @@
 
 use crate::{
 	metadata::{MagicBytes, Metadata},
-	types::ex_str::ExanimaString,
-	utils::{any_as_u8_slice, green, is_file_valid, red, yellow},
+	types::{ex_str::ExanimaString, rfi::RFI},
+	utils::{any_as_u8_slice, green, is_file_valid, red, yellow, ReadSeek, SourceData},
 };
 use bitstream_io::{
 	read::{BitRead, BitReader},
 	write::{BitWrite, BitWriter},
 	LittleEndian,
 };
+use futures::future::{BoxFuture, FutureExt};
 use serde::{Deserialize, Serialize};
 use std::{
 	fs::{create_dir_all, read, write, File},
-	io::SeekFrom,
+	io::{Cursor, SeekFrom},
 	mem,
 	path::PathBuf,
 };
@@ -181,113 +182,170 @@ impl RPK {
 	}
 
 	async unsafe fn read_struct<T: Copy>(
-		reader: &mut BitReader<File, LittleEndian>,
+		reader: &mut BitReader<Box<dyn ReadSeek>, LittleEndian>,
 	) -> Result<T, Box<dyn std::error::Error>> {
 		let vec = reader.read_to_vec(mem::size_of::<T>())?;
 		let (_, body, _tail) = vec.align_to::<T>();
 		Ok(body[0])
 	}
 
-	pub async fn unpack(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
-		let src_path = PathBuf::from(src);
-		let src_name_str = src_path.file_name().unwrap().to_str().unwrap();
-		let mut dest_path = PathBuf::from(dest);
+	pub fn unpack(
+		src: SourceData,
+		dest: &str,
+	) -> BoxFuture<Result<(), Box<dyn std::error::Error>>> {
+		async move {
+			let src_path = match src.clone() {
+				SourceData::Path(path) => path,
+				SourceData::Buffer(path, _) => path,
+			};
+			let src_path = PathBuf::from(src_path);
 
-		let mut reader = BitReader::endian(File::open(&src_path)?, LittleEndian);
+			let src_name_str = src_path.file_name().unwrap().to_str().unwrap();
+			let mut dest_path = PathBuf::from(dest);
 
-		let magic = reader.read::<u32>(32)?;
-		let magic = MagicBytes::try_from(magic)?;
-		if magic != MagicBytes::RPK {
-			// Since magic is valid, use corresponding file type's
-			// unpack() and return instead of doing panic!()
-			panic!("❗ '{}' must be a RPK format", red(src_name_str));
-		}
+			let buffer = match src.clone() {
+				SourceData::Path(path) => Box::new(File::open(path)?) as Box<dyn ReadSeek>,
+				SourceData::Buffer(_, buf) => Box::new(Cursor::new(buf)) as Box<dyn ReadSeek>,
+			};
 
-		let table_size_bytes = reader.read::<u32>(32)?;
-		let table_length = table_size_bytes / 32;
-		let mut table_entries: Vec<TableEntry> = Vec::new();
-		unsafe {
-			for _ in 0..table_length {
-				table_entries.push(RPK::read_struct::<TableEntry>(&mut reader).await?)
+			let mut reader = BitReader::endian(buffer, LittleEndian);
+
+			let magic = reader.read::<u32>(32)?;
+			let magic = MagicBytes::try_from(magic)?;
+			if magic != MagicBytes::RPK {
+				panic!("❗ '{}' must be a RPK format", red(src_name_str));
 			}
-		}
 
-		create_dir_all(&dest_path)?;
-		let data_start_pos = reader.position_in_bits()?;
-		// Inaccurate if there are a mix of files with and without extensions.
-		let file_ext_exists = {
-			let name = RPK::get_name(table_entries.first().unwrap().name, 0);
-			let mut dest_path = dest_path.clone();
-			dest_path.push(&name);
-
-			match dest_path.extension() {
-				Some(ext) if ext.is_empty() => false,
-				Some(_) => true,
-				None => false,
-			}
-		};
-
-		for (i, entry) in table_entries.iter().enumerate() {
-			let mut name = RPK::get_name(entry.name, i);
-
-			let seek_to = data_start_pos + (entry.offset as u64 * 8);
-			reader.seek_bits(SeekFrom::Start(seek_to))?;
-			let buf = reader.read_to_vec(entry.size as usize)?;
-
-			let dest_path = dest_path.clone();
-			let handle = tokio::spawn(async move {
-				// 'stool_brass c2.' in Objlib.rpk ends with a '.'
-				let mut dest_path = dest_path.clone();
-				if name.ends_with('.') {
-					name.push('.');
+			let table_size_bytes = reader.read::<u32>(32)?;
+			let table_length = table_size_bytes / 32;
+			let mut table_entries: Vec<TableEntry> = Vec::new();
+			unsafe {
+				for _ in 0..table_length {
+					table_entries.push(RPK::read_struct::<TableEntry>(&mut reader).await?)
 				}
+			}
+
+			create_dir_all(&dest_path)?;
+			let data_start_pos = reader.position_in_bits()?;
+			// Inaccurate if there are a mix of files with and without extensions.
+			let file_ext_exists = {
+				let name = RPK::get_name(table_entries.first().unwrap().name, 0);
+				let mut dest_path = dest_path.clone();
 				dest_path.push(&name);
 
-				let magic = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+				match dest_path.extension() {
+					Some(ext) if ext.is_empty() => false,
+					Some(_) => true,
+					None => false,
+				}
+			};
 
-				if !file_ext_exists {
+			for (i, entry) in table_entries.iter().enumerate() {
+				let mut name = RPK::get_name(entry.name, i);
+
+				let seek_to = data_start_pos + (entry.offset as u64 * 8);
+				reader.seek_bits(SeekFrom::Start(seek_to))?;
+				let buf = reader.read_to_vec(entry.size as usize)?;
+
+				let dest_path = dest_path.clone();
+				let src = src.clone();
+				let handle = tokio::spawn(async move {
+					// 'stool_brass c2.' in Objlib.rpk ends with a '.'
+					let mut dest_path = dest_path.clone();
+					if name.ends_with('.') {
+						name.push('.');
+					}
+					dest_path.push(&name);
+
+					let magic = u32::from_le_bytes(buf[0..4].try_into().unwrap());
+
+					if !file_ext_exists {
+						match MagicBytes::try_from(magic) {
+							Ok(magic) => {
+								dest_path.set_extension(String::from(magic));
+							}
+							Err(e) => {
+								if magic != 0 {
+									eprintln!(
+										"⚠️ Unknown file type from file, '{}' ({:#08X}), in {}: {}",
+										yellow(&name),
+										&magic,
+										green(
+											dest_path
+												.parent()
+												.unwrap()
+												.file_name()
+												.unwrap()
+												.to_str()
+												.unwrap()
+										),
+										e
+									)
+								}
+								dest_path.set_extension("unknown");
+							}
+						};
+					}
+
 					match MagicBytes::try_from(magic) {
 						Ok(magic) => {
-							dest_path.set_extension(String::from(magic));
-						}
-						Err(e) => {
-							if magic != 0 {
-								eprintln!(
-									"⚠️ Unknown file type from file, '{}' ({:#08X}), in {}: {}",
-									yellow(&name),
-									&magic,
-									green(
-										dest_path
-											.parent()
-											.unwrap()
-											.file_name()
-											.unwrap()
-											.to_str()
-											.unwrap()
-									),
-									e
-								)
+							let path = match src {
+								SourceData::Path(path) => path,
+								SourceData::Buffer(path, _) => path,
+							};
+							let mut path = PathBuf::from(path);
+							path.push(dest_path.file_name().unwrap().to_str().unwrap());
+
+							match magic {
+								// These MagicBytes matches can be commented out to disable
+								// recursive unpacking. Useful for debugging purposes.
+								MagicBytes::RPK => {
+									let src_data = SourceData::Buffer(
+										String::from(path.to_str().unwrap()),
+										buf,
+									);
+									let dest_path_stem = dest_path.with_extension("");
+									let dest_path_stem_str = dest_path_stem.to_str().unwrap();
+
+									RPK::unpack(src_data, dest_path_stem_str).await.unwrap()
+								}
+
+								MagicBytes::RFI => {
+									let src_data = SourceData::Buffer(
+										String::from(path.to_str().unwrap()),
+										buf,
+									);
+									let dest_parent_str =
+										dest_path.parent().unwrap().to_str().unwrap();
+									let rfi = RFI::new(src_data.clone()).unwrap();
+
+									if let Err(e) = RFI::unpack(&rfi, src_data, dest_parent_str) {
+										eprintln!("{}", e)
+									}
+								}
+
+								_ => write(&dest_path, buf).unwrap(),
 							}
-							dest_path.set_extension("unknown");
 						}
-					};
-				}
 
-				write(&dest_path, buf).unwrap();
+						Err(_) => write(&dest_path, buf).unwrap(),
+					}
+				});
+				handle.await.unwrap();
+			}
+
+			let ext = String::from(src_path.extension().unwrap().to_str().unwrap());
+			dest_path.push("metadata.toml");
+			let metadata: Metadata<RPK> = Metadata(RPK {
+				filetype: ext,
+				use_file_extensions: file_ext_exists,
 			});
-			handle.await.unwrap();
+			metadata.write_to(dest_path.to_str().unwrap())?;
+
+			println!("✔️ {} done", green(src_name_str));
+
+			Ok(())
 		}
-
-		let ext = String::from(src_path.extension().unwrap().to_str().unwrap());
-		dest_path.push("metadata.toml");
-		let metadata: Metadata<RPK> = Metadata(RPK {
-			filetype: ext,
-			use_file_extensions: file_ext_exists,
-		});
-		metadata.write_to(dest_path.to_str().unwrap())?;
-
-		println!("✔️ {} done", green(src_name_str));
-
-		Ok(())
+		.boxed()
 	}
 }
