@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	unsafe {
 		injector::inject(
 			r"emf.dll",
-			r"M:\Games\Steam Library\steamapps\common\Exanima\Exanima.exe",
+			r"D:\Games\Steam Library\steamapps\common\Exanima\Exanima.exe",
 		)
 		.unwrap();
 	}

@@ -7,7 +7,7 @@ mod hooks;
 use winapi::shared::minwindef::DWORD;
 
 use crate::internal::{
-	lua,
+	gui, lua,
 	memory::{sigscanner::SigScanner, MemPatch, Ptr},
 };
 use std::result::Result;
@@ -199,6 +199,7 @@ impl Player {
 	}
 }
 
+/// TODO: Internal stuff should be initialised in the internal folder. not framework.
 pub unsafe fn init_api() {
 	// let error_handler: PVECTORED_EXCEPTION_HANDLER = Some(exceptions::error_handler);
 	// AddVectoredExceptionHandler(1, error_handler);
@@ -220,4 +221,6 @@ pub unsafe fn init_api() {
 	// let view = PE32::get_module_information();
 	// dbg!(view.optional_header());
 	println!("[EMF] API Initialized");
+
+	gui::load_gui();
 }

@@ -1,9 +1,5 @@
 use mlua::{chunk, prelude::*, Variadic};
 
-use self::hooks::hook;
-
-pub mod hooks;
-
 pub struct LuaRuntime(Option<Lua>);
 
 impl LuaRuntime {
@@ -40,8 +36,6 @@ pub unsafe fn init_lua() -> LuaResult<()> {
 		Ok(())
 	})?;
 	globals.set("print", print)?;
-
-	hook()?;
 
 	Ok(())
 }

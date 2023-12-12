@@ -8,11 +8,13 @@ members = [
   "emf",
   "repacker",
   "detours",
+  "emf-ui",
 ]
 
 [workspace.dependencies]
 bitstream-io = "1.7.0"
 detours-sys = {path = "./detours"}
+env_logger = "0.10.1"
 libmem = "4.2.1"
 serde = {version = "1.0.190", features = ["derive"]}
 toml = "0.8.6"
@@ -20,7 +22,7 @@ winapi = {version = "0.3.9", features = [
   "minwindef",
   "windef",
   "winnt",
-	"processenv",
+  "processenv",
   "minwinbase",
   "winbase",
   "handleapi",
@@ -36,6 +38,7 @@ winapi = {version = "0.3.9", features = [
 [dependencies]
 bitstream-io = {workspace = true}
 detours-sys = {workspace = true}
+env_logger = {workspace = true}
 libmem = {workspace = true}
 repacker = {path = "./repacker"}
 serde = {workspace = true}

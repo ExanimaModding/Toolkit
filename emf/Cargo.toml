@@ -10,6 +10,8 @@ required-features = []
 [dependencies]
 detours-sys = {workspace = true}
 dynasmrt = "2.0.0"
+emf-ui = {path = "../emf-ui"}
+env_logger = {workspace = true}
 exe = "0.5.6"
 lazy_static = "1.4.0"
 libmem = {workspace = true}

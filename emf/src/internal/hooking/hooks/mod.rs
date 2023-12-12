@@ -56,7 +56,7 @@ impl NewHook<LuaHook> for Hook {
 }
 
 impl Hook {
-	/// TODO: Fix this warning.
+	/// FIXME: Fix this warning.
 	/// you seem to be trying to use `&Box<T>`. Consider using just `&T`
 	#[allow(clippy::borrowed_box)]
 	pub fn get_hook(&self) -> &Box<dyn HookImpl> {
