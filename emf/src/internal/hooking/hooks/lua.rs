@@ -146,37 +146,38 @@ unsafe fn lua_wrap(
 	dynasm!(ops
 		; .arch x86
 
-	  ; push ecx
-	  ; push edx
-	  ; push eax
+		; push ecx
+		; push edx
+		; push eax
 
 		; push lua_hook as *mut _ as _
 
 		// Pass the stack pointer as the first arg, so we can get the remaining args.
 		; push esp
 
-	  ; call DWORD [lua_exec as *const _ as _]
+		; call DWORD [lua_exec as *const _ as _]
 		; add esp, 8 // pop esp, pop lua_hook
 
-	  // If function returns true, jump to end
-	  ; test eax, eax
-	  ; jne >end
+		// If function returns true, jump to end
+		; test eax, eax
+		; jne >end
 
-	  ; pop eax
-	  ; pop edx
-	  ; pop ecx
+		; pop eax
+		; pop edx
+		; pop ecx
 
-	  ; jmp DWORD [original_fn as *const _ as _]
-	  ; retn 8
+		; jmp DWORD [original_fn as *const _ as _]
+		; retn 8
 
-	  ; end:
-	  ; pop eax
-	  ; pop edx
-	  ; pop ecx
-	  ; retn 8
+		; end:
+		; pop eax
+		; pop edx
+		; pop ecx
+		; retn 8
 	);
 
 	let buf = ops.finalize().unwrap();
 
 	buf.to_vec()
 }
+
