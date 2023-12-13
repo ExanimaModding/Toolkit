@@ -68,7 +68,7 @@ pub unsafe fn init() -> LuaResult<()> {
 
 	hooks_table.set("create_hook", create_hook)?;
 
-	runtime.globals().set("hooks", hooks_table)?;
+	runtime.globals().set("Hooks", hooks_table)?;
 
 	let mods = mod_loader::get_mods_list()?;
 

@@ -14,10 +14,26 @@ use crate::internal::utils::get_game_dir;
 
 use super::luaRuntime;
 
+pub fn strip_types_import(script: &str) -> String {
+	let script = script.to_string();
+
+	let mut lines = script.lines().collect::<Vec<_>>();
+
+	for line in lines.iter_mut() {
+		if *line == "require(\"types\")" {
+			*line = "";
+		}
+	}
+
+	lines.join("\n")
+}
+
 pub fn exec_lua_file(path: &str) -> LuaResult<()> {
 	let lua = unsafe { luaRuntime.get() };
 
 	let script = std::fs::read_to_string(path)?;
+
+	let script = strip_types_import(&script);
 
 	let script = lua.load(&script);
 

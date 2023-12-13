@@ -180,4 +180,3 @@ unsafe fn lua_wrap(
 
 	buf.to_vec()
 }
-
