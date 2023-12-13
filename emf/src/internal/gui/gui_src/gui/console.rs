@@ -43,7 +43,8 @@ impl RenderFn for Console {
 			});
 
 			// If the backtick key is pressed, toggle console visibility.
-			if ui.is_key_index_pressed(223) {
+			// 223 is for ISO layout | 192 is for ANSI layout
+			if ui.is_key_index_pressed(223) || ui.is_key_index_pressed(192) {
 				self.window_state.toggle_visible();
 			}
 
