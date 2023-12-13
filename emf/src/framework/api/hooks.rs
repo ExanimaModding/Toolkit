@@ -1,4 +1,4 @@
-use mlua::{chunk, prelude::*};
+use mlua::prelude::*;
 
 use crate::internal::{
 	hooking::{
@@ -9,13 +9,13 @@ use crate::internal::{
 		},
 		HookName,
 	},
-	lua::luaRuntime,
+	lua::{luaRuntime, mod_loader},
 };
 
 pub unsafe fn init() -> LuaResult<()> {
 	let runtime = luaRuntime.get();
 
-	let table = runtime.create_table().unwrap();
+	let hooks_table = runtime.create_table().unwrap();
 
 	let get_hook = runtime.create_function(|_, name: String| {
 		let table = luaRuntime.get().create_table()?;
@@ -39,7 +39,7 @@ pub unsafe fn init() -> LuaResult<()> {
 		Ok(table)
 	})?;
 
-	table.set("get_hook", get_hook)?;
+	hooks_table.set("get_hook", get_hook)?;
 
 	let create_hook = runtime.create_function(
 		|_,
@@ -66,30 +66,15 @@ pub unsafe fn init() -> LuaResult<()> {
 		},
 	)?;
 
-	table.set("create_hook", create_hook)?;
+	hooks_table.set("create_hook", create_hook)?;
 
-	runtime.globals().set("hooks", table)?;
+	runtime.globals().set("hooks", hooks_table)?;
 
-	runtime
-		.load(chunk! {
-			first_attacked = 0
-			function prevent_damage(actor)
-				actor_str = string.format("0x%x", tonumber(actor))
-				if first_attacked == 0 or first_attacked == actor then
-					first_attacked = actor
-					print("Blocking damage for actor:", actor_str)
-					return true
-				end
+	let mods = mod_loader::get_mods_list()?;
 
-				print("Not blocking damage for actor:", actor_str)
-				return false
-			end
-
-			hook = hooks.create_hook("MyMod", "PreventDamage", 0x0056c64c, "prevent_damage", 1)
-			hook = hooks.get_hook(hook)
-			hook.attach()
-		})
-		.exec()?;
+	for path in mods {
+		mod_loader::exec_lua_file(&path)?;
+	}
 
 	Ok(())
 }

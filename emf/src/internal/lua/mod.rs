@@ -1,8 +1,14 @@
 use mlua::{chunk, prelude::*};
 
-use self::hooks::{hook, wrap_lua_stdout};
+use crate::internal::lua::mod_loader::get_mods_list;
+
+use self::{
+	hooks::{hook, wrap_lua_stdout},
+	mod_loader::exec_lua_file,
+};
 
 pub mod hooks;
+pub mod mod_loader;
 
 pub struct LuaRuntime {
 	runtime: Option<Lua>,
@@ -39,6 +45,7 @@ pub unsafe fn init_lua() -> LuaResult<()> {
 	let _globals = luaRuntime.get().globals();
 
 	wrap_lua_stdout()?;
+
 	// Overwrite the print function to redirect to stdout
 	// let print = luaRuntime.get().create_function(|_, a: Variadic<String>| {
 	// 	println!("{}", a.join(" "));

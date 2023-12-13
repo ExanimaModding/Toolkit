@@ -2,6 +2,7 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
+mod help;
 mod hooks;
 
 use winapi::shared::minwindef::DWORD;
@@ -215,6 +216,13 @@ pub unsafe fn init_api() {
 		eprint!("{:?}", e);
 	} else {
 		println!("[EMF] Hooks Initialized");
+	}
+
+	if let Err(e) = help::load_help_cmd() {
+		println!("[EMF] Help Command Failed to Initialize");
+		eprint!("{:?}", e);
+	} else {
+		println!("[EMF] Help Command Initialized");
 	}
 
 	inject_gui();
