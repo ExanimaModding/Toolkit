@@ -65,7 +65,6 @@ impl HookImpl for LuaHook {
 			self.method_body.as_mut_ptr() as _,
 		);
 		DetourTransactionCommit();
-		dbg!(result);
 
 		self.active = result == 0;
 		self.active
@@ -78,7 +77,6 @@ impl HookImpl for LuaHook {
 			self.method_body.as_mut_ptr() as _,
 		);
 		DetourTransactionCommit();
-		dbg!(result);
 
 		self.active = result == 0;
 		self.active

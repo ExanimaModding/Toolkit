@@ -4,6 +4,7 @@
 
 mod help;
 mod hooks;
+mod sigscan;
 
 use winapi::shared::minwindef::DWORD;
 
@@ -211,6 +212,8 @@ pub unsafe fn init_api() {
 		println!("[EMF] LuaJIT Initialized");
 	}
 
+	sigscan::init().unwrap();
+
 	if let Err(e) = hooks::init() {
 		println!("[EMF] Hooks Failed to Initialize");
 		eprint!("{:?}", e);
@@ -218,12 +221,7 @@ pub unsafe fn init_api() {
 		println!("[EMF] Hooks Initialized");
 	}
 
-	if let Err(e) = help::load_help_cmd() {
-		println!("[EMF] Help Command Failed to Initialize");
-		eprint!("{:?}", e);
-	} else {
-		println!("[EMF] Help Command Initialized");
-	}
+	help::load_help_cmd().unwrap();
 
 	inject_gui();
 

@@ -53,9 +53,7 @@ unsafe extern "stdcall" fn DllMain(
 			),
 		);
 
-		let hook = HookDB.add_hook(hook);
-
-		dbg!(hook.get_hook_mut().attach());
+		HookDB.add_hook(hook).get_hook_mut().attach();
 	}
 
 	1

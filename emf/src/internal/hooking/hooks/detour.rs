@@ -39,7 +39,6 @@ impl HookImpl for DetourHook {
 		DetourTransactionBegin();
 		let result = DetourAttach(&mut self.original_ptr as *mut _ as _, self.detour_ptr as _);
 		DetourTransactionCommit();
-		dbg!(result);
 
 		self.active = result == 0;
 		self.active
@@ -49,7 +48,6 @@ impl HookImpl for DetourHook {
 		DetourTransactionBegin();
 		let result = DetourDetach(&mut self.original_ptr as *mut _ as _, self.detour_ptr as _);
 		DetourTransactionCommit();
-		dbg!(result);
 
 		self.active = result == 0;
 		self.active

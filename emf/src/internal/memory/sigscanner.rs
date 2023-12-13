@@ -66,13 +66,8 @@ impl SigScanner {
 		let h_module = PE32::get_module_information();
 		let sections = h_module.section_headers();
 
-		let text = sections
-			.iter()
-			.find(|section| section.name().unwrap() == ".text")
-			.unwrap();
-
-		let search_start = h_module.optional_header().ImageBase as DWORD + text.VirtualAddress;
-		let search_length = text.VirtualSize as usize;
+		let search_start = h_module.optional_header().ImageBase;
+		let search_length = h_module.optional_header().SizeOfImage as usize;
 
 		Self {
 			signature: signature.to_string(),
