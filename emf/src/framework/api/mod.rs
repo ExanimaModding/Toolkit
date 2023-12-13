@@ -7,6 +7,7 @@ mod hooks;
 use winapi::shared::minwindef::DWORD;
 
 use crate::internal::{
+	gui::inject_gui,
 	lua,
 	memory::{sigscanner::SigScanner, MemPatch, Ptr},
 };
@@ -215,6 +216,8 @@ pub unsafe fn init_api() {
 	} else {
 		println!("[EMF] Hooks Initialized");
 	}
+
+	inject_gui();
 
 	PLAYER_STATE.player.health.init();
 	// let view = PE32::get_module_information();

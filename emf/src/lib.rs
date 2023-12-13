@@ -2,12 +2,8 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
-#![feature(naked_functions, slice_pattern, asm_const, c_variadic)]
-
 mod framework;
 mod internal;
-
-use std::ffi::c_void;
 
 use detours_sys::{DetourIsHelperProcess, DetourRestoreAfterWith};
 use pelite::pe32::Pe;
@@ -23,11 +19,6 @@ use crate::internal::{
 	},
 	utils::{pe32::PE32, remap_image},
 };
-
-static mut PROCDMGSTAM_ORIG: *mut c_void = 0x0056c64c as _;
-
-static mut CREATE_INSTANCE_WRAPPER: Vec<u8> = Vec::new();
-static mut CREATE_INSTANCE_ORIG: *mut c_void = 0x0058b080 as _;
 
 #[no_mangle]
 unsafe extern "stdcall" fn DllMain(

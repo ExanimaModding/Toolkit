@@ -1,24 +1,28 @@
-use mlua::{chunk, prelude::*, Variadic};
+use mlua::{chunk, prelude::*};
 
-use self::hooks::hook;
+use self::hooks::{hook, wrap_lua_stdout};
 
 pub mod hooks;
 
-pub struct LuaRuntime(Option<Lua>);
+pub struct LuaRuntime {
+	runtime: Option<Lua>,
+}
 
 impl LuaRuntime {
 	pub unsafe fn new() -> Self {
-		Self(Some(Lua::unsafe_new()))
+		Self {
+			runtime: Some(Lua::unsafe_new()),
+		}
 	}
 
 	pub fn get(&self) -> &Lua {
-		self.0.as_ref().unwrap()
+		self.runtime.as_ref().unwrap()
 	}
 }
 
 /// TODO: Should this be LUA_RUNTIME? But ugly...
 #[allow(non_upper_case_globals)]
-pub static mut luaRuntime: LuaRuntime = LuaRuntime(None);
+pub static mut luaRuntime: LuaRuntime = LuaRuntime { runtime: None };
 
 pub unsafe fn init_lua() -> LuaResult<()> {
 	luaRuntime = LuaRuntime::new();
@@ -32,14 +36,16 @@ pub unsafe fn init_lua() -> LuaResult<()> {
 		})
 		.exec()?;
 
-	let globals = luaRuntime.get().globals();
+	let _globals = luaRuntime.get().globals();
 
+	wrap_lua_stdout()?;
 	// Overwrite the print function to redirect to stdout
-	let print = luaRuntime.get().create_function(|_, a: Variadic<String>| {
-		println!("{}", a.join(" "));
-		Ok(())
-	})?;
-	globals.set("print", print)?;
+	// let print = luaRuntime.get().create_function(|_, a: Variadic<String>| {
+	// 	println!("{}", a.join(" "));
+
+	// 	Ok(())
+	// })?;
+	// globals.set("print", print)?;
 
 	hook()?;
 
