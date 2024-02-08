@@ -29,7 +29,6 @@ use super::ntdll::{NtCreateSection, NtMapViewOfSection, NtUnmapViewOfSection};
 pub struct PE32;
 
 impl PE32 {
-	#[allow(unused)]
 	pub unsafe fn get_base_address() -> DWORD {
 		GetModuleHandleA(null_mut()) as DWORD
 	}

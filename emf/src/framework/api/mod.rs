@@ -196,7 +196,5 @@ impl Player {
 
 pub unsafe fn init_api() {
 	PLAYER_STATE.player.health.init();
-	// let view = PE32::get_module_information();
-	// dbg!(view.optional_header());
 	println!("[EMF] API Initialized");
 }
