@@ -6,11 +6,7 @@ pub mod exceptions;
 pub mod ntdll;
 pub mod pe32;
 
-use std::{
-	ffi::CString,
-	path::{Path, PathBuf},
-	ptr::null_mut,
-};
+use std::{ffi::CString, path::PathBuf, ptr::null_mut};
 
 use pelite::pe32::Pe;
 use winapi::{

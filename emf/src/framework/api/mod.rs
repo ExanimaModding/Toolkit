@@ -2,17 +2,9 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
-mod help;
-mod hooks;
-mod sigscan;
-
 use winapi::shared::minwindef::DWORD;
 
-use crate::internal::{
-	gui::inject_gui,
-	lua,
-	memory::{sigscanner::SigScanner, MemPatch, Ptr},
-};
+use crate::internal::memory::{sigscanner::SigScanner, MemPatch, Ptr};
 use std::result::Result;
 
 pub mod motile;
@@ -203,28 +195,6 @@ impl Player {
 }
 
 pub unsafe fn init_api() {
-	// let error_handler: PVECTORED_EXCEPTION_HANDLER = Some(exceptions::error_handler);
-	// AddVectoredExceptionHandler(1, error_handler);
-	if let Err(e) = lua::init_lua() {
-		println!("[EMF] LuaJIT Failed to Initialize");
-		eprint!("{:?}", e);
-	} else {
-		println!("[EMF] LuaJIT Initialized");
-	}
-
-	sigscan::init().unwrap();
-
-	if let Err(e) = hooks::init() {
-		println!("[EMF] Hooks Failed to Initialize");
-		eprint!("{:?}", e);
-	} else {
-		println!("[EMF] Hooks Initialized");
-	}
-
-	help::load_help_cmd().unwrap();
-
-	inject_gui();
-
 	PLAYER_STATE.player.health.init();
 	// let view = PE32::get_module_information();
 	// dbg!(view.optional_header());

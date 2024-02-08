@@ -4,21 +4,24 @@
 
 mod framework;
 mod internal;
+mod mods;
 
-use detours_sys::{DetourIsHelperProcess, DetourRestoreAfterWith};
+use std::{ffi::c_void, ptr::addr_of_mut};
+
+use detours_sys::{
+	DetourAttach, DetourIsHelperProcess, DetourRestoreAfterWith, DetourTransactionBegin,
+	DetourTransactionCommit,
+};
 use pelite::pe32::Pe;
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
 	um::{consoleapi::AllocConsole, winbase::SetProcessDEPPolicy, winnt::DLL_PROCESS_ATTACH},
 };
 
-use crate::internal::{
-	hooking::{
-		hooks::{database::HookDB, detour::DetourHook, Hook, NewHook},
-		HookName,
-	},
-	utils::{pe32::PE32, remap_image},
-};
+use crate::internal::utils::{pe32::PE32, remap_image};
+
+// TODO: Remove this when the new hooking system is implemented.
+static mut ORIGINAL_START: *mut c_void = 0 as _;
 
 #[no_mangle]
 unsafe extern "stdcall" fn DllMain(
@@ -41,19 +44,11 @@ unsafe extern "stdcall" fn DllMain(
 		println!("[EMF DllMain] Restoring Memory Import Table");
 		DetourRestoreAfterWith();
 
+		DetourTransactionBegin();
 		let opt_headers = PE32::get_module_information().optional_header();
-
-		let hook_name = HookName::internal("DllMain", "HookMain");
-
-		let hook = Hook::new(
-			hook_name.to_string(),
-			DetourHook::new(
-				(opt_headers.ImageBase + opt_headers.AddressOfEntryPoint) as usize,
-				main as usize,
-			),
-		);
-
-		HookDB.add_hook(hook).get_hook_mut().attach();
+		ORIGINAL_START = (opt_headers.ImageBase + opt_headers.AddressOfEntryPoint) as _;
+		DetourAttach(addr_of_mut!(ORIGINAL_START) as _, main as _);
+		DetourTransactionCommit();
 	}
 
 	1
@@ -64,9 +59,7 @@ unsafe extern "C" fn main() {
 	println!("[EMF] Main Loaded");
 	framework::api::init_api();
 
-	let hook_name = HookName::internal("DllMain", "HookMain");
-	let hook = HookDB.get_hook_mut(&hook_name.to_string()).unwrap();
-
-	let main = hook.transmute::<extern "C" fn()>();
-	main();
+	// TODO: replace this with the new hooking system.
+	let original_start: extern "C" fn() = std::mem::transmute(ORIGINAL_START);
+	original_start();
 }
