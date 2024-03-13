@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 #[repr(C, packed)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct ExanimaString([u8; 16]);
 
 impl std::fmt::Debug for ExanimaString {
@@ -46,5 +46,68 @@ impl std::convert::TryFrom<ExanimaString> for String {
 		}
 
 		Ok(name)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_string_to_ex_str() {
+		let test = ExanimaString::try_from(String::from("7 chars"));
+		let expect = ExanimaString([55, 32, 99, 104, 97, 114, 115, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+		assert!(test.is_ok());
+		assert_eq!(test.unwrap(), expect);
+	}
+
+	#[test]
+	fn test_ex_str_to_string() {
+		let test = String::try_from(ExanimaString([
+			55, 32, 99, 104, 97, 114, 115, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		]));
+		let expect = String::from("7 chars");
+
+		assert!(test.is_ok());
+		assert_eq!(test.unwrap(), expect);
+	}
+
+	#[test]
+	fn test_empty_string() {
+		let test = ExanimaString::try_from(String::new());
+		let expect = ExanimaString([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+		assert!(test.is_ok());
+		assert_eq!(test.unwrap(), expect);
+	}
+
+	#[test]
+	fn test_empty_ex_str() {
+		let test = String::try_from(ExanimaString([
+			0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		]));
+		let expect = String::new();
+
+		assert!(test.is_ok());
+		assert_eq!(test.unwrap(), expect);
+	}
+
+	#[test]
+	fn test_max_len() {
+		let test = ExanimaString::try_from(String::from("This is 16 chars"));
+		let expect = ExanimaString([
+			84, 104, 105, 115, 32, 105, 115, 32, 49, 54, 32, 99, 104, 97, 114, 115,
+		]);
+
+		assert!(test.is_ok());
+		assert_eq!(test.unwrap(), expect);
+	}
+
+	#[test]
+	fn test_bad_string() {
+		let test = ExanimaString::try_from(String::from("This is 17 chars."));
+
+		assert!(test.is_err());
 	}
 }
