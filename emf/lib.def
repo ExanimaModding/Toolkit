@@ -1,3 +1,23 @@
 LIBRARY
 EXPORTS
 	DetourFinishHelperProcess @1
+
+	; raw EMF functions
+	; TODO: Eradicate all of these >:(((
+	EMFSendPluginMessage = send_plugin_message @2
+	; EMFScanMemory = scan_memory @3
+	scan_memory @3
+	EMFHookFunction = hook_function @4
+	EMFReadMemory = read_memory @5
+	EMFWriteMemory = write_memory @6
+
+	; framework::api::patch
+	patch_new @7
+	patch_from_signature @8
+	patch_from_signature_offset @9
+	patch_apply @10
+	patch_revert @11
+	patch_is_applied @12
+	patch_read_current @13
+	reassemble_instruction_at_offset @14
+

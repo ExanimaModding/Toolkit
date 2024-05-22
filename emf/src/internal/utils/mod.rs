@@ -3,11 +3,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 pub mod ntdll;
-pub mod pe32;
+pub mod pe64;
 
 use std::{ffi::CString, path::PathBuf, ptr::null_mut};
 
-use pelite::pe32::Pe;
+use pelite::pe::Pe;
 use winapi::{
 	shared::{
 		minwindef::{BOOL, DWORD, LPVOID, MAX_PATH},
@@ -19,7 +19,7 @@ use winapi::{
 	},
 };
 
-use self::pe32::{remap_view_of_section, PE32};
+use self::pe64::{remap_view_of_section, PE64};
 
 #[allow(unused)]
 pub unsafe fn virtual_protect(
@@ -33,7 +33,7 @@ pub unsafe fn virtual_protect(
 
 #[allow(unused)]
 pub unsafe fn virtual_protect_module(permissions: DWORD) -> BOOL {
-	let h_module_info = PE32::get_module_information();
+	let h_module_info = PE64::get_module_information();
 	virtual_protect(
 		h_module_info.optional_header().ImageBase as _,
 		h_module_info.optional_header().SizeOfImage as _,
@@ -43,7 +43,7 @@ pub unsafe fn virtual_protect_module(permissions: DWORD) -> BOOL {
 }
 
 pub unsafe fn remap_image() -> Result<(), String> {
-	let info = PE32::get_module_information().optional_header();
+	let info = PE64::get_module_information().optional_header();
 	let page_start = info.ImageBase as HANDLE;
 	let page_size = info.SizeOfImage as usize;
 

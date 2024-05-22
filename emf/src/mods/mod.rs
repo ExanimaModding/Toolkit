@@ -1,6 +1,7 @@
 use crate::internal::utils::get_game_dir;
 
 mod hooking;
+mod rwx_page;
 
 #[allow(unused)]
 fn get_mods_dir() -> Result<std::path::PathBuf, std::io::Error> {

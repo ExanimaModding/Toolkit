@@ -5,5 +5,5 @@
 #![allow(non_snake_case)]
 
 // Rebuild with:
-// bindgen ..\build\wrapper.h --allowlist-function "Detour.*" -o bundled_bindings.rs  -- "-fms-compatibility" "-fms-extensions" --target=i686-pc-windows-msvc -I ..\..\ext\detours\src\
+// bindgen ..\build\wrapper.h --allowlist-function "Detour.*" -o bundled_bindings.rs  -- "-fms-compatibility" "-fms-extensions" --target=x86_64-pc-windows-msvc -I ..\ext\detours\src\
 include!("bundled_bindings.rs");

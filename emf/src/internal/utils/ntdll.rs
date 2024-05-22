@@ -3,78 +3,79 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use detours_sys::DWORD;
-use winapi::um::winnt::HANDLE;
+use winapi::{shared::ntdef::NTSTATUS, um::winnt::HANDLE};
 
 #[link(name = "ntdll")]
 #[allow(unused)]
 extern "system" {
 	pub fn NtProtectVirtualMemory(
 		ProcessHandle: DWORD,
-		BaseAddress: *mut DWORD,
-		NumberOfBytesToProtect: *mut DWORD,
+		BaseAddress: HANDLE,
+		NumberOfBytesToProtect: HANDLE,
 		NewAccessProtection: DWORD,
-		OldAccessProtection: *mut DWORD,
-	) -> DWORD;
+		OldAccessProtection: HANDLE,
+	) -> NTSTATUS;
 
 	pub fn NtOpenProcess(
-		ProcessHandle: *mut DWORD,
+		ProcessHandle: HANDLE,
 		DesiredAccess: DWORD,
-		ObjectAttributes: *mut DWORD,
-		ClientId: *mut DWORD,
-	) -> DWORD;
+		ObjectAttributes: HANDLE,
+		ClientId: HANDLE,
+	) -> NTSTATUS;
 
 	pub fn NtQueryVirtualMemory(
 		ProcessHandle: DWORD,
 		BaseAddress: DWORD,
 		MemoryInformationClass: DWORD,
-		MemoryInformation: *mut DWORD,
+		MemoryInformation: HANDLE,
 		MemoryInformationLength: DWORD,
-		ReturnLength: *mut DWORD,
-	) -> DWORD;
+		ReturnLength: HANDLE,
+	) -> NTSTATUS;
 
 	pub fn NtCreateSection(
-		SectionHandle: *mut DWORD,
+		SectionHandle: *mut HANDLE,
 		DesiredAccess: DWORD,
-		ObjectAttributes: *mut DWORD,
-		MaximumSize: *mut DWORD,
+		ObjectAttributes: HANDLE,
+		MaximumSize: HANDLE,
 		SectionPageProtection: DWORD,
 		AllocationAttributes: DWORD,
-		FileHandle: DWORD,
-	) -> DWORD;
+		FileHandle: HANDLE,
+	) -> NTSTATUS;
 
-	pub fn NtUnmapViewOfSection(ProcessHandle: HANDLE, BaseAddress: HANDLE) -> DWORD;
+	pub fn NtUnmapViewOfSection(ProcessHandle: HANDLE, BaseAddress: HANDLE) -> NTSTATUS;
 
 	pub fn NtMapViewOfSection(
-		SectionHandle: *mut DWORD,
-		ProcessHandle: *mut DWORD,
-		BaseAddress: *mut DWORD,
+		SectionHandle: HANDLE,
+		ProcessHandle: HANDLE,
+		BaseAddress: HANDLE,
 		ZeroBits: DWORD,
 		CommitSize: DWORD,
-		SectionOffset: *mut DWORD,
-		ViewSize: *mut DWORD,
+		SectionOffset: HANDLE,
+		ViewSize: HANDLE,
 		InheritDisposition: DWORD,
 		AllocationType: DWORD,
 		Win32Protect: DWORD,
-	) -> DWORD;
+	) -> NTSTATUS;
 
 	pub fn ZwProtectVirtualMemory(
 		ProcessHandle: HANDLE,
 		BaseAddress: HANDLE,
-		NumberOfBytesToProtect: *mut DWORD,
+		NumberOfBytesToProtect: HANDLE,
 		NewAccessProtection: DWORD,
-		OldAccessProtection: *mut DWORD,
-	) -> DWORD;
+		OldAccessProtection: HANDLE,
+	) -> NTSTATUS;
 
 }
 
-#[repr(u32)]
+#[repr(i32)]
+#[derive(PartialEq, Eq)]
 pub enum NtStatus {
 	Success = 0x00000000,
-	Other(u32),
+	Other(i32),
 }
 
-impl From<DWORD> for NtStatus {
-	fn from(value: u32) -> Self {
+impl From<NTSTATUS> for NtStatus {
+	fn from(value: i32) -> Self {
 		match value {
 			0x00000000 => NtStatus::Success,
 			_ => NtStatus::Other(value),

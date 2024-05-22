@@ -1,0 +1,12 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "lldb",
+			"request": "attach",
+			"name": "Attach",
+			"preLaunchTask": "rust: cargo run",
+			"program": "m:/Games/Steam Library/steamapps/common/Exanima/Exanima.exe"
+		}
+	]
+}

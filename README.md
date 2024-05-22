@@ -7,7 +7,7 @@ Currently experimenting
 ## Contributing
 
 Contributions to this repo are welcomed.
-Follow [this link](https://exanimamodding.codeberg.page/Toolkit/development/build_instructions.html)
+Follow [this link](https://exanimamodding.codeberg.page/Toolkit/)
 to set up a development environment, make some changes, and open a PR!!!
 
 ## Disclaimer

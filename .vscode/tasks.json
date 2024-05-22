@@ -3,15 +3,12 @@
 	"tasks": [
 		{
 			"type": "cargo",
-			"command": "make",
-			"problemMatcher": [
-				"$rustc"
-			],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"label": "rust: cargo make"
+			"command": "run",
+			"problemMatcher": ["$rustc"],
+			"label": "rust: cargo run",
+			"env": {
+				"RUST_BACKTRACE": "FULL"
+			}
 		}
 	]
 }

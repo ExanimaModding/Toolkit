@@ -2,23 +2,22 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use libmem::LM_SigScan;
-use pelite::pe32::Pe;
-use winapi::shared::minwindef::DWORD;
+use libmem_sys::{LM_SigScan, LM_ADDRESS_BAD};
+use pelite::pe::Pe;
+use serde::{Deserialize, Serialize};
+use winapi::shared::ntdef::DWORDLONG;
 
-use crate::internal::utils::pe32::PE32;
+use crate::internal::utils::pe64::PE64;
 
-use super::Ptr;
-
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
 pub enum SigScannerResult {
-	Found(*mut DWORD),
+	Found(usize),
 	NotFound,
 }
 
 #[allow(unused)]
 impl SigScannerResult {
-	pub fn value(&self) -> Option<*mut DWORD> {
+	pub fn value(&self) -> Option<usize> {
 		match self {
 			SigScannerResult::Found(ptr) => Some(*ptr),
 			SigScannerResult::NotFound => None,
@@ -31,11 +30,9 @@ impl SigScannerResult {
 		}
 	}
 
-	pub fn shift(&mut self, shift: i32) {
+	pub fn shift(&mut self, shift: usize) {
 		match self {
-			SigScannerResult::Found(ptr) => {
-				*ptr = Ptr::offset(*ptr as u32, shift);
-			}
+			SigScannerResult::Found(ptr) => *ptr += shift,
 			SigScannerResult::NotFound => {}
 		}
 	}
@@ -44,7 +41,7 @@ impl SigScannerResult {
 #[derive(Debug)]
 pub struct SigScanner {
 	signature: String,
-	search_start: DWORD,
+	search_start: DWORDLONG,
 	search_length: usize,
 }
 
@@ -52,18 +49,20 @@ pub struct SigScanner {
 impl SigScanner {
 	pub unsafe fn exec(&self) -> SigScannerResult {
 		let result = LM_SigScan(
-			self.signature.as_str(),
+			self.signature.as_ptr() as _,
 			self.search_start as usize,
 			self.search_length,
 		);
-		if result.is_none() {
+
+		if result == LM_ADDRESS_BAD {
 			return SigScannerResult::NotFound;
 		}
-		SigScannerResult::Found(result.unwrap() as *mut DWORD)
+
+		SigScannerResult::Found(result as usize)
 	}
 
 	pub unsafe fn new(signature: &str) -> Self {
-		let h_module = PE32::get_module_information();
+		let h_module = PE64::get_module_information();
 		let sections = h_module.section_headers();
 
 		let search_start = h_module.optional_header().ImageBase;
@@ -76,7 +75,7 @@ impl SigScanner {
 		}
 	}
 
-	pub unsafe fn new_ex(signature: &str, search_start: DWORD, search_length: usize) -> Self {
+	pub unsafe fn new_ex(signature: &str, search_start: DWORDLONG, search_length: usize) -> Self {
 		Self {
 			signature: signature.to_string(),
 			search_start,

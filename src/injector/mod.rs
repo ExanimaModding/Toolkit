@@ -2,25 +2,13 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::borrow::BorrowMut;
-use std::{ffi::CString, mem::MaybeUninit};
-
-use std::ptr::{null, null_mut};
-
 use detours_sys::{_PROCESS_INFORMATION, _STARTUPINFOA};
-// use dll_syringe::Syringe;
-
+use std::borrow::BorrowMut;
+use std::ptr::{null, null_mut};
+use std::{ffi::CString, mem::MaybeUninit};
 use winapi::um::handleapi::CloseHandle;
+use winapi::um::processthreadsapi::ResumeThread;
 
-use winapi::um::processthreadsapi::{
-	ResumeThread,
-	// PROCESS_INFORMATION, STARTUPINFOA,
-};
-
-// use dll_syringe::process::OwnedProcess;
-
-/// # Safety
-/// This function is unsafe because it calls the Windows API.
 pub unsafe fn inject(dll_path: &str, target_exe: &str) -> std::io::Result<()> {
 	let binding = CString::new(target_exe)?;
 	let mut target_exe = binding.as_c_str();
@@ -33,11 +21,6 @@ pub unsafe fn inject(dll_path: &str, target_exe: &str) -> std::io::Result<()> {
 
 	let mut curr_exe_path = std::env::current_exe().unwrap();
 	curr_exe_path.pop();
-
-	// This is required for Steam to recognize the game as running.
-	// Only do this in release builds so that it doesn't spam "now playing".
-	#[cfg(not(debug_assertions))]
-	std::env::set_var("SteamAppId", "362490");
 
 	let result = detours_sys::DetourCreateProcessWithDllExA(
 		null(),

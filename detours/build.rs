@@ -1,8 +1,8 @@
-fn main() {
-	main_impl().unwrap();
-}
-
 use std::error::Error;
+
+fn main() {
+	build_detours().unwrap();
+}
 
 const CPP_FILES: [&str; 5] = [
 	"./ext/detours/src/creatwth.cpp",
@@ -11,14 +11,6 @@ const CPP_FILES: [&str; 5] = [
 	"./ext/detours/src/image.cpp",
 	"./ext/detours/src/modules.cpp",
 ];
-
-pub fn main_impl() -> Result<(), Box<dyn Error>> {
-	// println!("cargo:rerun-if-changed=build/wrapper.h");
-	// for f in &CPP_FILES {
-	//     println!("cargo:rerun-if-changed={}", f);
-	// }
-	build_detours()
-}
 
 fn build_detours() -> Result<(), Box<dyn Error>> {
 	add_target_options(
@@ -37,6 +29,6 @@ fn add_target_options(build: &mut cc::Build) -> &mut cc::Build {
 			.flag("-fms-extensions")
 			.flag("-Wno-everything")
 	} else {
-		build //.target("i686-pc-windows-msvc")
+		build
 	}
 }

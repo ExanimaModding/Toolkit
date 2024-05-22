@@ -4,37 +4,38 @@ name = "emtk"
 version = "0.1.0"
 
 [workspace]
-members = ["emf", "repacker", "detours"]
+members = ["emf", "repacker", "detours", "emf-types"]
 
 [workspace.dependencies]
 bitstream-io = "1.7.0"
 detours-sys = { path = "./detours" }
-libmem = "4.2.1"
+libmem = { git = "https://github.com/rdbo/libmem.git", rev = "bd2aaf2d99eafd7c7cb87bfcb925ec94c593062f" }
+libmem-sys = {git = "https://github.com/rdbo/libmem.git", rev = "bd2aaf2d99eafd7c7cb87bfcb925ec94c593062f" }
 serde = { version = "1.0.190", features = ["derive"] }
 toml = "0.8.6"
 winapi = { version = "0.3.9", features = [
 	"minwindef",
-	"windef",
 	"winnt",
-	"processenv",
-	"minwinbase",
 	"winbase",
 	"handleapi",
 	"libloaderapi",
 	"psapi",
-	"winuser",
 	"errhandlingapi",
 	"consoleapi",
 	"memoryapi",
 	"processthreadsapi",
+	"processenv",
 ] }
 
 [dependencies]
-bitstream-io = { workspace = true }
 detours-sys = { workspace = true }
-libmem = { workspace = true }
-repacker = { path = "./repacker" }
-serde = { workspace = true }
-toml = { workspace = true }
-widestring = "1.0.2"
 winapi = { workspace = true }
+# EMF is needed as a dependency so that emf.dll gets compiled before running EMTK.
+emf = { path = "./emf" }
+
+[build-dependencies]
+cbindgen = "0.26.0"
+
+
+[package.metadata.cargo-machete]
+ignored = ["emf"]
