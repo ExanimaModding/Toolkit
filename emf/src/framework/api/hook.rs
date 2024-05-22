@@ -2,7 +2,7 @@ use std::ffi::c_void;
 
 use anyhow::*;
 use detours_sys::DetourAttach;
-use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
+use safer_ffi::{derive_ReprC, prelude::repr_c};
 use winapi::shared::ntdef::NTSTATUS;
 
 use crate::internal::utils::ntdll::NtStatus;

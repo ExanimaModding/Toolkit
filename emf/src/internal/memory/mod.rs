@@ -4,13 +4,7 @@
 
 pub mod sigscanner;
 
-use log::*;
-
 use winapi::shared::ntdef::DWORDLONG;
-use winapi::um::memoryapi::WriteProcessMemory;
-use winapi::um::processthreadsapi::GetCurrentProcess;
-
-use self::sigscanner::SigScanner;
 
 #[allow(unused)]
 trait AsPtr<T> {

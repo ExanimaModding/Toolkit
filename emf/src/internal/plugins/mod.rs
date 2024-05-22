@@ -1,9 +1,5 @@
-use std::borrow::Borrow;
-
 use anyhow::{Error, Result};
 use emf_types::plugin::{GetPluginInfoFn, OnMessageFn, PluginInitFn};
-
-use std::ffi::CStr;
 
 use log::*;
 

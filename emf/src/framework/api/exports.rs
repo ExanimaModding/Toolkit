@@ -1,26 +1,20 @@
 // All exports in this file should be added to `emf/lib.def` or they won't be available to the plugins.
 
-use std::{
-	ffi::{c_char, c_void, CStr},
-	ptr::null_mut,
-};
+use std::ffi::c_void;
 
-use anyhow::{anyhow, Result};
 use detours_sys::{
 	DetourAttach, DetourTransactionAbort, DetourTransactionBegin, DetourTransactionCommit,
 };
-use libmem_sys::{LM_ReadMemory, LM_SetMemory, LM_WriteMemory};
 use log::*;
 
 use emf_types::{
-	hooks::{HookFunctionPayload, HookFunctionPayloadRaw},
+	hooks::HookFunctionPayloadRaw,
 	patches::{PatchMemoryPayloadRaw, ReadMemoryPayloadRaw},
 	plugin::PluginMessageRaw,
-	sigscan::SigScanPayloadRaw,
 };
 use safer_ffi::{ffi_export, prelude::repr_c};
 use winapi::{
-	shared::ntdef::{LONG, NTSTATUS, NT_SUCCESS},
+	shared::ntdef::NT_SUCCESS,
 	um::{memoryapi::WriteProcessMemory, processthreadsapi::GetCurrentProcess},
 };
 
