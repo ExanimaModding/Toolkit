@@ -2,10 +2,8 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use pelite::{
-	pattern,
-	pe::{Pe, PeView},
-};
+use libmem_sys::LM_SigScan;
+use pelite::pe::Pe;
 use serde::{Deserialize, Serialize};
 use winapi::shared::ntdef::DWORDLONG;
 
@@ -50,33 +48,11 @@ pub struct SigScanner {
 #[allow(unused)]
 impl SigScanner {
 	pub unsafe fn exec(&self) -> SigScannerResult {
-		println!(
-			"Searching for signature: {}, len: {:x}, at: {:x}",
-			self.signature, self.search_length, self.search_start
-		);
+		let cstr = std::ffi::CString::new(self.signature.clone()).unwrap();
 
-		let base_address = PE64::get_base_address();
-		let view = PeView::module(base_address as _);
+		let ptr = LM_SigScan(cstr.as_ptr(), self.search_start as _, self.search_length);
 
-		let scanner = view.scanner();
-
-		let mut save = [0; 8];
-		let pattern = pattern::parse(&self.signature).unwrap();
-		let mut matches = scanner.matches_code(&pattern);
-
-		let mut ptr = base_address;
-
-		// println!("Matches: {:?}", &save);
-
-		if matches.next(&mut save) {
-			ptr = base_address + save[0] as usize;
-		}
-
-		// while matches.next(&mut save) {
-		// 	println!("Found at: {:x?}", save);
-		// }
-
-		if ptr == 0 {
+		if ptr == self.search_start as _ || ptr == 0 {
 			return SigScannerResult::NotFound;
 		}
 
@@ -109,10 +85,6 @@ impl SigScanner {
 
 		let search_start = image_base + text_section.VirtualAddress as u64;
 		let search_length = text_section.VirtualSize as usize;
-		println!(
-			"Searching for signature: {}, len: {:x}, at: {:x}",
-			signature, search_length, search_start
-		);
 
 		Self {
 			signature: signature.to_string(),

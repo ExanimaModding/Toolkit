@@ -1,12 +1,16 @@
 use crate::internal::memory::sigscanner::SigScanner;
 use crate::{framework::api::location_is_readwrite, internal::utils::ntdll::NtStatus};
 use anyhow::*;
-use detours_sys::{DetourAttach, DetourDetach};
+use detours_sys::{
+	DetourAttach, DetourDetach, DetourTransactionAbort, DetourTransactionBegin,
+	DetourTransactionCommit,
+};
 use log::*;
 use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
 use std::ffi::c_void;
 use std::result::Result::Ok;
 use winapi::shared::ntdef::NTSTATUS;
+use winapi::um::processthreadsapi::GetCurrentProcess;
 
 pub trait Hookable {
 	/// Apply the hook.
@@ -22,7 +26,7 @@ pub trait Hookable {
 #[derive(Debug)]
 pub struct Hook {
 	hook_name: repr_c::String,
-	target_fn_ptr: *mut c_void,
+	target_fn_ptr: *mut *mut c_void,
 	replacement_fn_ptr: *mut c_void,
 	hooked: bool,
 }
@@ -31,7 +35,7 @@ impl Hook {
 	/// Create a new function hook, replacing target_fn_ptr with replacement_fn_ptr.
 	pub fn new(
 		hook_name: String,
-		target_fn_ptr: *mut c_void,
+		target_fn_ptr: *mut *mut c_void,
 		replacement_fn_ptr: *mut c_void,
 	) -> Self {
 		Self {
@@ -59,7 +63,7 @@ impl Hook {
 	}
 
 	/// Offset the target function pointer by a given amount of bytes.
-	pub unsafe fn offset_pointer(&mut self, offset: isize) -> *mut c_void {
+	pub unsafe fn offset_pointer(&mut self, offset: isize) -> *mut *mut c_void {
 		self.target_fn_ptr = self.target_fn_ptr.byte_offset(offset);
 		self.target_fn_ptr
 	}
@@ -71,7 +75,12 @@ impl Hookable for Hook {
 			return Ok(());
 		}
 
-		let writable = location_is_readwrite(self.target_fn_ptr as _, self.replacement_fn_ptr as _);
+		if self.target_fn_ptr.is_null() || self.replacement_fn_ptr.is_null() {
+			return Err(anyhow!("Target or replacement function is null."));
+		}
+
+		let proc = GetCurrentProcess();
+		let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
 
 		if writable.is_err() {
 			return Err(anyhow!(
@@ -79,11 +88,15 @@ impl Hookable for Hook {
 			));
 		}
 
-		let result: NTSTATUS = DetourAttach(&raw mut self.target_fn_ptr, self.replacement_fn_ptr);
+		DetourTransactionBegin();
+
+		let result: NTSTATUS = DetourAttach(self.target_fn_ptr, self.replacement_fn_ptr);
 
 		if let NtStatus::Other(status) = NtStatus::from(result) {
+			DetourTransactionAbort();
 			Err(anyhow!("Failed to attach detour. Status: {:#X}", status))
 		} else {
+			DetourTransactionCommit();
 			self.hooked = true;
 			Ok(())
 		}
@@ -94,7 +107,12 @@ impl Hookable for Hook {
 			return Ok(());
 		}
 
-		let writable = location_is_readwrite(self.target_fn_ptr as _, self.replacement_fn_ptr as _);
+		if self.target_fn_ptr.is_null() || self.replacement_fn_ptr.is_null() {
+			return Err(anyhow!("Target or replacement function is null."));
+		}
+
+		let proc = GetCurrentProcess();
+		let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
 
 		if writable.is_err() {
 			return Err(anyhow!(
@@ -102,11 +120,14 @@ impl Hookable for Hook {
 			));
 		}
 
-		let result: NTSTATUS = DetourDetach(&raw mut self.target_fn_ptr, self.replacement_fn_ptr);
+		DetourTransactionBegin();
+		let result: NTSTATUS = DetourDetach(self.target_fn_ptr, self.replacement_fn_ptr);
 
 		if let NtStatus::Other(status) = NtStatus::from(result) {
+			DetourTransactionAbort();
 			Err(anyhow!("Failed to detach detour. Status: {:#X}", status))
 		} else {
+			DetourTransactionCommit();
 			self.hooked = false;
 			Ok(())
 		}
@@ -122,7 +143,7 @@ impl Hookable for Hook {
 /// Create a function hook, replacing target_fn_ptr with replacement_fn_ptr.
 pub extern "C" fn hook_new(
 	hook_name: repr_c::String,
-	target_fn_ptr: *mut c_void,
+	target_fn_ptr: *mut *mut c_void,
 	replacement_fn_ptr: *mut c_void,
 ) -> repr_c::Box<Hook> {
 	Box::new(Hook::new(
@@ -151,7 +172,7 @@ pub unsafe extern "C" fn hook_from_signature(
 
 #[ffi_export]
 /// Offset the target function pointer by the given offset.
-pub unsafe extern "C" fn hook_offset_pointer(hook: &mut Hook, offset: isize) -> *mut c_void {
+pub unsafe extern "C" fn hook_offset_pointer(hook: &mut Hook, offset: isize) -> *mut *mut c_void {
 	hook.offset_pointer(offset)
 }
 

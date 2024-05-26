@@ -15,8 +15,6 @@ pub fn load_plugin(info: config::PluginInfo) -> Result<()> {
 		info.config.plugin.name, info.config.plugin.id
 	);
 
-	dbg!(&info);
-
 	if info.config.plugin.executable.is_none() {
 		info!("Plugin does not have an executable. Skipping.");
 		return Ok(());
