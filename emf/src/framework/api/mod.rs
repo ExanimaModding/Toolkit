@@ -2,20 +2,14 @@
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
 
-use winapi::um::{
-	memoryapi::VirtualQueryEx,
-	winnt::{HANDLE, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READWRITE, PAGE_READWRITE},
-};
-
-use log::*;
-
 pub mod exports;
 pub mod hook;
 pub mod patch;
 
-pub unsafe fn init_api() {
-	info!("[EMF] API Initialized");
-}
+use winapi::um::{
+	memoryapi::VirtualQueryEx,
+	winnt::{HANDLE, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READWRITE, PAGE_READWRITE},
+};
 
 pub unsafe fn location_is_readwrite(address: HANDLE, proc: HANDLE) -> anyhow::Result<()> {
 	let mut mem_info: MEMORY_BASIC_INFORMATION = std::mem::MaybeUninit::zeroed().assume_init();

@@ -5,7 +5,7 @@
 pub mod ntdll;
 pub mod pe64;
 
-use std::{ffi::CString, path::PathBuf, ptr::null_mut};
+use std::{ffi::CStr, path::PathBuf, ptr::null_mut};
 
 use pelite::pe::Pe;
 use winapi::{
@@ -61,7 +61,7 @@ pub fn get_game_path() -> PathBuf {
 			MAX_PATH as u32,
 		);
 
-		CString::from_raw(path.as_mut_ptr() as _)
+		CStr::from_ptr(path.as_ptr() as _)
 			.to_string_lossy()
 			.into_owned()
 	};

@@ -1,11 +1,11 @@
 // Exanima Modding Toolkit
 // Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
 // SPDX-License-Identifier: GPL-3.0-only
-#![feature(c_variadic, allocator_api, mem_copy_fn, raw_ref_op, vec_into_raw_parts)]
+#![feature(raw_ref_op)]
 
 mod framework;
 mod internal;
-mod mods;
+mod plugins;
 
 use log::*;
 
@@ -18,12 +18,12 @@ use detours_sys::{
 use pelite::pe::Pe;
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
-	um::{consoleapi::AllocConsole, winbase::SetProcessDEPPolicy, winnt::DLL_PROCESS_ATTACH},
+	um::{consoleapi::AllocConsole, winnt::DLL_PROCESS_ATTACH},
 };
 
-use crate::internal::{
-	plugins::init_dll_plugins,
-	utils::{pe64::PE64, remap_image},
+use crate::{
+	internal::utils::{pe64::PE64, remap_image},
+	plugins::read_plugin_configs,
 };
 
 // TODO: Remove this when the new hooking system is implemented.
@@ -48,9 +48,6 @@ unsafe extern "stdcall" fn DllMain(
 
 		info!("DllMain Loaded");
 
-		info!("Disabling DEP Policy");
-		SetProcessDEPPolicy(0);
-
 		info!("Remapping Image");
 		remap_image().unwrap();
 
@@ -63,8 +60,6 @@ unsafe extern "stdcall" fn DllMain(
 		ORIGINAL_START = (opt_headers.ImageBase + opt_headers.AddressOfEntryPoint as u64) as _;
 		DetourAttach(&raw mut ORIGINAL_START, main as _);
 		DetourTransactionCommit();
-
-		// std::thread::sleep(std::time::Duration::from_secs(3));
 	}
 
 	1
@@ -73,13 +68,24 @@ unsafe extern "stdcall" fn DllMain(
 unsafe extern "C" fn main() {
 	info!("Main Hook Running");
 
-	if let Err(e) = init_dll_plugins() {
-		error!("[EMF] Failed to load DLL plugins: {:?}", e);
+	// if let Err(e) = init_dll_plugins() {
+	// 	error!("[EMF] Failed to load DLL plugins: {:?}", e);
+	// }
+
+	let plugin_configs = match read_plugin_configs() {
+		Ok(configs) => configs,
+		Err(e) => {
+			error!("Failed to load plugin configs: {:?}", e);
+			return;
+		}
+	};
+
+	for config in plugin_configs {
+		let result = plugins::load_plugin(config);
+		if let Err(e) = result {
+			error!("Failed to load plugin: {:?}", e);
+		}
 	}
-
-	// framework::api::init_api();
-
-	// internal::mods::init_mods();
 
 	info!("Running Original Program Entrypoint");
 

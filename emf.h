@@ -31,6 +31,71 @@ typedef struct Vec_uint8 {
     size_t cap;
 } Vec_uint8_t;
 
+
+#include <stdbool.h>
+
+/** <No documentation available> */
+typedef struct Hook {
+    /** <No documentation available> */
+    Vec_uint8_t hook_name;
+
+    /** <No documentation available> */
+    void * target_fn_ptr;
+
+    /** <No documentation available> */
+    void * replacement_fn_ptr;
+
+    /** <No documentation available> */
+    bool hooked;
+} Hook_t;
+
+/** \brief
+ *  Apply the hook.
+ */
+bool
+hook_apply (
+    Hook_t * hook);
+
+/** \brief
+ *  Get a pointer from a signature, and use that to create a new hook.
+ */
+Hook_t *
+hook_from_signature (
+    Vec_uint8_t hook_name,
+    Vec_uint8_t signature,
+    void * replacement_fn_ptr);
+
+/** \brief
+ *  Check if the hook is already applied.
+ */
+bool
+hook_is_applied (
+    Hook_t const * hook);
+
+/** \brief
+ *  Create a function hook, replacing target_fn_ptr with replacement_fn_ptr.
+ */
+Hook_t *
+hook_new (
+    Vec_uint8_t hook_name,
+    void * target_fn_ptr,
+    void * replacement_fn_ptr);
+
+/** \brief
+ *  Offset the target function pointer by the given offset.
+ */
+void *
+hook_offset_pointer (
+    Hook_t * hook,
+    ssize_t offset);
+
+/** \brief
+ *  Revert the hook.
+ */
+bool
+hook_revert (
+    Hook_t * hook);
+
 /** <No documentation available> */
 typedef struct Patch {
     /** <No documentation available> */
@@ -43,49 +108,70 @@ typedef struct Patch {
     Vec_uint8_t original_bytes;
 } Patch_t;
 
-
-#include <stdbool.h>
-
-/** <No documentation available> */
+/** \brief
+ *  Apply the patch to the memory location.
+ */
 bool
 patch_apply (
     Patch_t * patch);
 
-/** <No documentation available> */
+/** \brief
+ *  Get a pointer from a signature, and use that to create a new byte patch.
+ */
 Patch_t *
 patch_from_signature (
     Vec_uint8_t signature,
     Vec_uint8_t data);
 
-/** <No documentation available> */
-Patch_t *
-patch_from_signature_offset (
-    Vec_uint8_t signature,
-    ssize_t offset,
-    Vec_uint8_t data);
-
-/** <No documentation available> */
+/** \brief
+ *  Check if the patch is already applied.
+ */
 bool
 patch_is_applied (
     Patch_t const * patch);
 
-/** <No documentation available> */
+/** \brief
+ *  Create a new byte patch at the given address
+ */
 Patch_t *
 patch_new (
     uint64_t address,
     Vec_uint8_t data);
 
-/** <No documentation available> */
+/** \brief
+ *  Offset the patch destination address by a given amount of bytes.
+ */
+uint8_t const *
+patch_offset_pointer (
+    Patch_t * patch,
+    ssize_t offset);
+
+/** \brief
+ *  Read the current bytes at the memory location.
+ */
 Vec_uint8_t
 patch_read_current (
     Patch_t const * patch);
 
-/** <No documentation available> */
+/** \brief
+ *  Revert the patch at the memory location.
+ */
 bool
 patch_revert (
     Patch_t * patch);
 
 /** <No documentation available> */
+Vec_uint8_t
+read_bytes (
+    void const * pointer,
+    size_t length);
+
+/** \brief
+ *  Reassemble an instruction at the given offset.
+ *
+ *  This can be useful if you need to copy an instruction such as a jmp
+ *  And increment/decrement the operands by the offset.
+ */
 Vec_uint8_t
 reassemble_instruction_at_offset (
     Vec_uint8_t bytes,
@@ -95,6 +181,12 @@ reassemble_instruction_at_offset (
 void *
 scan_memory (
     Vec_uint8_t signature);
+
+/** <No documentation available> */
+bool
+write_bytes (
+    void const * pointer,
+    Vec_uint8_t buffer);
 
 
 #ifdef __cplusplus

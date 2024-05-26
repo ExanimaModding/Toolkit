@@ -9,6 +9,11 @@ use std::{ffi::CString, mem::MaybeUninit};
 use winapi::um::handleapi::CloseHandle;
 use winapi::um::processthreadsapi::ResumeThread;
 
+/// Inject a DLL into a target process.
+///
+/// # Safety
+///
+/// This function is unsafe because it is injecting a DLL into a live process.
 pub unsafe fn inject(dll_path: &str, target_exe: &str) -> std::io::Result<()> {
 	let binding = CString::new(target_exe)?;
 	let mut target_exe = binding.as_c_str();

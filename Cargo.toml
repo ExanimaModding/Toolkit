@@ -4,13 +4,11 @@ name = "emtk"
 version = "0.1.0"
 
 [workspace]
-members = ["emf", "repacker", "detours", "emf-types"]
+members = ["emf", "repacker", "detours"]
 
 [workspace.dependencies]
 bitstream-io = "1.7.0"
 detours-sys = { path = "./detours" }
-libmem = { git = "https://github.com/rdbo/libmem.git", rev = "bd2aaf2d99eafd7c7cb87bfcb925ec94c593062f" }
-libmem-sys = {git = "https://github.com/rdbo/libmem.git", rev = "bd2aaf2d99eafd7c7cb87bfcb925ec94c593062f" }
 serde = { version = "1.0.190", features = ["derive"] }
 toml = "0.8.6"
 winapi = { version = "0.3.9", features = [
