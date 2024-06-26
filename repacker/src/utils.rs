@@ -1,7 +1,3 @@
-// Exanima Modding Toolkit
-// Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
-// SPDX-License-Identifier: GPL-3.0-only
-
 use crate::metadata::MagicBytes;
 use std::{
 	fs::DirEntry,
