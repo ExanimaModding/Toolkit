@@ -48,6 +48,17 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let cli = Cli::parse();
 
+	let exanima_path = match std::env::var("EXANIMA_PATH") {
+		Ok(var) => PathBuf::from(var),
+		Err(_) => PathBuf::from("./Exanima.exe"),
+	};
+	std::env::set_current_dir(
+		exanima_path
+			.parent()
+			.expect("error while trying to get parent folder"),
+	)
+	.expect("error while setting the current working directory");
+
 	match cli.command {
 		Some(Commands::Pack(args)) => {
 			let src_path = PathBuf::from(&args.src);
