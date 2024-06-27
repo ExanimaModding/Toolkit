@@ -1,0 +1,12 @@
+[package]
+name = "godmode"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+log = { workspace = true }
+pretty_env_logger = { workspace = true }
+safer-ffi = { workspace = true }
