@@ -1,6 +1,3 @@
-// Exanima Modding Toolkit
-// Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
-// SPDX-License-Identifier: GPL-3.0-only
 #![feature(raw_ref_op)]
 
 mod framework;

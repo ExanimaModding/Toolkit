@@ -1,7 +1,3 @@
-// Exanima Modding Toolkit
-// Copyright (C) 2023 ProffDea <deatea@riseup.net>, Megumin <megumin@megu.dev>
-// SPDX-License-Identifier: GPL-3.0-only
-
 use detours_sys::{_PROCESS_INFORMATION, _STARTUPINFOA};
 use std::borrow::BorrowMut;
 use std::ptr::{null, null_mut};
