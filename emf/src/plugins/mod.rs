@@ -50,6 +50,9 @@ pub fn read_plugin_configs() -> Result<Vec<config::PluginInfo>> {
 	let mut configs = Vec::new();
 
 	let path = get_game_dir().join("mods");
+	if !path.exists() {
+		std::fs::create_dir(&path).expect("error trying to create mods folder");
+	}
 
 	for entry in std::fs::read_dir(path)? {
 		let entry = entry?;
