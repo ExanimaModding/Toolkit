@@ -103,6 +103,12 @@ fn run() {
 	let examples_path = project_root.join("examples");
 	let exe_path = exe_path();
 
+	process::Command::new(cargo.clone())
+		.current_dir(project_root)
+		.args(["build", "-p", "emf"])
+		.status()
+		.expect(r#"error while running "cargo build -p emf""#);
+
 	for entry in examples_path
 		.read_dir()
 		.expect("error while reading examples folder")
@@ -123,9 +129,9 @@ fn run() {
 
 	process::Command::new(cargo)
 		.current_dir(project_root)
-		.args(["run"])
+		.args(["run", "-p", "emtk"])
 		.status()
-		.expect(r#"error while running "cargo run""#);
+		.expect(r#"error while running "cargo run -p emtk""#);
 }
 
 /// Run only one plugin by name
@@ -144,6 +150,15 @@ fn run_plugin(name: &str, exanima_exe_path: Option<PathBuf>) {
 	};
 	let build_path = project_root.join("target/debug");
 	let plugin_path = exe_path.parent().unwrap().join(format!("mods/{}", name));
+
+	// Skip when using "cargo xtask run"
+	if exanima_exe_path.is_none() {
+		process::Command::new(cargo.clone())
+			.current_dir(project_root)
+			.args(["build", "-p", "emf"])
+			.status()
+			.expect(r#"error while running "cargo build -p emf""#);
+	}
 
 	process::Command::new(cargo.clone())
 		.current_dir(project_root)
@@ -171,7 +186,7 @@ fn run_plugin(name: &str, exanima_exe_path: Option<PathBuf>) {
 	if exanima_exe_path.is_none() {
 		process::Command::new(cargo)
 			.current_dir(project_root)
-			.args(["run"])
+			.args(["run", "-p", "emtk"])
 			.status()
 			.unwrap();
 	}
