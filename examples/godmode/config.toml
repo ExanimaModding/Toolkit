@@ -5,7 +5,7 @@ description = "A very flawed plugin that makes you invincible! Kinda?"
 version = "1.0.0"
 supported_versions = ["1.0.0"]
 url = "https://codeberg.org/ExanimaModding/Mods/src/branch/main/GodMode"
-executable = "dev.megu.godmode.dll"
+executable = "godmode.dll"
 
 [plugin.author]
 name = "Megu"

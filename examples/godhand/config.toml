@@ -5,7 +5,7 @@ description = "A plugin that allows you to move any item, from any distance."
 version = "1.0.0"
 supported_versions = ["1.0.0"]
 url = "https://codeberg.org/ExanimaModding/Mods/src/branch/main/GodHand"
-executable = "dev.megu.godhand.dll"
+executable = "godhand.dll"
 
 [plugin.author]
 name = "Megu"
