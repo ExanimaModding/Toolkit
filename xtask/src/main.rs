@@ -154,11 +154,14 @@ fn run_plugin(name: &str, exanima_exe_path: Option<PathBuf>) {
 		plugin_path.join(format!("{}.dll", name)),
 	)
 	.unwrap_or_else(|e| panic!("error while copying {} dll to mods folder: {}", name, e));
-	fs::copy(
-		example_path.join("config.toml"),
-		plugin_path.join("config.toml"),
-	)
-	.unwrap_or_else(|e| panic!("error while copying {} config to mods folder: {}", name, e));
+	// Do not overwrite config if it exists
+	if !plugin_path.join("config.toml").exists() {
+		fs::copy(
+			example_path.join("config.toml"),
+			plugin_path.join("config.toml"),
+		)
+		.unwrap_or_else(|e| panic!("error while copying {} config to mods folder: {}", name, e));
+	}
 
 	// Skip when using "cargo xtask run"
 	if exanima_exe_path.is_none() {
