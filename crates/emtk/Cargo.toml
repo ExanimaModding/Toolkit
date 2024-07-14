@@ -1,0 +1,16 @@
+[package]
+edition = "2021"
+name = "emtk"
+version = "0.1.0"
+
+[dependencies]
+detours-sys = { workspace = true }
+winapi = { workspace = true }
+# EMF is needed as a dependency so that emf.dll gets compiled before running EMTK.
+emf = { path = "../emf" }
+
+[build-dependencies]
+cbindgen = "0.26.0"
+
+[package.metadata.cargo-machete]
+ignored = ["crates/emf"]

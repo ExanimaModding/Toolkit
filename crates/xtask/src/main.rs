@@ -65,7 +65,11 @@ fn cargo_env() -> String {
 }
 
 fn project_root() -> &'static Path {
-	Path::new(&env!("CARGO_MANIFEST_DIR")).parent().unwrap()
+	Path::new(&env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.parent()
+		.unwrap()
 }
 
 /// Reads the EXANIMA_EXE environment variable and returns it as a [`PathBuf`].
