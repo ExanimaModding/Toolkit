@@ -13,8 +13,8 @@ dynasmrt = "2.0.0"
 log = "0.4.21"
 pretty_env_logger = "0.5.0"
 safer-ffi = { version = "0.1.8", default-features = false, features = [
-  "alloc",
-  "log",
+	"alloc",
+	"log",
 ] }
 serde = { version = "1.0.190", features = ["derive"] }
 toml = "0.8.6"
