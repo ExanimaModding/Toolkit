@@ -15,8 +15,8 @@ name = "generate-headers"
 required-features = ["headers"]
 
 [dependencies]
-libmem = { git = "https://github.com/rdbo/libmem.git", rev = "bd2aaf2d99eafd7c7cb87bfcb925ec94c593062f" }
-libmem-sys = { git = "https://github.com/rdbo/libmem.git", rev = "bd2aaf2d99eafd7c7cb87bfcb925ec94c593062f" }
+libmem = { git = "https://github.com/rdbo/libmem.git", rev = "b7d34121c9eff952ec17ae058bf24640ee05e0b6" }
+libmem-sys = { git = "https://github.com/rdbo/libmem.git", rev = "b7d34121c9eff952ec17ae058bf24640ee05e0b6" }
 log = { workspace = true }
 detours-sys = { workspace = true }
 dynasmrt = { workspace = true }

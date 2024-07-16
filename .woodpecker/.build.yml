@@ -1,0 +1,110 @@
+when:
+  - event: tag
+    branch: $CI_REPO_DEFAULT_BRANCH
+
+clone:
+  - name: git
+    image: woodpeckerci/plugin-git
+    settings:
+      recursive: true
+      submodule_override:
+        detours/ext/detours: https://github.com/microsoft/detours.git
+
+steps:
+  prepare:
+    image: debian:bookworm
+    commands:
+      - apt update
+      - apt install ca-certificates curl -y
+      - export CARGO_HOME=$PWD/.cargo
+      - export RUSTUP_HOME=$PWD/.rustup
+      - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y
+      - . "$PWD/.cargo/env"
+      - rustup toolchain install nightly --allow-downgrade --profile minimal --component clippy
+      - rustup target add x86_64-pc-windows-msvc
+
+  build:
+    image: debian:bookworm
+    commands:
+      - apt update
+      - apt install ca-certificates wget git gpg lsb-release software-properties-common gnupg gcc -y
+
+      - wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+      - echo "deb http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-18 main" > /etc/apt/sources.list.d/llvm-18.list
+      - echo "deb-src http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-18 main" >> /etc/apt/sources.list.d/llvm-18.list
+
+      - apt update
+
+      - apt install -y clang-18 lldb-18 lld-18 clangd-18 clang-tidy-18 clang-format-18 clang-tools-18 llvm-18-dev lld-18 lldb-18 llvm-18-tools libomp-18-dev libc++-18-dev libc++abi-18-dev libclang-common-18-dev libclang-18-dev libclang-cpp18-dev libunwind-18-dev
+
+      - update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100
+      - update-alternatives --install /usr/bin/llvm-lib llvm-lib /usr/bin/llvm-lib-18 100
+      - update-alternatives --install /usr/bin/lld lld /usr/bin/lld-18 100
+      - update-alternatives --install /usr/bin/ld.lld ld.lld /usr/bin/ld.lld-18 100
+
+      - export CARGO_HOME=$PWD/.cargo
+      - export RUSTUP_HOME=$PWD/.rustup
+      - . "$PWD/.cargo/env"
+
+      - cargo install cargo-xwin --locked
+      - cargo +nightly xwin build -p emtk --release --target x86_64-pc-windows-msvc
+
+  prepare-publish:
+    image: debian:bookworm
+    commands:
+      - apt update
+      - apt install ca-certificates curl git zip -y
+      # Install git-cliff
+      - curl -LO https://github.com/orhun/git-cliff/releases/download/v2.4.0/git-cliff-2.4.0-aarch64-unknown-linux-gnu.tar.gz
+      - tar -xzf git-cliff-2.4.0-aarch64-unknown-linux-gnu.tar.gz
+      # Set git up
+      - git fetch
+      - git checkout $CI_REPO_DEFAULT_BRANCH
+      - git pull origin $CI_REPO_DEFAULT_BRANCH
+      # Update CHANGELOG.md and push
+      - ./git-cliff-2.4.0/git-cliff -o CHANGELOG.md --latest
+      - export VERSION="$(git tag | tail -n 1)"
+      - export CHANGELOG="$(./git-cliff-2.4.0/git-cliff --current --strip header)"
+      - git config --global user.email "ci@local"
+      - git config --global user.name "CI"
+      - git add CHANGELOG.md
+      - "git commit -m \"chore(release): update changelog for $VERSION\""
+      - sh -c "git push -u origin $CI_REPO_DEFAULT_BRANCH
+      # Zip up the build for release
+      - >
+        zip toolkit-$VERSION-x86_64-pc-windows-msvc.zip
+        target/x86_64-pc-windows-msvc/release/emtk.exe
+        target/x86_64-pc-windows-msvc/release/deps/emf.dll
+        target/x86_64-pc-windows-msvc/release/deps/emf.dll.lib
+
+  publish:
+    image: debian:bookworm
+    secrets: [ ACCESS_TOKEN ]
+    commands:
+      - apt update
+      - apt install ca-certificates curl jq git -y
+      # Create the release
+      - VERSION="$(git tag | tail -n 1)"
+      - CHANGELOG="$(./git-cliff-2.4.0/git-cliff --current --strip header | jq -Rs .)"
+      - >
+        RELEASE_ID=$(curl -s -X "POST"
+        "https://codeberg.org/api/v1/repos/ExanimaModding/Toolkit/releases"
+        -H "accept: application/json"
+        -H "Content-Type: application/json"
+        -d "{
+          \"body\": $CHANGELOG,
+          \"draft\": false,
+          \"name\": \"$VERSION\",
+          \"prerelease\": true,
+          \"tag_name\": \"$VERSION\",
+          \"target_commitish\": \"$CI_REPO_DEFAULT_BRANCH\"
+        }"
+        -H "Authorization: token $ACCESS_TOKEN" | jq '.id')
+      # Upload zip file to the release
+      - >
+        curl -s -X "POST"
+        "https://codeberg.org/api/v1/repos/ExanimaModding/Toolkit/releases/$RELEASE_ID/assets?name=toolkit-$VERSION-x86_64-pc-windows-msvc.zip"
+        -H "accept: application/json"
+        -H "Content-Type: multipart/form-data"
+        -F "attachment=@toolkit-$VERSION-x86_64-pc-windows-msvc.zip;type=application/x-zip-compressed"
+        -H "Authorization: token $ACCESS_TOKEN"
