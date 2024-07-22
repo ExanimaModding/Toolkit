@@ -8,17 +8,12 @@ use bitstream_io::{
 	write::{BitWrite, BitWriter},
 	LittleEndian,
 };
+use log::*;
 use std::{
 	fs::{create_dir_all, File},
 	io::{Cursor, SeekFrom},
 	path::PathBuf,
 };
-
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-	#[error("RLE is unsupported")]
-	UnsupportedRLE(String),
-}
 
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -31,7 +26,7 @@ pub enum S3TC {
 }
 
 impl TryFrom<u32> for S3TC {
-	type Error = &'static str;
+	type Error = String;
 
 	fn try_from(n: u32) -> std::result::Result<Self, Self::Error> {
 		match n {
@@ -51,7 +46,7 @@ impl TryFrom<u32> for S3TC {
 			0x1111C600 => Ok(S3TC::BC5U(0x1111C600)),
 			0x827BE608 => Ok(S3TC::BC5U(0x827BE608)),
 			0x0100C600 => Ok(S3TC::RGB(0x0100C600)),
-			_ => Err("Cannot get S3TC from number"),
+			_ => Err(format!("{:#08X} does not match any valid S3TCs", n)),
 		}
 	}
 }
@@ -120,9 +115,8 @@ impl RFI {
 	pub fn unpack(&self, src: SourceData, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let is_rle = self.header.flags & 0x40000000 == 0x40000000;
 		if is_rle {
-			return Err(Box::new(Error::UnsupportedRLE(String::from(
-				"RLE not implemented yet",
-			))));
+			debug!("RLE not implemented yet");
+			return Ok(());
 		}
 
 		let src_str = match src.clone() {

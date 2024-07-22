@@ -14,11 +14,11 @@ impl std::fmt::Debug for ExanimaString {
 }
 
 impl std::convert::TryFrom<String> for ExanimaString {
-	type Error = &'static str;
+	type Error = String;
 
 	fn try_from(s: String) -> std::result::Result<Self, Self::Error> {
 		if s.len() > 16 {
-			return Err("String exceeds 16 characters");
+			return Err("String exceeds 16 characters".to_string());
 		}
 		let mut name = ExanimaString([0; 16]);
 		for (i, c) in s.chars().enumerate() {

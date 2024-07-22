@@ -9,8 +9,10 @@ use bitstream_io::{
 	LittleEndian,
 };
 use futures::future::{BoxFuture, FutureExt};
+use log::*;
 use serde::{Deserialize, Serialize};
 use std::{
+	ffi::OsStr,
 	fs::{create_dir_all, read, write, File},
 	io::{Cursor, SeekFrom},
 	mem,
@@ -59,7 +61,7 @@ impl RPK {
 		meta_path.push("metadata.toml");
 		let metadata = Metadata::<RPK>::from(meta_path.to_str().unwrap());
 		if metadata.is_err() {
-			eprintln!("❗ No metadata file found in '{}'", red(src_name_str));
+			error!(r#"❗ No metadata file found in "{}""#, red(src_name_str));
 			return Err(metadata.err().unwrap());
 		};
 		let metadata = metadata?;
@@ -69,7 +71,10 @@ impl RPK {
 
 		let magic = MagicBytes::try_from(metadata.0.filetype.as_str()).unwrap();
 		if magic != MagicBytes::RPK {
-			panic!("❗ Folder, '{}', is not an RPK format", red(src_name_str))
+			panic!(
+				r#"❗ Folder, "{}", is not an RPK format"#,
+				red(src_name_str)
+			)
 		}
 
 		let mut table_length: u32 = 0;
@@ -86,9 +91,9 @@ impl RPK {
 					let invalid_magic = reader.read::<u32>(32).unwrap_or(0);
 
 					if entry.file_name().to_str().unwrap() != "metadata.toml" {
-						eprintln!(
-							"⚠️ Ignoring file, '{}' ({:#08X}), in '{}'",
-							yellow(entry.file_name().to_str().unwrap()),
+						warn!(
+							r#"⚠️ Ignoring file, "{}" ({:#08X}), in "{}""#,
+							yellow(entry.file_name().to_str().unwrap_or("")),
 							invalid_magic,
 							green(src_name_str)
 						);
@@ -172,7 +177,7 @@ impl RPK {
 			writer.write_bytes(bytes.as_slice())?;
 		}
 
-		println!("✔️ {} done", green(src_name_str));
+		info!("✔️ {} done", green(src_name_str));
 
 		Ok(())
 	}
@@ -262,18 +267,17 @@ impl RPK {
 							}
 							Err(e) => {
 								if magic != 0 {
-									eprintln!(
-										"⚠️ Unknown file type from file, '{}' ({:#08X}), in {}: {}",
+									warn!(
+										r#"⚠️ Unknown file type from file, "{}", in {}. {}"#,
 										yellow(&name),
-										&magic,
 										green(
 											dest_path
 												.parent()
 												.unwrap()
 												.file_name()
-												.unwrap()
+												.unwrap_or(OsStr::new(""))
 												.to_str()
-												.unwrap()
+												.unwrap_or("")
 										),
 										e
 									)
@@ -316,7 +320,7 @@ impl RPK {
 									let rfi = RFI::new(src_data.clone()).unwrap();
 
 									if let Err(e) = RFI::unpack(&rfi, src_data, dest_parent_str) {
-										eprintln!("{}", e)
+										error!("{}", e)
 									}
 								}
 
@@ -338,7 +342,7 @@ impl RPK {
 			});
 			metadata.write_to(dest_path.to_str().unwrap())?;
 
-			println!("✔️ {} done", green(src_name_str));
+			info!("✔️ {} done", green(src_name_str));
 
 			Ok(())
 		}

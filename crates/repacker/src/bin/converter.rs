@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand};
+use log::*;
 use repacker::{pack, types::rpk::RPK};
 use std::path::PathBuf;
 
@@ -42,6 +43,11 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+	if std::env::var("RUST_LOG").is_err() {
+		std::env::set_var("RUST_LOG", "info");
+	};
+	pretty_env_logger::init();
+
 	let cli = Cli::parse();
 
 	let exanima_exe = match std::env::var("EXANIMA_EXE") {
@@ -68,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 					pack(args.src.as_str(), args.dest.as_str()).await?;
 				}
 			} else {
-				eprintln!("Invalid path for source. Doing nothing");
+				error!("Invalid path for source. Doing nothing");
 			}
 		}
 		None => {

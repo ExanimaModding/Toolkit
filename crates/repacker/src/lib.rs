@@ -4,8 +4,9 @@ pub mod utils;
 
 use crate::{types::rpk::RPK, utils::SourceData};
 use bitstream_io::{BitRead, BitReader, LittleEndian};
+use log::*;
 use metadata::MagicBytes;
-use std::{fs::File, path::PathBuf};
+use std::{ffi::OsStr, fs::File, path::PathBuf};
 
 pub async fn pack(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error>> {
 	let src_path = PathBuf::from(src);
@@ -23,7 +24,11 @@ pub async fn pack(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Error
 		let dest = dest.clone();
 		handles.push(tokio::spawn(async move {
 			if let Err(e) = RPK::pack(path.to_str().unwrap(), dest.as_str()) {
-				eprintln!("Skipping folder at '{}': {}", path.to_str().unwrap(), e);
+				warn!(
+					r#"Skipping folder at "{}": {}"#,
+					path.to_str().unwrap_or(""),
+					e
+				);
 			};
 		}));
 	}
@@ -40,7 +45,17 @@ async fn run_unpack(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Err
 	let magic = reader.read::<u32>(32)?;
 	let magic = match MagicBytes::try_from(magic) {
 		Ok(magic) => magic,
-		Err(e) => return Err(Box::new(crate::metadata::Error::InvalidMagic(e))),
+		Err(e) => {
+			return Err(Box::new(crate::metadata::Error::InvalidMagic(format!(
+				"{} in {}",
+				e,
+				src_path
+					.file_name()
+					.unwrap_or(OsStr::new(""))
+					.to_str()
+					.unwrap_or(""),
+			))))
+		}
 	};
 
 	let mut dest_path = PathBuf::from(dest);
@@ -60,7 +75,9 @@ pub async fn unpack(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Err
 	let src_path = PathBuf::from(src);
 
 	if src_path.is_file() {
-		run_unpack(src, dest).await?;
+		if let Err(e) = run_unpack(src, dest).await {
+			error!("{}", e);
+		};
 	}
 
 	if src_path.is_dir() {
@@ -75,8 +92,16 @@ pub async fn unpack(src: &str, dest: &str) -> Result<(), Box<dyn std::error::Err
 					let path = entry.path();
 					let path_str = path.to_str().unwrap();
 
-					if let Err(e) = run_unpack(path_str, &dest_clone).await {
-						eprintln!("{}", e)
+					if let Err(error) = run_unpack(path_str, &dest_clone).await {
+						if error.is::<crate::metadata::Error>() {
+							if let Some(metadata_error) =
+								error.downcast_ref::<crate::metadata::Error>()
+							{
+								warn!("{}", metadata_error);
+							}
+						} else {
+							error!("{}", error);
+						}
 					};
 				}));
 			}

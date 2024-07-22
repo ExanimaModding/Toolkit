@@ -8,18 +8,20 @@ use serde::{
 };
 use std::{
 	convert::{From, TryFrom},
+	ffi::OsStr,
 	fmt::{Display, Formatter},
 	fs::File,
 	io::{BufReader, Read, Result, Write},
+	path::PathBuf,
 };
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
-	#[error("Conversion unsupported")]
-	UnsupportedConversion(&'static str),
+	#[error("Conversion unsupported. {0}")]
+	UnsupportedConversion(String),
 
-	#[error("Magic is invalid")]
-	InvalidMagic(&'static str),
+	#[error("Magic is invalid. {0}")]
+	InvalidMagic(String),
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -89,9 +91,26 @@ impl MagicBytes {
 			// They are needed if recursive unpacking is disabled.
 			// Only useful for debugging purposes.
 			MagicBytes::RFI => Ok(RFI::unpack(&RFI::new(src.clone())?, src, dest)?),
-			_ => Err(Box::new(Error::UnsupportedConversion(
-				"Failed unpacking file",
-			))),
+			_ => {
+				let src_name = match src {
+					SourceData::Path(path) => PathBuf::from(path)
+						.file_name()
+						.unwrap_or(OsStr::new(""))
+						.to_str()
+						.unwrap_or("")
+						.to_string(),
+					SourceData::Buffer(path, _) => PathBuf::from(path)
+						.file_name()
+						.unwrap_or(OsStr::new(""))
+						.to_str()
+						.unwrap_or("")
+						.to_string(),
+				};
+				Err(Box::new(Error::UnsupportedConversion(format!(
+					"Failed unpacking {}",
+					src_name
+				))))
+			}
 		}
 	}
 }
@@ -103,7 +122,7 @@ impl Display for MagicBytes {
 }
 
 impl TryFrom<u32> for MagicBytes {
-	type Error = &'static str;
+	type Error = String;
 
 	fn try_from(n: u32) -> std::result::Result<Self, Self::Error> {
 		match n {
@@ -132,13 +151,13 @@ impl TryFrom<u32> for MagicBytes {
 			0x7EF6D0A6 => Ok(MagicBytes::IDK5),
 			0xD2C8CCCC => Ok(MagicBytes::IDK6),
 			0xCAEC66C6 => Ok(MagicBytes::IDK7),
-			_ => Err("Can not get magic from number"),
+			_ => Err(format!("{:#08X} does not match any valid MagicBytes", n)),
 		}
 	}
 }
 
 impl TryFrom<&str> for MagicBytes {
-	type Error = &'static str;
+	type Error = String;
 
 	fn try_from(s: &str) -> std::result::Result<Self, Self::Error> {
 		match s {
@@ -167,7 +186,7 @@ impl TryFrom<&str> for MagicBytes {
 			"idk5" => Ok(MagicBytes::IDK5),
 			"idk6" => Ok(MagicBytes::IDK6),
 			"idk7" => Ok(MagicBytes::IDK7),
-			_ => Err("Cannot get magic from string"),
+			_ => Err(format!(r#""{}" does not match any valid file types"#, s)),
 		}
 	}
 }
