@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "examples/*"]
 
 [workspace.dependencies]
-bitstream-io = "1.7.0"
+bitstream-io = "2.5.0"
 detours-sys = { path = "./crates/detours" }
 dynasmrt = "2.0.0"
 log = "0.4.21"
@@ -18,12 +18,7 @@ winapi = { version = "0.3.9", features = [
 	"minwindef",
 	"winnt",
 	"winbase",
-	"handleapi",
-	"libloaderapi",
-	"psapi",
 	"errhandlingapi",
+	"psapi",
 	"consoleapi",
-	"memoryapi",
-	"processthreadsapi",
-	"processenv",
 ] }

@@ -48,7 +48,7 @@ pub extern "C" fn disable() -> bool {
 }
 
 #[no_mangle]
-unsafe extern "C" fn proc_dmg_stam(motile_ptr: *mut c_void, _b: f32) -> c_char {
+unsafe extern "C" fn proc_dmg_stam(motile_ptr: *mut c_void, _: f32, _: f32, _: c_char) -> c_char {
     println!("{:p}", motile_ptr);
 
     let orig_proc: extern "C" fn(a: *mut c_void, b: f32) -> c_char =
