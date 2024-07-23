@@ -1,4 +1,5 @@
 use crate::{
+	constants::METADATA_FILE,
 	metadata::{MagicBytes, Metadata},
 	types::{ex_str::ExanimaString, rfi::RFI},
 	utils::{any_as_u8_slice, green, is_file_valid, red, yellow, ReadSeek, SourceData},
@@ -58,7 +59,7 @@ impl RPK {
 		create_dir_all(&dest_path)?;
 
 		let mut meta_path = src_path.clone();
-		meta_path.push("metadata.toml");
+		meta_path.push(METADATA_FILE);
 		let metadata = Metadata::<RPK>::from(meta_path.to_str().unwrap());
 		if metadata.is_err() {
 			error!(r#"❗ No metadata file found in "{}""#, red(src_name_str));
@@ -90,7 +91,7 @@ impl RPK {
 						BitReader::endian(File::open(entry.path()).unwrap(), LittleEndian);
 					let invalid_magic = reader.read::<u32>(32).unwrap_or(0);
 
-					if entry.file_name().to_str().unwrap() != "metadata.toml" {
+					if entry.file_name().to_str().unwrap() != METADATA_FILE {
 						warn!(
 							r#"⚠️ Ignoring file, "{}" ({:#08X}), in "{}""#,
 							yellow(entry.file_name().to_str().unwrap_or("")),
@@ -335,7 +336,7 @@ impl RPK {
 			}
 
 			let ext = String::from(src_path.extension().unwrap().to_str().unwrap());
-			dest_path.push("metadata.toml");
+			dest_path.push(METADATA_FILE);
 			let metadata: Metadata<RPK> = Metadata(RPK {
 				filetype: ext,
 				use_file_extensions: file_ext_exists,

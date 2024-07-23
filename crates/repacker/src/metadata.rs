@@ -37,15 +37,15 @@ where
 
 		reader.read_to_string(&mut contents)?;
 
-		Ok(Self(toml::from_str(contents.as_str()).unwrap()))
+		Ok(Self(ron::from_str(contents.as_str()).unwrap()))
 	}
 
 	pub fn write_to(&self, path: &str) -> Result<()> {
 		let mut f = File::create(path)?;
 
-		let toml = toml::to_string(&self.0).unwrap();
+		let ron = ron::ser::to_string_pretty(&self.0, ron::ser::PrettyConfig::default()).unwrap();
 
-		write!(f, "{}", toml)
+		write!(f, "{}", ron)
 	}
 }
 

@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use log::*;
-use repacker::{pack, types::rpk::RPK};
+use repacker::{constants::METADATA_FILE, pack, types::rpk::RPK};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			let src_path = PathBuf::from(&args.src);
 			if src_path.is_dir() {
 				let mut meta_path = src_path.clone();
-				meta_path.push("metadata.toml");
+				meta_path.push(METADATA_FILE);
 
 				if meta_path.exists() {
 					RPK::pack(args.src.as_str(), args.dest.as_str())?;
