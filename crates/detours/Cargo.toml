@@ -1,7 +1,11 @@
 [package]
-edition = "2021"
 name = "detours-sys"
-version = "0.1.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+license = "MIT"
 
 [build-dependencies]
 bindgen = "0.69.1"

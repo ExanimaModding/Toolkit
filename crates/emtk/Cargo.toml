@@ -1,13 +1,17 @@
 [package]
-edition = "2021"
 name = "emtk"
-version = "0.1.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
 detours-sys = { workspace = true }
-winapi = { workspace = true }
 # EMF is needed as a dependency so that emf.dll gets compiled before running EMTK.
 emf = { path = "../emf" }
+winapi = { workspace = true }
 
 [build-dependencies]
 cbindgen = "0.26.0"

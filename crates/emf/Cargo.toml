@@ -1,7 +1,11 @@
 [package]
-edition = "2021"
 name = "emf"
-version = "0.1.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -15,21 +19,21 @@ name = "generate-headers"
 required-features = ["headers"]
 
 [dependencies]
+anyhow = "1.0.86"
+detours-sys = { workspace = true }
+dynasmrt = { workspace = true }
+libloading = "0.8.3"
 libmem = { git = "https://github.com/rdbo/libmem.git", rev = "b7d34121c9eff952ec17ae058bf24640ee05e0b6" }
 libmem-sys = { git = "https://github.com/rdbo/libmem.git", rev = "b7d34121c9eff952ec17ae058bf24640ee05e0b6" }
 log = { workspace = true }
-detours-sys = { workspace = true }
-dynasmrt = { workspace = true }
-pelite = "0.10.0"
-serde = { workspace = true }
-winapi = { workspace = true }
-libloading = "0.8.3"
-anyhow = "1.0.86"
 once_cell = "1.19.0"
+path-clean = "1.0.1"
+pelite = "0.10.0"
 pretty_env_logger = { workspace = true }
 safer-ffi = { workspace = true }
-toml.workspace = true
-path-clean = "1.0.1"
+serde = { workspace = true }
+toml = { workspace = true }
+winapi = { workspace = true }
 
 [features]
 headers = ["safer-ffi/headers"]
