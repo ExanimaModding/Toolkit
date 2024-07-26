@@ -2,26 +2,31 @@ when:
   - event: tag
     branch: $CI_REPO_DEFAULT_BRANCH
 
-clone:
-  - name: git
-    image: woodpeckerci/plugin-git
-    settings:
-      recursive: true
-      submodule_override:
-        detours/ext/detours: https://github.com/microsoft/detours.git
+skip_clone: true
 
 steps:
   prepare:
     image: debian:bookworm
+    secrets: [ SSH_PRIVATE_KEY ]
     commands:
       - apt update
-      - apt install ca-certificates curl -y
+      - apt install ca-certificates curl git -y
       - export CARGO_HOME=$PWD/.cargo
       - export RUSTUP_HOME=$PWD/.rustup
       - curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain none -y
       - . "$PWD/.cargo/env"
       - rustup toolchain install nightly --allow-downgrade --profile minimal --component clippy
       - rustup target add x86_64-pc-windows-msvc
+
+      - mkdir -p /root/.ssh
+      - echo "$SSH_PRIVATE_KEY" > /root/.ssh/id_ed25519
+      - chmod 600 /root/.ssh/id_ed25519
+      - ssh-keyscan codeberg.org >> /root/.ssh/known_hosts
+      - git init
+      - git remote add origin $CI_REPO_CLONE_SSH_URL
+      - git config core.sshCommand 'ssh -i /root/.ssh/id_ed25519'
+      - git fetch && git checkout $CI_REPO_DEFAULT_BRANCH
+      - git submodule update --init --recursive
 
   build:
     image: debian:bookworm
@@ -51,6 +56,7 @@ steps:
 
   prepare-publish:
     image: debian:bookworm
+    secrets: [ SSH_PRIVATE_KEY ]
     commands:
       - apt update
       - apt install ca-certificates curl git zip -y
@@ -58,6 +64,10 @@ steps:
       - curl -LO https://github.com/orhun/git-cliff/releases/download/v2.4.0/git-cliff-2.4.0-aarch64-unknown-linux-gnu.tar.gz
       - tar -xzf git-cliff-2.4.0-aarch64-unknown-linux-gnu.tar.gz
       # Set git up
+      - mkdir -p /root/.ssh
+      - echo "$SSH_PRIVATE_KEY" > /root/.ssh/id_ed25519
+      - chmod 600 /root/.ssh/id_ed25519
+      - ssh-keyscan codeberg.org >> /root/.ssh/known_hosts
       - git fetch
       - git checkout $CI_REPO_DEFAULT_BRANCH
       - git pull origin $CI_REPO_DEFAULT_BRANCH
@@ -65,8 +75,8 @@ steps:
       - ./git-cliff-2.4.0/git-cliff -o CHANGELOG.md --latest
       - export VERSION="$(git tag | tail -n 1)"
       - export CHANGELOG="$(./git-cliff-2.4.0/git-cliff --current --strip header)"
-      - git config --global user.email "ci@local"
-      - git config --global user.name "CI"
+      - git config --global user.email "corro@megu.dev"
+      - git config --global user.name "Corro"
       - git add CHANGELOG.md
       - "git commit -m \"chore(release): update changelog for $VERSION\""
       - sh -c "git push -u origin $CI_REPO_DEFAULT_BRANCH"
