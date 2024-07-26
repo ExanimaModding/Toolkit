@@ -69,7 +69,7 @@ steps:
       - git config --global user.name "CI"
       - git add CHANGELOG.md
       - "git commit -m \"chore(release): update changelog for $VERSION\""
-      - sh -c "git push -u origin $CI_REPO_DEFAULT_BRANCH
+      - sh -c "git push -u origin $CI_REPO_DEFAULT_BRANCH"
       # Zip up the build for release
       - >
         zip toolkit-$VERSION-x86_64-pc-windows-msvc.zip
