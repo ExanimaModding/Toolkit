@@ -17,6 +17,8 @@ use utils::{get_setting_bool, patch_is_applied};
 static mut FIRST_RUN: bool = true;
 static mut PLUGIN_ID: &str = "dev.megu.godhand";
 
+static mut FIRST_RUN: bool = true;
+
 #[no_mangle]
 pub unsafe extern "C" fn enable() -> bool {
 	if FIRST_RUN {

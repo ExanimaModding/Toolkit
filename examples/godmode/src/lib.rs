@@ -1,10 +1,9 @@
-#![feature(raw_ref_op)]
 #![allow(clippy::missing_safety_doc)]
 mod utils;
 
 use log::*;
 use safer_ffi::c_char;
-use std::ffi::c_void;
+use std::{ffi::c_void, ptr::addr_of_mut};
 use utils::{hook_apply, hook_new, hook_revert, scan_memory};
 
 static mut PROC_DMG_STAM_PTR: *mut c_void = std::ptr::null_mut();
@@ -38,7 +37,7 @@ pub unsafe extern "C" fn enable() -> bool {
 
 	HOOK = Some(hook_new(
 		"godmode::proc_dmg_stamina".into(),
-		&raw mut PROC_DMG_STAM_PTR,
+		addr_of_mut!(PROC_DMG_STAM_PTR),
 		proc_dmg_stam as _,
 	));
 

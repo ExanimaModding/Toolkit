@@ -28,17 +28,17 @@ pub struct PluginState {
 	pub enable: Symbol<extern "C" fn() -> bool>,
 	pub disable: Symbol<extern "C" fn() -> bool>,
 
-	pub send_message: Option<Symbol<extern "C" fn(message: char_p::Box)>>,
+	pub send_message: Option<Symbol<extern "C" fn(sender_id: char_p::Box, message: char_p::Box)>>,
 
 	pub read_setting_bool: Option<Symbol<extern "C" fn(setting: char_p::Box) -> bool>>,
 	pub read_setting_int: Option<Symbol<extern "C" fn(setting: char_p::Box) -> i64>>,
 	pub read_setting_float: Option<Symbol<extern "C" fn(setting: char_p::Box) -> f64>>,
 	pub read_setting_string: Option<Symbol<extern "C" fn(setting: char_p::Box) -> char_p::Box>>,
 
-	pub write_setting_bool: Option<Symbol<extern "C" fn(setting: char_p::Box, value: bool)>>,
-	pub write_setting_int: Option<Symbol<extern "C" fn(setting: char_p::Box, value: i64)>>,
-	pub write_setting_float: Option<Symbol<extern "C" fn(setting: char_p::Box, value: f64)>>,
-	pub write_setting_string:
+	pub setting_changed_bool: Option<Symbol<extern "C" fn(setting: char_p::Box, value: bool)>>,
+	pub setting_changed_int: Option<Symbol<extern "C" fn(setting: char_p::Box, value: i64)>>,
+	pub setting_changed_float: Option<Symbol<extern "C" fn(setting: char_p::Box, value: f64)>>,
+	pub setting_changed_string:
 		Option<Symbol<extern "C" fn(setting: char_p::Box, value: char_p::Box)>>,
 }
 
@@ -60,7 +60,7 @@ impl PluginState {
 		let enable = sym!(b"enable", extern "C" fn() -> bool);
 		let disable = sym!(b"disable", extern "C" fn() -> bool);
 
-		let send_message = sym!(b"send_message", extern "C" fn(char_p::Box));
+		let send_message = sym!(b"on_message", extern "C" fn(char_p::Box, char_p::Box));
 
 		let read_setting_bool = sym!(b"read_setting_bool", extern "C" fn(char_p::Box) -> bool);
 		let read_setting_int = sym!(b"read_setting_int", extern "C" fn(char_p::Box) -> i64);
@@ -70,11 +70,11 @@ impl PluginState {
 			extern "C" fn(char_p::Box) -> char_p::Box
 		);
 
-		let write_setting_bool = sym!(b"write_setting_bool", extern "C" fn(char_p::Box, bool));
-		let write_setting_int = sym!(b"write_setting_int", extern "C" fn(char_p::Box, i64));
-		let write_setting_float = sym!(b"write_setting_float", extern "C" fn(char_p::Box, f64));
-		let write_setting_string = sym!(
-			b"write_setting_string",
+		let setting_changed_bool = sym!(b"setting_changed_bool", extern "C" fn(char_p::Box, bool));
+		let setting_changed_int = sym!(b"setting_changed_int", extern "C" fn(char_p::Box, i64));
+		let setting_changed_float = sym!(b"setting_changed_float", extern "C" fn(char_p::Box, f64));
+		let setting_changed_string = sym!(
+			b"setting_changed_string",
 			extern "C" fn(char_p::Box, char_p::Box)
 		);
 
@@ -93,10 +93,10 @@ impl PluginState {
 			read_setting_float,
 			read_setting_string,
 
-			write_setting_bool,
-			write_setting_int,
-			write_setting_float,
-			write_setting_string,
+			setting_changed_bool,
+			setting_changed_int,
+			setting_changed_float,
+			setting_changed_string,
 		})
 	}
 }
@@ -199,8 +199,12 @@ impl PluginManager {
 		}
 
 		match message {
-			PluginMessage::Message(message) => {
-				fn_if_exists!(&state.send_message, char_p::new(message))
+			PluginMessage::Message(sender_id, message) => {
+				fn_if_exists!(
+					&state.send_message,
+					char_p::new(sender_id),
+					char_p::new(message)
+				)
 			}
 			PluginMessage::Enable => {
 				(state.enable)();
@@ -210,17 +214,17 @@ impl PluginManager {
 			}
 			PluginMessage::SettingChanged((key, value)) => match value {
 				config::PluginConfigSettingValue::Boolean(value) => {
-					fn_if_exists!(&state.write_setting_bool, char_p::new(key), value);
+					fn_if_exists!(&state.setting_changed_bool, char_p::new(key), value);
 				}
 				config::PluginConfigSettingValue::Float(value) => {
-					fn_if_exists!(&state.write_setting_float, char_p::new(key), value);
+					fn_if_exists!(&state.setting_changed_float, char_p::new(key), value);
 				}
 				config::PluginConfigSettingValue::Integer(value) => {
-					fn_if_exists!(&state.write_setting_int, char_p::new(key), value);
+					fn_if_exists!(&state.setting_changed_int, char_p::new(key), value);
 				}
 				config::PluginConfigSettingValue::String(value) => {
 					fn_if_exists!(
-						&state.write_setting_string,
+						&state.setting_changed_string,
 						char_p::new(key),
 						char_p::new(value)
 					);
@@ -231,7 +235,7 @@ impl PluginManager {
 }
 
 pub enum PluginMessage {
-	Message(String),
+	Message(String, String),
 	Enable,
 	Disable,
 	SettingChanged((String, config::PluginConfigSettingValue)),
