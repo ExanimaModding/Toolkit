@@ -146,7 +146,7 @@ impl PluginManager {
 						PluginManager::send_message(
 							id,
 							PluginMessage::SettingChanged((
-								setting.name.clone(),
+								setting.id.clone(),
 								setting.value.clone().unwrap(),
 							)),
 						);
