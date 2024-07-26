@@ -1,5 +1,5 @@
 [package]
-name = "godhand"
+name = "emf-types"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
@@ -8,12 +8,6 @@ homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
 
-[lib]
-crate-type = ["cdylib"]
-
 [dependencies]
-dynasmrt = { workspace = true }
-log = { workspace = true }
-pretty_env_logger = { workspace = true }
+serde = { workspace = true }
 safer-ffi = { workspace = true }
-emf-types = { workspace = true }

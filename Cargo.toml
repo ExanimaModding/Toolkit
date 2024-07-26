@@ -8,6 +8,7 @@ version = "0.1.0-beta.1"
 authors = ["Megumin <megumin@megu.dev>", "ProffDea <deatea@riseup.net>"]
 edition = "2021"
 documentation = "https://exanimamodding.codeberg.page/Book"
+homepage = "https://exanimamodding.codeberg.page/Book"
 repository = "https://codeberg.org/ExanimaModding/Toolkit"
 license = "GPL-3.0-only"
 
@@ -15,6 +16,7 @@ license = "GPL-3.0-only"
 bitstream-io = "2.5.0"
 detours-sys = { path = "./crates/detours" }
 dynasmrt = "2.0.0"
+emf-types = { path = "./crates/emf-types" }
 log = "0.4.21"
 pretty_env_logger = "0.5.0"
 safer-ffi = { version = "0.1.8", default-features = false, features = [

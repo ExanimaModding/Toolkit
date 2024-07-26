@@ -4,6 +4,7 @@ mod framework;
 mod internal;
 mod plugins;
 
+use internal::gui;
 use log::*;
 
 use std::ffi::c_void;
@@ -41,6 +42,7 @@ unsafe extern "stdcall" fn DllMain(
 
 		pretty_env_logger::formatted_builder()
 			.filter_level(LevelFilter::Trace)
+			.filter(Some("hudhook"), LevelFilter::Off)
 			.init();
 
 		info!("DllMain Loaded");
@@ -65,9 +67,20 @@ unsafe extern "stdcall" fn DllMain(
 unsafe extern "C" fn main() {
 	info!("Main Hook Running");
 
-	// if let Err(e) = init_dll_plugins() {
-	// 	error!("[EMF] Failed to load DLL plugins: {:?}", e);
-	// }
+	let mut curr_exe_path = std::env::current_exe().unwrap();
+	curr_exe_path.pop();
+
+	match std::env::set_current_dir(curr_exe_path) {
+		Ok(_) => {}
+		Err(e) => {
+			error!(
+				"Failed to set current directory: {:?}. This may cause unexpected behaviour.",
+				e
+			);
+		}
+	};
+
+	gui::inject_gui();
 
 	let plugin_configs = match read_plugin_configs() {
 		Ok(configs) => configs,

@@ -24,3 +24,9 @@ EXPORTS
 	hook_revert @17
 	hook_is_applied @18
 
+	; framework::api::plugin
+	get_setting_bool @19
+	get_setting_string @20
+	get_setting_integer @21
+	get_setting_float @22
+

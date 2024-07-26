@@ -108,8 +108,6 @@ pub unsafe fn remap_view_of_section(
 		new_permissions,
 	);
 
-	// println!("{:#08x}, {}", view_base as i64, view_size);
-
 	if let NtStatus::Other(val) = NtStatus::from(success) {
 		return Err(format!("NtMapViewOfSection failed: {:#08x}", val));
 	}

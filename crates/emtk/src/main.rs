@@ -1,4 +1,4 @@
-pub mod injector;
+mod injector;
 
 use std::path::PathBuf;
 

@@ -1,7 +1,5 @@
-use libmem_sys::LM_SigScan;
 use pelite::pe::Pe;
 use serde::{Deserialize, Serialize};
-use winapi::shared::ntdef::DWORDLONG;
 
 use crate::internal::utils::pe64::PE64;
 
@@ -37,22 +35,17 @@ impl SigScannerResult {
 #[derive(Debug)]
 pub struct SigScanner {
 	signature: String,
-	search_start: DWORDLONG,
+	search_start: usize,
 	search_length: usize,
 }
 
 #[allow(unused)]
 impl SigScanner {
 	pub unsafe fn exec(&self) -> SigScannerResult {
-		let cstr = std::ffi::CString::new(self.signature.clone()).unwrap();
-
-		let ptr = LM_SigScan(cstr.as_ptr(), self.search_start as _, self.search_length);
-
-		if ptr == self.search_start as _ || ptr == 0 {
-			return SigScannerResult::NotFound;
+		match libmem::sig_scan(&self.signature, self.search_start as _, self.search_length) {
+			Some(ptr) => SigScannerResult::Found(ptr),
+			None => SigScannerResult::NotFound,
 		}
-
-		SigScannerResult::Found(ptr)
 	}
 
 	pub unsafe fn new(signature: &str) -> Self {
@@ -73,13 +66,11 @@ impl SigScanner {
 			panic!("Failed to find .text section");
 		};
 
-		// dbg!(text_section);
-
-		let image_base = h_module.optional_header().ImageBase;
-		let search_start = h_module.optional_header().BaseOfCode as u64;
+		let image_base = h_module.optional_header().ImageBase as usize;
+		let search_start = h_module.optional_header().BaseOfCode as usize;
 		let search_length = h_module.optional_header().SizeOfCode as usize;
 
-		let search_start = image_base + text_section.VirtualAddress as u64;
+		let search_start = image_base + text_section.VirtualAddress as usize;
 		let search_length = text_section.VirtualSize as usize;
 
 		Self {
@@ -89,7 +80,7 @@ impl SigScanner {
 		}
 	}
 
-	pub unsafe fn new_ex(signature: &str, search_start: DWORDLONG, search_length: usize) -> Self {
+	pub unsafe fn new_ex(signature: &str, search_start: usize, search_length: usize) -> Self {
 		Self {
 			signature: signature.to_string(),
 			search_start,

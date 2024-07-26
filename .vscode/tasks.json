@@ -3,9 +3,10 @@
 	"tasks": [
 		{
 			"type": "cargo",
-			"command": "run",
+			"command": "xtask",
+			"args": ["run"],
 			"problemMatcher": ["$rustc"],
-			"label": "rust: cargo run",
+			"label": "rust: cargo xtask run",
 			"env": {
 				"RUST_BACKTRACE": "FULL"
 			}

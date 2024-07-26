@@ -1,3 +1,4 @@
+use safer_ffi::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
@@ -13,6 +14,7 @@ pub struct PluginConfig {
 
 	/// The settings for the plugin.
 	#[serde(rename = "setting")]
+	#[serde(default = "Vec::new")]
 	pub settings: Vec<PluginConfigSetting>,
 }
 
@@ -27,6 +29,11 @@ pub struct PluginConfigPlugin {
 	///
 	/// e.g. `"Plugin Name"`
 	pub name: String,
+
+	/// The description of the plugin.
+	///
+	/// e.g. `"A plugin that does something."`
+	pub description: Option<String>,
 
 	/// The version of the plugin.
 	///
@@ -50,6 +57,11 @@ pub struct PluginConfigPlugin {
 	///
 	/// e.g. `"com.yourusername.pluginname.dll"`
 	pub executable: Option<String>,
+
+	/// Whether the plugin is enabled
+	///
+	/// e.g. `true`
+	pub enabled: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -79,6 +91,11 @@ pub struct PluginConfigSetting {
 	/// e.g. `"Enable Plugin"`
 	pub name: String,
 
+	/// The unique ID of a setting
+	///
+	/// e.g. `"your_setting_name`
+	pub id: String,
+
 	/// The description of the setting.
 	///
 	/// e.g. `"Enable or disable the plugin."`
@@ -99,10 +116,41 @@ pub struct PluginConfigSetting {
 	pub value: Option<PluginConfigSettingValue>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
 pub enum PluginConfigSettingValue {
 	Boolean(bool),
 	String(String),
-	Number(f64),
+	Integer(i64),
+	Float(f64),
+}
+
+impl PluginConfigSettingValue {
+	pub fn as_bool(&self) -> Option<bool> {
+		match self {
+			PluginConfigSettingValue::Boolean(v) => Some(*v),
+			_ => None,
+		}
+	}
+
+	pub fn as_string(&self) -> Option<String> {
+		match self {
+			PluginConfigSettingValue::String(v) => Some(v.clone()),
+			_ => None,
+		}
+	}
+
+	pub fn as_integer(&self) -> Option<i64> {
+		match self {
+			PluginConfigSettingValue::Integer(v) => Some(*v),
+			_ => None,
+		}
+	}
+
+	pub fn as_float(&self) -> Option<f64> {
+		match self {
+			PluginConfigSettingValue::Float(v) => Some(*v),
+			_ => None,
+		}
+	}
 }

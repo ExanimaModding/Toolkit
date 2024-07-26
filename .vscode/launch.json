@@ -5,8 +5,8 @@
 			"type": "lldb",
 			"request": "attach",
 			"name": "Attach",
-			"preLaunchTask": "rust: cargo run",
-			"program": "m:/Games/Steam Library/steamapps/common/Exanima/Exanima.exe"
+			"preLaunchTask": "rust: cargo xtask run",
+			"program": "${env:EXANIMA_EXE}",
 		}
 	]
 }

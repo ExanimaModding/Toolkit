@@ -1,8 +1,8 @@
-mod config;
-pub mod manager;
+pub(crate) mod manager;
 mod parser;
 
 use anyhow::*;
+use emf_types::config;
 use log::*;
 use path_clean::PathClean;
 use std::{path::PathBuf, result::Result::Ok};
@@ -33,11 +33,13 @@ pub fn load_plugin(info: config::PluginInfo) -> Result<()> {
 		info!("Loading DLL: {}", dll_path.display());
 		let lib = libloading::Library::new(dll_path)?;
 
-		let state = manager::PluginManager::add(manager::PluginState::new(lib, info)?);
+		let state = manager::PluginManager::add(manager::PluginState::new(lib, info.clone())?);
 
 		if let Some(state) = state {
-			let writer: std::sync::MutexGuard<manager::PluginState> = state.lock().unwrap();
-			(writer.enable)();
+			if info.config.plugin.enabled {
+				let reader = state.read().unwrap();
+				(reader.enable)();
+			}
 
 			Ok(())
 		} else {
@@ -85,4 +87,13 @@ pub fn read_plugin_configs() -> Result<Vec<config::PluginInfo>> {
 	}
 
 	Ok(configs)
+}
+
+pub fn write_plugin_config(info: &config::PluginInfo) -> Result<()> {
+	let path = PathBuf::from(&info.path).join("config.toml");
+	let toml = toml::to_string_pretty(&info.config)?;
+
+	std::fs::write(path, toml)?;
+
+	Ok(())
 }

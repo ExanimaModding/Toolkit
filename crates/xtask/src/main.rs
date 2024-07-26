@@ -169,7 +169,7 @@ fn run_plugin(name: &str, exanima_exe_path: Option<PathBuf>) {
 	fs::create_dir_all(plugin_path.clone())
 		.unwrap_or_else(|e| panic!("error while creating {} folder at mods path: {}", name, e));
 	fs::copy(
-		build_path.join(format!("{}.dll", name)),
+		build_path.join(format!("{}.dll", name.replace("-", "_"))),
 		plugin_path.join(format!("{}.dll", name)),
 	)
 	.unwrap_or_else(|e| panic!("error while copying {} dll to mods folder: {}", name, e));

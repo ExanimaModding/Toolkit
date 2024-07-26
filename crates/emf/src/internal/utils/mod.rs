@@ -1,5 +1,5 @@
-pub mod ntdll;
-pub mod pe64;
+pub(crate) mod ntdll;
+pub(crate) mod pe64;
 
 use std::{ffi::CStr, path::PathBuf, ptr::null_mut};
 

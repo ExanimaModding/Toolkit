@@ -1,6 +1,4 @@
-pub mod sigscanner;
-
-use winapi::shared::ntdef::DWORDLONG;
+pub(crate) mod sigscanner;
 
 #[allow(unused)]
 trait AsPtr<T> {
@@ -17,23 +15,23 @@ pub struct Ptr;
 
 #[allow(unused)]
 impl Ptr {
-	pub fn as_const<T>(ptr: DWORDLONG) -> *const T {
+	pub fn as_const<T>(ptr: usize) -> *const T {
 		ptr as *const T
 	}
 
-	pub fn as_mut<T>(ptr: DWORDLONG) -> *mut T {
+	pub fn as_mut<T>(ptr: usize) -> *mut T {
 		ptr as *mut T
 	}
 
-	pub fn as_i32(ptr: *const DWORDLONG) -> i64 {
+	pub fn as_i32(ptr: *const usize) -> i64 {
 		ptr as i64
 	}
 
-	pub unsafe fn deref(ptr: DWORDLONG) -> *mut DWORDLONG {
-		*(ptr as *mut *mut DWORDLONG)
+	pub unsafe fn deref(ptr: usize) -> *mut usize {
+		*(ptr as *mut *mut usize)
 	}
 
-	pub fn offset<T>(ptr: DWORDLONG, offset: i64) -> *mut T {
+	pub fn offset<T>(ptr: usize, offset: i64) -> *mut T {
 		(ptr as i64 + offset) as *mut T
 	}
 }

@@ -1,5 +1,4 @@
 use anyhow::*;
-use libmem_sys::{lm_inst_t, LM_AssembleEx, LM_Disassemble, LM_FreePayload, LM_ARCH_X86, LM_FALSE};
 use log::*;
 use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
 use std::result::Result::Ok;
@@ -196,7 +195,6 @@ pub unsafe extern "C" fn patch_offset_pointer(patch: &mut Patch, offset: isize) 
 /// Apply the patch to the memory location.
 pub unsafe extern "C" fn patch_apply(patch: &mut Patch) -> bool {
 	let result = patch.apply();
-	// println!("{:?}, {:#?}", result, patch);
 	result.is_ok()
 }
 
@@ -228,44 +226,13 @@ pub unsafe extern "C" fn patch_read_current(patch: &Patch) -> Option<repr_c::Vec
 /// And increment/decrement the operands by the offset.
 pub unsafe extern "C" fn reassemble_instruction_at_offset(
 	bytes: repr_c::Vec<u8>,
-	offset: isize,
+	offset: usize,
 ) -> Option<repr_c::Vec<u8>> {
 	let bytes: Vec<u8> = bytes.clone().into();
 
-	let mut result: lm_inst_t = std::mem::zeroed();
-	if LM_Disassemble(bytes.as_ptr() as _, &raw mut result) == LM_FALSE {
-		return None;
-	}
+	let disassembled = libmem::disassemble(bytes.as_ptr() as _)?;
 
-	let mnemonic = std::ffi::CStr::from_ptr(result.mnemonic.as_ptr())
-		.to_str()
-		.unwrap()
-		.to_owned();
+	let asm = format!("{} {}", disassembled.mnemonic, disassembled.op_str);
 
-	let ops = std::ffi::CStr::from_ptr(result.op_str.as_ptr())
-		.to_str()
-		.unwrap()
-		.to_owned();
-
-	let asm = std::ffi::CString::new(format!("{} {}", mnemonic, ops)).unwrap();
-
-	let mut reassembled: *mut u8 = std::ptr::null_mut();
-	if LM_AssembleEx(
-		asm.as_ptr(),
-		LM_ARCH_X86,
-		64,
-		offset as _,
-		&raw mut reassembled,
-	) == 0
-	{
-		return None;
-	}
-
-	let bytes: Vec<u8> = std::slice::from_raw_parts(reassembled, bytes.len())
-		.to_owned()
-		.to_vec();
-
-	LM_FreePayload(reassembled);
-
-	Some(bytes.into())
+	libmem::assemble_ex(&asm, libmem::Arch::X86, offset).map(|bytes| bytes.into())
 }
