@@ -82,10 +82,10 @@ steps:
       - sh -c "git push -u origin $CI_REPO_DEFAULT_BRANCH"
       # Zip up the build for release
       - >
-        zip toolkit-$VERSION-x86_64-pc-windows-msvc.zip
-        target/x86_64-pc-windows-msvc/release/emtk.exe
-        target/x86_64-pc-windows-msvc/release/deps/emf.dll
-        target/x86_64-pc-windows-msvc/release/deps/emf.dll.lib
+        zip toolkit-$VERSION-x86_64-pc-windows-msvc.zip -j
+        target/x86_64-pc-windows-msvc/release/emtk.exe emtk.exe
+        target/x86_64-pc-windows-msvc/release/deps/emf.dll emf.dll
+        target/x86_64-pc-windows-msvc/release/deps/emf.dll.lib emf.dll.lib
 
   publish:
     image: debian:bookworm
