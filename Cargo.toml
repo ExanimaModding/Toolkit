@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "examples/*"]
+members = ["crates/*", "bindings/rust/*", "examples/*"]
 default-members = ["crates/emtk"]
 
 [workspace.package]

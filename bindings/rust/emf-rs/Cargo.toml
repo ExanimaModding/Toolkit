@@ -1,0 +1,13 @@
+[package]
+name = "emf-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.86"
+emf-types = { workspace = true }
+emf-sys = { path = "../emf-sys" }
+log = "0.4.22"
+safer-ffi = "0.1.9"
+emf-rs-macros = { path = "../emf-rs-macros" }
+once_cell = "1.19.0"
