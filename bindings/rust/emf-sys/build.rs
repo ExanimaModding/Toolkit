@@ -37,6 +37,11 @@ pub fn main() {
 
 	let metadata = std::fs::metadata(&out_file);
 
+	// Only download the latest release if the file doesn't exist.
+	if metadata.is_ok() {
+		return;
+	}
+
 	let result = ureq::get(LATEST_RELEASE).call();
 
 	if let Ok(result) = result {
@@ -48,16 +53,6 @@ pub fn main() {
 			.find(|asset| asset.name.ends_with(".zip"));
 
 		if let Some(asset) = asset {
-			// If the file is different, download the latest release.
-			if let Ok(metadata) = metadata {
-				if metadata.file_size() != asset.size as u64 {
-					println!("Downloading the latest release of emf.dll.lib");
-				} else {
-					println!("emf.dll.lib is up to date.");
-					return;
-				}
-			}
-
 			let url = &asset.browser_download_url;
 			let mut bytes: Vec<u8> = Vec::with_capacity(asset.size);
 			let read = ureq::get(url)
