@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.0.1] - 2024-07-26
+## [0.0.1] - 2024-07-29
 
 ### Added
 
@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add workspace package to the project (#31) - ([7d4b50c](https://codeberg.org/ExanimaModding/Toolkit/commit/7d4b50c0f5850a6874fe59478248d356103beed5))
 - Add imgui overlay (#35) - ([40c707b](https://codeberg.org/ExanimaModding/Toolkit/commit/40c707b96fb00a9f8ccb684c53cbb5af99b4c50c))
 - Add 'implement' keyword to cliff.toml - ([dcf4816](https://codeberg.org/ExanimaModding/Toolkit/commit/dcf4816aa74c91806fec65d230ea244311603c10))
+- Add rust bindings for plugins (#43) - ([c9b060d](https://codeberg.org/ExanimaModding/Toolkit/commit/c9b060d9fdff006136ea93f9cea8289c9befd4cd))
 
 ### Changed
 
