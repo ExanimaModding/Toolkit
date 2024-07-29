@@ -8,21 +8,39 @@ use emf_rs::safer_ffi::prelude::char_p;
 
 #[plugin(id = "dev.megu.demo-plugin")]
 mod plugin {
+	// #[hook_signature] is used to hook a function based on a byte signature, provided as a string.
+	// take a look at the register!() macro below to see how it's used.
+	//
+	// There is also a #[hook_address] attribute that uses a pointer instead of a signature.
+	// This is useful when finding the address is not as simple as providing a byte signature.
+	// e.g.
+	// register!(
+	//   let address = { some code }; // however you find your address
+	//   address // return the address
+	// );
 	#[hook_signature]
 	#[link_setting("godmode_enabled")]
 	extern "C" fn proc_dmg_and_stamina(motile_ptr: *mut c_void, _: f32) -> c_char {
-		// the register!() macro returns a pointer to the target function
+		// the register!() macro returns a signature to the target function when using #[hook_signature]
 		register!("53 56 48 8D 64 24 D8 48 89 CB 40 30 F6 8B 05 ?? ?? ?? ?? 89");
 
-		println!("Motile Pointer: {:p}", motile_ptr);
+		println!("Stopping damage for motile: {:p}", motile_ptr);
 
 		// calling proc_dmg_from_stamina from inside the hook runs the original function
 		proc_dmg_and_stamina(motile_ptr, 0.0)
 	}
 
+	// #[patch_signature] is used to patch a function based on a byte signature, provided as a string.
+	// take a look at the register!() macro below to see how it's used.
+	//
+	// Just like #[hook_address], there is also a #[patch_address] attribute, used in the same way.
+	//
+	// The address found at the signature (or address) is passed into the function as the first argument.
+	// This way, you can read the data from that address if you need to use it. See the examples below.
 	#[patch_signature]
 	#[link_setting("godhand_enabled")]
 	fn ignore_range_limit_for_placement(_address: *mut u8) -> Vec<u8> {
+		// the register!() macro returns a signature to the target memory when using #[patch_signature]
 		register!("48 8B 40 10 48 8D 48 20");
 
 		vec![

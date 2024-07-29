@@ -220,8 +220,6 @@ impl Plugin {
 			.get_mut(link_to)
 			.unwrap()
 			.push(setting_name.to_string());
-
-		dbg!(&self.setting_links);
 	}
 }
 
@@ -323,7 +321,6 @@ impl Plugin {
 				handler(&name, value);
 			}
 		} else if let Some(linked_settings) = self.setting_links.get_mut(setting_name).cloned() {
-			dbg!(&linked_settings);
 			for linked_setting in linked_settings {
 				// Prevent infinite loops.
 				if linked_setting == setting_name {

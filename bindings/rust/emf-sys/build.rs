@@ -2,7 +2,7 @@
 //!
 //! This is so that users don't have to build the entirety of EMF to write plugins.
 
-use std::{os::windows::fs::MetadataExt, path::PathBuf};
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 

@@ -30,19 +30,16 @@ pub(crate) fn parse(
 			AddressingType::Signature(get_patch_offset(patch_signature.clone()).unwrap_or(0))
 		}
 		(None, Some(_patch_pointer)) => AddressingType::Pointer,
-		(Some(patch_signature), Some(patch_pointer)) => {
+		(Some(_patch_signature), Some(_patch_pointer)) => {
 			return_syn_err!(
 				func.sig,
-				format!(
-					"Only one of #[patch_signature] or #[patch_pointer] must be provided {:?}\n{:?}",
-					patch_signature, patch_pointer
-				)
+				"Only one of #[patch_signature], #[patch_pointer], #[hook_signature], #[hook_pointer] must be provided"
 			);
 		}
 		(None, None) => {
 			return_syn_err!(
 				func.sig,
-				"One of #[patch_signature] or #[patch_pointer] must be provided"
+				"One of #[patch_signature], #[patch_pointer], #[hook_signature], #[hook_pointer] must be provided"
 			);
 		}
 	};
