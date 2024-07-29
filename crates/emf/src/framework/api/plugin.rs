@@ -30,8 +30,6 @@ pub fn get_setting_bool(
 		}
 	}
 
-	warn!("Setting {}::{} not found", id, key);
-
 	Box::new(GetSettingReturnValue {
 		value: false,
 		found: false,
@@ -68,8 +66,6 @@ pub fn get_setting_string(
 		}
 	}
 
-	warn!("Setting {} not found", key);
-
 	GetSettingReturnValue {
 		value: char_p::new(""),
 		found: false,
@@ -99,8 +95,6 @@ pub fn get_setting_integer(id: repr_c::String, key: repr_c::String) -> GetSettin
 		}
 	}
 
-	warn!("Setting {} not found", key);
-
 	GetSettingReturnValue {
 		value: 0,
 		found: false,
@@ -129,8 +123,6 @@ pub fn get_setting_float(id: repr_c::String, key: repr_c::String) -> GetSettingR
 			}
 		}
 	}
-
-	warn!("Setting {} not found", key);
 
 	GetSettingReturnValue {
 		value: 0.,

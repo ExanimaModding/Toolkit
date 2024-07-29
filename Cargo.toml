@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "examples/*"]
+members = ["crates/*", "bindings/rust/*", "examples/*"]
 default-members = ["crates/emtk"]
 
 [workspace.package]
@@ -15,7 +15,6 @@ license = "GPL-3.0-only"
 [workspace.dependencies]
 bitstream-io = "2.5.0"
 detours-sys = { path = "./crates/detours" }
-dynasmrt = "2.0.0"
 emf-types = { path = "./crates/emf-types" }
 log = "0.4.21"
 pretty_env_logger = "0.5.0"

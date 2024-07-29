@@ -1,5 +1,5 @@
 [package]
-name = "godhand"
+name = "demo-plugin"
 version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
@@ -12,7 +12,5 @@ license = { workspace = true }
 crate-type = ["cdylib"]
 
 [dependencies]
-log = { workspace = true }
-pretty_env_logger = { workspace = true }
-safer-ffi = { workspace = true }
-emf-types = { workspace = true }
+emf-rs = { path = "../../bindings/rust/emf-rs" }
+log = "0.4.22"

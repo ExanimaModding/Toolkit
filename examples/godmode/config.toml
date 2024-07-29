@@ -6,7 +6,7 @@ version = "1.0.0"
 supported_versions = ["1.0.0"]
 url = "https://codeberg.org/ExanimaModding/Toolkit/src/branch/main/examples/godmode"
 executable = "godmode.dll"
-enabled = true
+enabled = false
 
 [plugin.author]
 name = "Megu"
