@@ -7,3 +7,6 @@ documentation = { workspace = true }
 homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
+
+[dependencies]
+semver = "1.0.23"

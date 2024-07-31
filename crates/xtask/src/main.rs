@@ -15,6 +15,7 @@ fn main() {
 		None => print_help(),
 		Some(t) => match t.as_str() {
 			"run" => run(),
+			"make-installer" => make_installer(),
 			_ => run_plugin(&t, None),
 		},
 	}
@@ -70,6 +71,42 @@ fn project_root() -> &'static Path {
 		.unwrap()
 		.parent()
 		.unwrap()
+}
+
+fn make_installer() {
+	let project_root = project_root();
+	let cargo_pkg_version = env::var("CARGO_PKG_VERSION").unwrap();
+
+	let parsed_version = semver::Version::parse(&cargo_pkg_version).unwrap();
+
+	// If the prerelease value is not a number, use 0.
+	let pre = if parsed_version.pre.parse::<u64>().is_ok() {
+		parsed_version.pre.to_string()
+	} else {
+		"0".to_owned()
+	};
+
+	let product_version = format!(
+		"{}.{}.{}.{}",
+		parsed_version.major, parsed_version.minor, parsed_version.patch, pre
+	);
+
+	dbg!(product_version.clone());
+
+	let nsi_path = project_root
+		.join("assets")
+		.join("installer")
+		.join("installer.nsi");
+
+	process::Command::new("makensis")
+		.current_dir(project_root)
+		.args([
+			&format!("/DCARGO_PKG_VERSION={}", cargo_pkg_version),
+			&format!("/DPRODUCT_VERSION={}", product_version),
+			nsi_path.to_str().unwrap(),
+		])
+		.status()
+		.expect("error while running makensis");
 }
 
 /// Reads the EXANIMA_EXE environment variable and returns it as a [`PathBuf`].
