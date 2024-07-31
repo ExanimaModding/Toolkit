@@ -9,13 +9,26 @@ repository = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
+anyhow = "1.0.86"
 detours-sys = { workspace = true }
 # EMF is needed as a dependency so that emf.dll gets compiled before running EMTK.
 emf = { path = "../emf" }
+iced = { git = "https://github.com/iced-rs/iced", rev = "fd593f8fb0c8476463f9c04ae2bcc96784b8c530", features = [
+	"markdown",
+] }
+tokio = { version = "1.39.2", features = ["macros", "rt", "rt-multi-thread"] }
+serde = { workspace = true }
 winapi = { workspace = true }
+ureq = { version = "2.10.0", features = ["json"] }
+chrono = { version = "0.4.38", features = ["serde"] }
+log.workspace = true
+image = { version = "0.25.2", features = ["ico"] }
+semver = "1.0.23"
+open = "5.3.0"
 
 [build-dependencies]
 cbindgen = "0.26.0"
+winresource = "0.1.17"
 
 # emf.dll is required for emtk to inject into the game.
 [package.metadata.cargo-machete]
