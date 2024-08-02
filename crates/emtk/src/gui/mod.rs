@@ -1,13 +1,12 @@
 mod constants;
 mod menu;
 mod pages;
-mod right_panel;
+mod state;
 
-use anyhow::Result;
 use iced::{
 	event,
-	widget::{container, Button, Column, Container, Row, Rule, Text, TextInput},
-	window, Element, Event, Padding, Settings, Subscription, Task, Theme,
+	widget::{Column, Container, Row, Rule, Text},
+	window, Element, Event, Padding, Subscription, Task, Theme,
 };
 
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
@@ -17,16 +16,20 @@ pub enum Message {
 	FirstRun,
 	EventOccurred(Event),
 	Menu(menu::Message),
-	RightPanel(right_panel::Message),
 	HomePage(pages::home::Message),
+	Changelog(pages::changelog::Message),
+	Mods(pages::mods::Message),
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct State {
 	menu: menu::Menu,
-	content: right_panel::RightPanel,
 
 	home_page: pages::home::Home,
+	changelog: pages::changelog::Changelog,
+	mods_page: pages::mods::Mods,
+
+	app_state: state::AppState,
 }
 
 impl State {
@@ -36,15 +39,14 @@ impl State {
 
 	pub fn view(&self) -> Element<Message> {
 		let page: Element<Message> = match self.menu.current_page {
-			menu::Page::Home => self.home_page.view().map(Message::HomePage),
-			menu::Page::Mods => Column::new()
-				.spacing(10.)
-				// .push(Text::new("Mods").size(30))
-				.push(Text::new("Here you can manage your installed mods.").size(20))
-				.into(),
+			menu::Page::Home => self
+				.home_page
+				.view(&self.changelog.latest_release)
+				.map(Message::HomePage),
+			menu::Page::Changelog => self.changelog.view().map(Message::Changelog),
+			menu::Page::Mods => self.mods_page.view().map(Message::Mods),
 			menu::Page::Settings => Column::new()
 				.spacing(10.)
-				// .push(Text::new("Settings").size(30))
 				.push(Text::new("Here you can configure the toolkit.").size(20))
 				.into(),
 		};
@@ -70,7 +72,13 @@ impl State {
 
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
-			Message::FirstRun => Task::done(pages::home::Message::default()).map(Message::HomePage),
+			Message::FirstRun => Task::batch([
+				Task::done(pages::changelog::Message::default()).map(Message::Changelog),
+				Task::done(pages::mods::Message::LoadSettings(
+					self.app_state.settings.clone(),
+				))
+				.map(Message::Mods),
+			]),
 			Message::EventOccurred(event) => {
 				if let Event::Window(window::Event::CloseRequested) = event {
 					window::get_latest().and_then(window::close)
@@ -78,9 +86,10 @@ impl State {
 					Task::none()
 				}
 			}
-			Message::HomePage(message) => self.home_page.update(message),
-			Message::Menu(message) => self.menu.update(message),
-			_ => Task::none(),
+			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
+			Message::Changelog(message) => self.changelog.update(&mut self.app_state, message),
+			Message::Menu(message) => self.menu.update(&mut self.app_state, message),
+			Message::Mods(message) => self.mods_page.update(&mut self.app_state, message),
 		}
 	}
 
