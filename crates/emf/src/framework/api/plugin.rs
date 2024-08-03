@@ -41,7 +41,7 @@ pub fn get_setting_bool(
 pub fn get_setting_string(
 	id: repr_c::String,
 	key: repr_c::String,
-) -> repr_c::Box<GetSettingReturnValue<char_p::Box>> {
+) -> repr_c::Box<GetSettingReturnValue<repr_c::String>> {
 	let id = id.to_string();
 	let key = key.to_string();
 
@@ -54,7 +54,7 @@ pub fn get_setting_string(
 			match setting.clone().value {
 				Some(PluginConfigSettingValue::String(value)) => {
 					return Box::new(GetSettingReturnValue {
-						value: char_p::new(value),
+						value: value.into(),
 						found: true,
 					})
 					.into();
@@ -68,7 +68,7 @@ pub fn get_setting_string(
 	}
 
 	Box::new(GetSettingReturnValue {
-		value: char_p::new(""),
+		value: "".into(),
 		found: false,
 	})
 	.into()
