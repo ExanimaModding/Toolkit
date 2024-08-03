@@ -41,7 +41,7 @@ pub fn get_setting_bool(
 pub fn get_setting_string(
 	id: repr_c::String,
 	key: repr_c::String,
-) -> GetSettingReturnValue<char_p::Box> {
+) -> repr_c::Box<GetSettingReturnValue<char_p::Box>> {
 	let id = id.to_string();
 	let key = key.to_string();
 
@@ -53,10 +53,11 @@ pub fn get_setting_string(
 		if let Some(setting) = setting {
 			match setting.clone().value {
 				Some(PluginConfigSettingValue::String(value)) => {
-					return GetSettingReturnValue {
+					return Box::new(GetSettingReturnValue {
 						value: char_p::new(value),
 						found: true,
-					};
+					})
+					.into();
 				}
 				Some(_) => {
 					warn!("Setting {} is not a string", key);
@@ -66,14 +67,18 @@ pub fn get_setting_string(
 		}
 	}
 
-	GetSettingReturnValue {
+	Box::new(GetSettingReturnValue {
 		value: char_p::new(""),
 		found: false,
-	}
+	})
+	.into()
 }
 
 #[ffi_export]
-pub fn get_setting_integer(id: repr_c::String, key: repr_c::String) -> GetSettingReturnValue<i64> {
+pub fn get_setting_integer(
+	id: repr_c::String,
+	key: repr_c::String,
+) -> repr_c::Box<GetSettingReturnValue<i64>> {
 	let id = id.to_string();
 	let key = key.to_string();
 
@@ -85,7 +90,7 @@ pub fn get_setting_integer(id: repr_c::String, key: repr_c::String) -> GetSettin
 		if let Some(setting) = setting {
 			match setting.clone().value {
 				Some(PluginConfigSettingValue::Integer(value)) => {
-					return GetSettingReturnValue { value, found: true };
+					return Box::new(GetSettingReturnValue { value, found: true }).into();
 				}
 				Some(_) => {
 					warn!("Setting {} is not an integer", key);
@@ -95,14 +100,18 @@ pub fn get_setting_integer(id: repr_c::String, key: repr_c::String) -> GetSettin
 		}
 	}
 
-	GetSettingReturnValue {
+	Box::new(GetSettingReturnValue {
 		value: 0,
 		found: false,
-	}
+	})
+	.into()
 }
 
 #[ffi_export]
-pub fn get_setting_float(id: repr_c::String, key: repr_c::String) -> GetSettingReturnValue<f64> {
+pub fn get_setting_float(
+	id: repr_c::String,
+	key: repr_c::String,
+) -> repr_c::Box<GetSettingReturnValue<f64>> {
 	let id = id.to_string();
 	let key = key.to_string();
 
@@ -114,7 +123,7 @@ pub fn get_setting_float(id: repr_c::String, key: repr_c::String) -> GetSettingR
 		if let Some(setting) = setting {
 			match setting.clone().value {
 				Some(PluginConfigSettingValue::Float(value)) => {
-					return GetSettingReturnValue { value, found: true };
+					return Box::new(GetSettingReturnValue { value, found: true }).into();
 				}
 				Some(_) => {
 					warn!("Setting {} is not a float", key);
@@ -124,8 +133,9 @@ pub fn get_setting_float(id: repr_c::String, key: repr_c::String) -> GetSettingR
 		}
 	}
 
-	GetSettingReturnValue {
+	Box::new(GetSettingReturnValue {
 		value: 0.,
 		found: false,
-	}
+	})
+	.into()
 }
