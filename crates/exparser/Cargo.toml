@@ -1,0 +1,21 @@
+[package]
+name = "exparser"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+# This branch fixes an issue with `id_pat = "_"`
+# We can stop using this once the fix PR is merged.
+# See: https://github.com/sharksforarms/deku/pull/454
+deku = { git = "https://github.com/sharksforarms/deku.git", rev = "88e6e0bedbfcec4f2ca6eda964895622cd4391ec" }
+log = { workspace = true }
+serde = { workspace = true }
+pyo3 = { version = "0.22.2", optional = true }
+
+[features]
+python = ["dep:pyo3"]
