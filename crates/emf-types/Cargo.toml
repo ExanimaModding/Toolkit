@@ -9,5 +9,5 @@ repository = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-serde = { workspace = true }
 safer-ffi = { workspace = true }
+serde = { workspace = true }

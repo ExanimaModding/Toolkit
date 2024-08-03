@@ -14,8 +14,8 @@ license = { workspace = true }
 # See: https://github.com/sharksforarms/deku/pull/454
 deku = { git = "https://github.com/sharksforarms/deku.git", rev = "88e6e0bedbfcec4f2ca6eda964895622cd4391ec" }
 log = { workspace = true }
-serde = { workspace = true }
 pyo3 = { version = "0.22.2", optional = true }
+serde = { workspace = true }
 
 [features]
 python = ["dep:pyo3"]

@@ -23,10 +23,17 @@ required-features = ["headers"]
 anyhow = "1.0.86"
 detours-sys = { workspace = true }
 emf-types = { workspace = true }
+hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef25735fde84731745824341d506", features = [
+	"opengl3",
+	"imgui-docking",
+	"imgui-tables-api",
+], default-features = false }
+image = "0.25.2"
 libloading = "0.8.3"
 libmem = { git = "https://github.com/rdbo/libmem.git", rev = "91dd26a7557ee7a857741394e57d62ce5129ee98" }
 log = { workspace = true }
 once_cell = "1.19.0"
+open = "5.3.0"
 path-clean = "1.0.1"
 pelite = "0.10.0"
 pretty_env_logger = { workspace = true }
@@ -34,13 +41,6 @@ safer-ffi = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
 winapi = { workspace = true }
-hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef25735fde84731745824341d506", features = [
-	"opengl3",
-	"imgui-docking",
-	"imgui-tables-api",
-], default-features = false }
-open = "5.3.0"
-image = "0.25.2"
 
 [features]
 headers = ["safer-ffi/headers"]
