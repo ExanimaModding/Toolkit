@@ -15,8 +15,14 @@ detours-sys = { workspace = true }
 emf = { path = "../emf" }
 iced = { git = "https://github.com/iced-rs/iced", rev = "fd593f8fb0c8476463f9c04ae2bcc96784b8c530", features = [
 	"markdown",
+	"tokio",
 ] }
-tokio = { version = "1.39.2", features = ["macros", "rt", "rt-multi-thread"] }
+tokio = { version = "1.39.2", features = [
+	"macros",
+	"rt",
+	"rt-multi-thread",
+	"sync",
+] }
 serde.workspace = true
 winapi = { workspace = true }
 ureq = { version = "2.10.0", features = ["json"] }
@@ -28,6 +34,8 @@ open = "5.3.0"
 toml.workspace = true
 dirs = "5.0.1"
 emf-types = { workspace = true }
+exparser = { path = "../exparser" }
+async-stream = "0.3.5"
 
 [build-dependencies]
 cbindgen = "0.26.0"

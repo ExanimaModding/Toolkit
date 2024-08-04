@@ -58,6 +58,11 @@ pub struct PluginConfigPlugin {
 	/// e.g. `"com.yourusername.pluginname.dll"`
 	pub executable: Option<String>,
 
+	/// Whether the plugin has an "assets" folder
+	///
+	/// e.g. `true`
+	pub has_assets: bool,
+
 	/// Whether the plugin is enabled
 	///
 	/// e.g. `true`

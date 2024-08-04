@@ -78,6 +78,10 @@ impl State {
 					self.app_state.settings.clone(),
 				))
 				.map(Message::Mods),
+				Task::done(pages::home::Message::LoadSettings(
+					self.app_state.settings.clone(),
+				))
+				.map(Message::HomePage),
 			]),
 			Message::EventOccurred(event) => {
 				if let Event::Window(window::Event::CloseRequested) = event {

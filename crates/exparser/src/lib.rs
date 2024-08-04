@@ -6,6 +6,7 @@ pub mod wav;
 
 use std::io;
 
+pub use deku;
 use deku::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -77,6 +78,7 @@ impl Format {
 	}
 }
 
+// TODO: rename struct
 pub(crate) struct VecReader;
 
 impl VecReader {
@@ -94,5 +96,15 @@ impl VecReader {
 		data: &Vec<u8>,
 	) -> Result<(), DekuError> {
 		writer.write_bytes(data.as_slice())
+	}
+
+	pub(crate) fn write_nested<W: io::Write + io::Seek>(
+		writer: &mut Writer<W>,
+		data: &Vec<Vec<u8>>,
+	) -> Result<(), DekuError> {
+		for vec in data {
+			Self::write(writer, vec)?;
+		}
+		Ok(())
 	}
 }
