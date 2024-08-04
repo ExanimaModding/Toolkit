@@ -61,12 +61,17 @@ pub struct PluginConfigPlugin {
 	/// Whether the plugin has an "assets" folder
 	///
 	/// e.g. `true`
+	#[serde(default = "default_false")]
 	pub has_assets: bool,
 
 	/// Whether the plugin is enabled
 	///
 	/// e.g. `true`
 	pub enabled: bool,
+}
+
+fn default_false() -> bool {
+	false
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

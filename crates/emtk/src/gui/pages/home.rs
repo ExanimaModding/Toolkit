@@ -1,6 +1,10 @@
-use std::{fs, io, path::PathBuf};
+use std::{
+	fs, io,
+	path::{Path, PathBuf},
+};
 
 use exparser::{deku::prelude::*, Format};
+use tokio::sync::mpsc::Sender;
 
 use super::changelog::GetLatestReleaseState;
 use crate::{config::AppSettings, gui::constants};
@@ -214,105 +218,8 @@ fn load_mods(mod_load_order: Vec<String>, exanima_exe: String) -> impl Stream<It
 		tokio::spawn(async move {
 			let exanima_exe_path = PathBuf::from(exanima_exe);
 			let exanima_path = exanima_exe_path.parent().unwrap();
-			let mut rpk_step = 0;
-			// loop through each of the exanima's rpk files
-			for entry in exanima_path
-				.read_dir()
-				.expect("error while reading exanima directory")
-				.flatten()
-			{
-				let path = entry.path();
-				let file_name = path
-					.file_name()
-					.expect("error while reading file name")
-					.to_str()
-					.expect("error while getting file name");
-				if path.is_dir() || !file_name.ends_with(".rpk") {
-					continue;
-				}
+			merge_mod_assets(tx, exanima_path, mod_load_order).await;
 
-				rpk_step += 1;
-				let mut exanima_file = fs::File::open(&path).expect("error opening file");
-				let mut buf_reader = io::BufReader::new(&mut exanima_file);
-				let mut reader = Reader::new(&mut buf_reader);
-				// exanima_format is the exanima's Textures.rpk
-				let mut exanima_format =
-					Format::from_reader_with_ctx(&mut reader, ()).expect("error reading format");
-
-				// loop through each mod in the load order
-				for (i, mod_name) in mod_load_order.iter().enumerate() {
-					let mod_path = exanima_path
-						.join("mods")
-						.join(mod_name)
-						.join("assets")
-						.join(file_name);
-					if !mod_path.exists() {
-						continue;
-					}
-					// crate::loader::load_mod(mod_rpk_path, &mut format).expect("failed loading mod");
-					let mut mod_file = fs::File::open(&mod_path).unwrap();
-					let mut buf_reader = io::BufReader::new(&mut mod_file);
-					let mut reader = Reader::new(&mut buf_reader);
-					// mod_format is the mod's Textures.rpk
-					let mod_format = Format::from_reader_with_ctx(&mut reader, ()).unwrap();
-					if let Format::Rpk(mod_rpk) = mod_format {
-						if let Format::Rpk(exanima_rpk) = &mut exanima_format {
-							// loop through the mod's rpk file
-							for (j, mod_entry) in mod_rpk.entries.iter().enumerate() {
-								tx.send(GameStartState::Loading(
-									j as f32,
-									mod_entry.name.clone(),
-									rpk_step as f32,
-									file_name.to_string(),
-								))
-								.await
-								.unwrap();
-
-								// loop through exanima's rpk file
-								for (k, exanima_entry) in exanima_rpk.entries.iter_mut().enumerate() {
-									if mod_entry.name == exanima_entry.name {
-										let mod_data =
-											mod_rpk.data.get(j).expect("error getting mod rpk data");
-										let rpk_data = exanima_rpk
-											.data
-											.get_mut(k)
-											.expect("error getting exanima rpk data");
-										*rpk_data = mod_data.clone();
-									}
-								}
-							}
-						}
-					}
-				}
-				let mut prev_offset = 0;
-				let mut prev_size = 0;
-				if let Format::Rpk(exanima_rpk) = &mut exanima_format {
-					let mut entries = exanima_rpk.entries.to_vec();
-					entries.sort_by(|a, b| a.offset.cmp(&b.offset));
-					for (i, exanima_data) in exanima_rpk.data.iter().enumerate() {
-						let entry = entries
-							.get_mut(i)
-							.expect("error getting exanima entry");
-						entry.offset = prev_offset + prev_size;
-						entry.size = exanima_data.len() as u32;
-						prev_offset = entry.offset;
-						prev_size = entry.size;
-					}
-					exanima_rpk.entries = entries;
-				}
-
-				let cache_path = PathBuf::from("C:/Users/Dea/AppData/Local/Exanima Modding Toolkit")
-					.join(file_name);
-				let mut cache_file =
-					fs::File::create(cache_path).expect("error while creating cache file");
-				let mut cache_buf_writer = io::BufWriter::new(&mut cache_file);
-				let mut cache_writer = Writer::new(&mut cache_buf_writer);
-				exanima_format
-					.to_writer(&mut cache_writer, ())
-					.expect("error while serializing to cache file");
-			}
-
-			tx.send(GameStartState::Loaded).await.unwrap();
 		});
 
 		while let Some(state) = rx.recv().await {
@@ -323,4 +230,133 @@ fn load_mods(mod_load_order: Vec<String>, exanima_exe: String) -> impl Stream<It
 			}
 		}
 	}
+}
+
+async fn merge_mod_assets(
+	tx: Sender<GameStartState>,
+	exanima_path: &Path,
+	mod_load_order: Vec<String>,
+) {
+	let mut rpk_step = 0;
+	// loop through each of the exanima's rpk files
+	for entry in exanima_path
+		.read_dir()
+		.expect("error while reading exanima directory")
+		.flatten()
+	{
+		let path = entry.path();
+		let file_name = path
+			.file_name()
+			.expect("error while reading file name")
+			.to_str()
+			.expect("error while getting file name");
+		if path.is_dir() || !file_name.ends_with(".rpk") {
+			continue;
+		}
+
+		rpk_step += 1;
+		let mut exanima_file = fs::File::open(&path).expect("error opening file");
+		let mut buf_reader = io::BufReader::new(&mut exanima_file);
+		let mut reader = Reader::new(&mut buf_reader);
+		// exanima_format is the exanima's Textures.rpk
+		let mut exanima_format =
+			Format::from_reader_with_ctx(&mut reader, ()).expect("error reading format");
+
+		if let Format::Rpk(exanima_rpk) = &mut exanima_format {
+			let original_entry_order = exanima_rpk
+				.entries
+				.iter()
+				.map(|e| e.name.clone())
+				.collect::<Vec<String>>();
+
+			let mut exanima_sorted_entries = exanima_rpk.entries.to_vec();
+			exanima_sorted_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
+
+			// loop through each mod in the load order
+			for mod_name in mod_load_order.iter() {
+				let mod_path = exanima_path
+					.join("mods")
+					.join(mod_name)
+					.join("assets")
+					.join(file_name);
+				if !mod_path.exists() {
+					continue;
+				}
+				// crate::loader::load_mod(mod_rpk_path, &mut format).expect("failed loading mod");
+				let mut mod_file = fs::File::open(&mod_path).unwrap();
+				let mut buf_reader = io::BufReader::new(&mut mod_file);
+				let mut reader = Reader::new(&mut buf_reader);
+				// mod_format is the mod's Textures.rpk
+				let mod_format = Format::from_reader_with_ctx(&mut reader, ()).unwrap();
+				if let Format::Rpk(mod_rpk) = mod_format {
+					// loop through the mod's rpk file
+					let mut sorted_mod_entries = mod_rpk.entries.to_vec();
+					sorted_mod_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
+					for (mod_entry_idx, mod_entry) in sorted_mod_entries.iter().enumerate() {
+						tx.send(GameStartState::Loading(
+							mod_entry_idx as f32,
+							mod_entry.name.clone(),
+							rpk_step as f32,
+							file_name.to_string(),
+						))
+						.await
+						.unwrap();
+
+						// loop through exanima's rpk file
+						if let Some(exanima_entry_idx) = exanima_sorted_entries
+							.iter()
+							.position(|e| e.name == mod_entry.name)
+						{
+							let mod_data = mod_rpk.data.get(mod_entry_idx).expect("error getting mod rpk data");
+							let rpk_data = exanima_rpk
+								.data
+								.get_mut(exanima_entry_idx)
+								.expect("error getting exanima rpk data");
+							*rpk_data = mod_data.clone();
+						} else {
+							// TODO: Verify this works
+							// add the mod's entry to exanima's rpk file
+							exanima_sorted_entries.push(mod_entry.clone());
+							exanima_rpk.data.push(mod_rpk.data[mod_entry_idx].clone());
+						}
+					}
+				}
+			}
+			let mut prev_offset = 0;
+			let mut prev_size = 0;
+			for (i, exanima_data) in exanima_rpk.data.iter().enumerate() {
+				let entry = exanima_sorted_entries
+					.get_mut(i)
+					.expect("error getting exanima entry");
+				entry.offset = prev_offset + prev_size;
+				entry.size = exanima_data.len() as u32;
+				prev_offset = entry.offset;
+				prev_size = entry.size;
+			}
+			// sort by original_entry_order
+			exanima_sorted_entries.sort_by(|a, b| {
+				original_entry_order
+					.iter()
+					.position(|x| x == &a.name)
+					.cmp(&original_entry_order.iter().position(|x| x == &b.name))
+			});
+			exanima_rpk.entries = exanima_sorted_entries;
+		};
+
+		let cache_path =
+			PathBuf::from("C:/Users/Dea/AppData/Local/Exanima Modding Toolkit/AssetCache")
+				.join(file_name);
+		if !cache_path.exists() {
+			fs::create_dir_all(cache_path.parent().unwrap())
+				.expect("error while creating cache directory");
+		}
+		let mut cache_file = fs::File::create(cache_path).expect("error while creating cache file");
+		let mut cache_buf_writer = io::BufWriter::new(&mut cache_file);
+		let mut cache_writer = Writer::new(&mut cache_buf_writer);
+		exanima_format
+			.to_writer(&mut cache_writer, ())
+			.expect("error while serializing to cache file");
+	}
+
+	tx.send(GameStartState::Loaded).await.unwrap();
 }
