@@ -4,7 +4,7 @@ class Rpk:
     """Rayform Package"""
 
     entries: list[Entry]
-    data: bytes
+    data: list[bytes]
 
 class Entry:
     name: str
