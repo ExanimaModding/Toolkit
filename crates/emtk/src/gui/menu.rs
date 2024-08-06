@@ -12,8 +12,6 @@ pub enum Message {
 pub enum Page {
 	#[default]
 	Home,
-	Changelog,
-	Mods,
 	Settings,
 }
 
@@ -32,13 +30,14 @@ impl Menu {
 	pub fn view(&self) -> Element<'_, Message> {
 		let mut column: Row<Message> = Row::new().width(iced::Length::Fill).spacing(10.);
 
-		for item in &[Page::Home, Page::Changelog, Page::Mods, Page::Settings] {
+		for item in &[Page::Home, Page::Settings] {
 			let button: Button<Message> =
 				Button::new(Text::new(item.to_string()).center().size(20.))
 					.on_press(Message::PageChange(*item))
 					.style(|theme: &Theme, status| {
 						let palette = theme.extended_palette();
 						match self.current_page == *item {
+							// FIX: affects all buttons on the page
 							true => widget::button::Style::default()
 								.with_background(palette.primary.strong.color),
 							false => widget::button::primary(theme, status)

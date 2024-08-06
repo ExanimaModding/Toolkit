@@ -6,19 +6,14 @@ use std::{
 use exparser::{deku::prelude::*, Format};
 use tokio::sync::mpsc::Sender;
 
-use super::changelog::GetLatestReleaseState;
-use crate::{
-	config::{get_local_dir, AppSettings},
-	gui::constants,
-};
+use crate::config::{get_local_dir, AppSettings};
 
 use async_stream::stream;
 use iced::{
 	futures::Stream,
 	widget::{
-		self,
-		markdown::{self},
-		progress_bar, scrollable, Button, Column, Container, Row, Rule, Text,
+		checkbox::Checkbox, pane_grid, progress_bar, Button, Column, Container, PaneGrid, Row,
+		Rule, Text,
 	},
 	Element, Length, Task,
 };
@@ -29,7 +24,20 @@ pub enum Message {
 	StartGame(GameStartType),
 	LoadSettings(crate::config::AppSettings),
 	LaunchExanima(GameStartState),
+	ModDragged(pane_grid::DragEvent),
+	UpdateModOrder,
+	UpdateModSettings(bool),
 	UpdateProgress(ProgressBar),
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ProgressBar {
+	entry_step: usize,
+	entries: Vec<String>,
+	mod_step: usize,
+	mods: Vec<String>,
+	rpk_step: usize,
+	rpks: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -47,47 +55,48 @@ pub enum GameStartState {
 	Error(String),
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Home {
-	changelog: Vec<markdown::Item>,
+	plugin_panes: pane_grid::State<Plugin>,
 	game_start_state: GameStartState,
 	settings: AppSettings,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct ProgressBar {
-	entry_step: usize,
-	entries: Vec<String>,
-	mod_step: usize,
-	mods: Vec<String>,
-	rpk_step: usize,
-	rpks: Vec<String>,
+impl Default for Home {
+	fn default() -> Self {
+		let (plugin_panes, _) = pane_grid::State::new(Plugin::default());
+		Self {
+			plugin_panes,
+			game_start_state: GameStartState::default(),
+			settings: AppSettings::default(),
+		}
+	}
 }
 
 impl Home {
-	pub fn view(
-		&self,
-		latest_release: &super::changelog::GetLatestReleaseState,
-	) -> Element<Message> {
+	pub fn view(&self) -> Element<Message> {
 		Column::new()
-			.spacing(10.)
+			.spacing(10)
 			.push(Text::new("Welcome to the Exanima Modding Toolkit Launcher!").size(20))
-			.push(
-				Text::new(format!(
-					"You're currently on version {}",
-					constants::CARGO_PKG_VERSION
-				))
-				.size(20),
-			)
-			.push(self.get_latest_release(latest_release))
-			.push(Rule::horizontal(1.))
+			.push(Rule::horizontal(1))
+			.push(self.mods_list())
 			.push(self.show_home_section())
 			.into()
 	}
 
+	fn mods_list(&self) -> Element<Message> {
+		let mod_order = PaneGrid::new(&self.plugin_panes, |pane, plugin, is_maximized| {
+			let mod_toggle = Checkbox::new(plugin.name.clone(), plugin.enabled)
+				.on_toggle(Message::UpdateModSettings);
+			let col = Column::new().push(mod_toggle);
+			pane_grid::Content::new(col)
+		})
+		.on_drag(Message::ModDragged);
+		Container::new(mod_order).into()
+	}
+
 	fn show_home_section(&self) -> Element<Message> {
-		let col = Column::new()
-			.push(Container::new(Text::new("").height(Length::Fill)).height(Length::Fill));
+		let col = Column::new();
 
 		let col = if let GameStartState::Loading(progress) = &self.game_start_state {
 			let progress_col = Column::new().push(
@@ -193,50 +202,6 @@ impl Home {
 		}
 	}
 
-	fn get_latest_release(
-		&self,
-		latest_release: &super::changelog::GetLatestReleaseState,
-	) -> Element<Message> {
-		match &latest_release {
-			GetLatestReleaseState::NotStarted => Text::new("Checking for updates...").into(),
-			GetLatestReleaseState::Loading => Text::new("Checking for updates...").into(),
-			GetLatestReleaseState::Loaded(release) => {
-				let ver = semver::Version::parse(release.tag_name.trim_start_matches("v"))
-					.unwrap_or(semver::Version::new(0, 0, 0));
-
-				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
-					return Column::new()
-						.spacing(10.)
-						.push(Text::new("You're already up to date!"))
-						.push(Rule::horizontal(1.))
-						.push(scrollable(
-							widget::markdown(
-								&self.changelog,
-								widget::markdown::Settings::default(),
-							)
-							.map(|url| Message::OpenUrl(url.to_string())),
-						))
-						.into();
-				}
-
-				Column::new()
-					.spacing(10.)
-					.push(Text::new(format!(
-						"There's a new version available: {} (Published: {})",
-						release.tag_name,
-						release.published_at.format("%Y-%m-%d %H:%M:%S")
-					)))
-					.push(
-						Button::new(Text::new("Download"))
-							.on_press(Message::OpenUrl(release.html_url.clone()))
-							.width(100.),
-					)
-			}
-			.into(),
-			GetLatestReleaseState::Error(error) => Text::new(format!("Error: {}", error)).into(),
-		}
-	}
-
 	pub fn update(
 		&mut self,
 		_app_state: &mut crate::gui::state::AppState,
@@ -251,13 +216,7 @@ impl Home {
 			Message::StartGame(GameStartType::Modded) => {
 				self.game_start_state = GameStartState::Loading(ProgressBar::default());
 				log::info!("Starting modded Exanima...");
-				Task::stream(load_mods(
-					self.settings.mod_load_order.clone(),
-					self.settings
-						.exanima_exe
-						.clone()
-						.expect("error while getting exanima_exe"),
-				))
+				Task::stream(load_mods(self.settings.clone()))
 			}
 			Message::StartGame(GameStartType::Vanilla) => {
 				// TODO: start vanilla exanima
@@ -267,6 +226,23 @@ impl Home {
 			}
 			Message::LoadSettings(settings) => {
 				self.settings = settings;
+
+				let (mut plugin_panes, pane) = pane_grid::State::new(Plugin::default());
+				for (i, mod_setting) in self.settings.mods.iter().enumerate() {
+					plugin_panes.split(
+						pane_grid::Axis::Horizontal,
+						pane,
+						Plugin::new(
+							i,
+							None,
+							mod_setting.info.config.plugin.enabled,
+							mod_setting.info.config.plugin.name.clone(),
+						),
+					);
+				}
+				plugin_panes.close(pane);
+
+				self.plugin_panes = plugin_panes;
 				Task::none()
 			}
 			Message::LaunchExanima(state) => {
@@ -274,6 +250,17 @@ impl Home {
 				// TODO: launch exanima
 				// crate::launch_exanima();
 				log::info!("Launching exanima...");
+				Task::none()
+			}
+			Message::ModDragged(pane_grid::DragEvent::Dropped { pane, target }) => {
+				println!("Hello world");
+				self.plugin_panes.drop(pane, target);
+				Task::none()
+			}
+			Message::ModDragged(_) => Task::none(),
+			Message::UpdateModOrder => Task::none(),
+			Message::UpdateModSettings(mod_toggle) => {
+				// TODO: save settings
 				Task::none()
 			}
 			Message::UpdateProgress(progress) => {
@@ -286,16 +273,13 @@ impl Home {
 	}
 }
 
-fn load_mods(mod_load_order: Vec<String>, exanima_exe: String) -> impl Stream<Item = Message> {
+fn load_mods(settings: AppSettings) -> impl Stream<Item = Message> {
 	// fn load_mods(mod_load_order: Vec<String>, exanima_exe: String) {
 	stream! {
 		let (tx, mut rx) = tokio::sync::mpsc::channel::<GameStartState>(1);
 
 		tokio::spawn(async move {
-			let exanima_exe_path = PathBuf::from(exanima_exe);
-			let exanima_path = exanima_exe_path.parent().expect("error while getting parent of exanima exe");
-			merge_mod_assets(tx, exanima_path, mod_load_order).await;
-
+			merge_mod_assets(tx, settings).await;
 		});
 
 		while let Some(state) = rx.recv().await {
@@ -308,12 +292,17 @@ fn load_mods(mod_load_order: Vec<String>, exanima_exe: String) -> impl Stream<It
 	}
 }
 
-async fn merge_mod_assets(
-	tx: Sender<GameStartState>,
-	exanima_path: &Path,
-	mod_load_order: Vec<String>,
-) {
+async fn merge_mod_assets(tx: Sender<GameStartState>, settings: AppSettings) {
 	let mut progress_bar = ProgressBar::default();
+
+	let exanima_exe = PathBuf::from(
+		settings
+			.exanima_exe
+			.expect("error while getting exanima exe path"),
+	);
+	let exanima_path = exanima_exe
+		.parent()
+		.expect("error while getting parent directory of exanima exe");
 
 	let exanima_rpks: Vec<PathBuf> = exanima_path
 		.read_dir()
@@ -344,7 +333,7 @@ async fn merge_mod_assets(
 				.to_string()
 		})
 		.collect();
-	progress_bar.mods = mod_load_order.clone();
+	progress_bar.mods = settings.mod_load_order.clone();
 
 	for (i, path) in exanima_rpks.iter().enumerate() {
 		let file_name = path
@@ -364,10 +353,26 @@ async fn merge_mod_assets(
 			let mut exanima_sorted_entries = exanima_rpk.entries.to_vec();
 			exanima_sorted_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
-			for (j, mod_name) in mod_load_order.iter().enumerate() {
-				let mod_path = exanima_path
-					.join("mods")
-					.join(mod_name)
+			// TODO: design how mods should be considered enabled/disabled and how the mod load
+			// order should be like
+			// let enabled_plugins = settings.mods.iter().filter(|&plugin| {
+			// 	plugin.info.config.plugin.id
+			// });
+			//
+			// settings.mods;
+			// mod_load_order is a vec of mod ids where the order matters that includes all mods in settings.mods
+			// settings.mod_load_order;
+			// enabled_mods will be a vec of mod ids where the order doesn't matter that will be used to filter mod_load_order
+			// settings.enabled_mods;
+			// FIX: currently will loop through all mods regardless if it's enabled/disabled
+			// TODO: has_assets from config.toml should be used somewhere
+			for (j, plugin) in settings
+				.mods
+				.iter()
+				.filter(|&m| settings.mod_load_order.contains(&m.info.config.plugin.id))
+				.enumerate()
+			{
+				let mod_path = PathBuf::from(&plugin.info.path)
 					.join("assets")
 					.join(file_name);
 				if mod_path.exists() {
@@ -460,4 +465,23 @@ async fn merge_mod_assets(
 	tx.send(GameStartState::Loaded)
 		.await
 		.expect("error while sending finished state to channel");
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct Plugin {
+	id: usize,
+	order: Option<usize>,
+	enabled: bool,
+	name: String,
+}
+
+impl Plugin {
+	fn new(id: usize, order: Option<usize>, enabled: bool, name: String) -> Self {
+		Self {
+			id,
+			order,
+			enabled,
+			name,
+		}
+	}
 }

@@ -17,8 +17,7 @@ pub enum Message {
 	EventOccurred(Event),
 	Menu(menu::Message),
 	HomePage(pages::home::Message),
-	Changelog(pages::changelog::Message),
-	Mods(pages::mods::Message),
+	Settings(pages::settings::Message),
 }
 
 #[derive(Debug, Default, Clone)]
@@ -26,8 +25,7 @@ pub struct State {
 	menu: menu::Menu,
 
 	home_page: pages::home::Home,
-	changelog: pages::changelog::Changelog,
-	mods_page: pages::mods::Mods,
+	settings: pages::settings::Settings,
 
 	app_state: state::AppState,
 }
@@ -39,16 +37,8 @@ impl State {
 
 	pub fn view(&self) -> Element<Message> {
 		let page: Element<Message> = match self.menu.current_page {
-			menu::Page::Home => self
-				.home_page
-				.view(&self.changelog.latest_release)
-				.map(Message::HomePage),
-			menu::Page::Changelog => self.changelog.view().map(Message::Changelog),
-			menu::Page::Mods => self.mods_page.view().map(Message::Mods),
-			menu::Page::Settings => Column::new()
-				.spacing(10.)
-				.push(Text::new("Here you can configure the toolkit.").size(20))
-				.into(),
+			menu::Page::Home => self.home_page.view().map(Message::HomePage),
+			menu::Page::Settings => self.settings.view().map(Message::Settings),
 		};
 
 		Container::new(
@@ -73,11 +63,7 @@ impl State {
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
 			Message::FirstRun => Task::batch([
-				Task::done(pages::changelog::Message::default()).map(Message::Changelog),
-				Task::done(pages::mods::Message::LoadSettings(
-					self.app_state.settings.clone(),
-				))
-				.map(Message::Mods),
+				Task::done(pages::settings::Message::default()).map(Message::Settings),
 				Task::done(pages::home::Message::LoadSettings(
 					self.app_state.settings.clone(),
 				))
@@ -91,9 +77,8 @@ impl State {
 				}
 			}
 			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
-			Message::Changelog(message) => self.changelog.update(&mut self.app_state, message),
+			Message::Settings(message) => self.settings.update(&mut self.app_state, message),
 			Message::Menu(message) => self.menu.update(&mut self.app_state, message),
-			Message::Mods(message) => self.mods_page.update(&mut self.app_state, message),
 		}
 	}
 

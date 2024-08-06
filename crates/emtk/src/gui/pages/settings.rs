@@ -1,9 +1,10 @@
+use crate::gui::constants;
 use iced::{
 	theme,
 	widget::{
 		self,
 		markdown::{self},
-		scrollable, Column, Text,
+		scrollable, Button, Column, Rule, Text,
 	},
 	Element, Task,
 };
@@ -12,6 +13,7 @@ use iced::{
 pub enum Message {
 	GetLatestRelease(GetLatestReleaseState),
 	OpenUrl(String),
+	ToggleChangelog,
 }
 
 impl Default for Message {
@@ -30,12 +32,13 @@ pub enum GetLatestReleaseState {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct Changelog {
+pub struct Settings {
 	pub latest_release: GetLatestReleaseState,
+	expand_changelog: bool,
 	changelog: Vec<markdown::Item>,
 }
 
-impl Changelog {
+impl Settings {
 	pub fn new() -> (Self, Task<Message>) {
 		(
 			Self::default(),
@@ -44,6 +47,82 @@ impl Changelog {
 	}
 
 	pub fn view(&self) -> Element<Message> {
+		let col = Column::new()
+			.push(Text::new("Here you can configure the toolkit.").size(20))
+			.push(Rule::horizontal(1))
+			.spacing(10);
+
+		let col = col.push(self.version());
+
+		// TODO: indicate changelog button is a collapsible button
+		let col = col
+			.push(Button::new(Text::new("Changelog")).on_press(Message::ToggleChangelog))
+			.spacing(10);
+
+		if self.expand_changelog {
+			col.push(self.changelog()).into()
+		} else {
+			col.into()
+		}
+	}
+
+	fn version(&self) -> Element<Message> {
+		Column::new()
+			.push(
+				Text::new(format!(
+					"You're currently on version {}",
+					constants::CARGO_PKG_VERSION
+				))
+				.size(20),
+			)
+			.push(self.get_latest_release(&self.latest_release))
+			.push(Rule::horizontal(1))
+			.spacing(10)
+			.into()
+	}
+
+	fn get_latest_release(&self, latest_release: &GetLatestReleaseState) -> Element<Message> {
+		match &latest_release {
+			GetLatestReleaseState::NotStarted => Text::new("Checking for updates...").into(),
+			GetLatestReleaseState::Loading => Text::new("Checking for updates...").into(),
+			GetLatestReleaseState::Loaded(release) => {
+				let ver = semver::Version::parse(release.tag_name.trim_start_matches("v"))
+					.unwrap_or(semver::Version::new(0, 0, 0));
+
+				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
+					return Column::new()
+						.spacing(10.)
+						.push(Text::new("You're already up to date!"))
+						.push(Rule::horizontal(1.))
+						.push(scrollable(
+							widget::markdown(
+								&self.changelog,
+								widget::markdown::Settings::default(),
+							)
+							.map(|url| Message::OpenUrl(url.to_string())),
+						))
+						.into();
+				}
+
+				Column::new()
+					.spacing(10.)
+					.push(Text::new(format!(
+						"There's a new version available: {} (Published: {})",
+						release.tag_name,
+						release.published_at.format("%Y-%m-%d %H:%M:%S")
+					)))
+					.push(
+						Button::new(Text::new("Download"))
+							.on_press(Message::OpenUrl(release.html_url.clone()))
+							.width(100.),
+					)
+			}
+			.into(),
+			GetLatestReleaseState::Error(error) => Text::new(format!("Error: {}", error)).into(),
+		}
+	}
+
+	fn changelog(&self) -> Element<Message> {
 		match &self.latest_release {
 			GetLatestReleaseState::NotStarted => Text::new("Checking for updates...").into(),
 			GetLatestReleaseState::Loading => Text::new("Checking for updates...").into(),
@@ -105,10 +184,14 @@ impl Changelog {
 				open::that(url).unwrap();
 				Task::none()
 			}
+			Message::ToggleChangelog => {
+				self.expand_changelog = !self.expand_changelog;
+				Task::none()
+			}
 			_ => Task::none(),
 		};
 
-		result.map(crate::gui::Message::Changelog)
+		result.map(crate::gui::Message::Settings)
 	}
 }
 

@@ -35,8 +35,6 @@ impl AppSettings {
 			settings.mods = load_mod_info(exanima_exe);
 		}
 
-		dbg!(&settings);
-
 		settings
 	}
 
