@@ -23,7 +23,7 @@ tokio = { version = "1.39.2", features = [
 	"rt-multi-thread",
 	"sync",
 ] }
-serde.workspace = true
+serde = { workspace = true }
 winapi = { workspace = true }
 ureq = { version = "2.10.0", features = ["json"] }
 chrono = { version = "0.4.38", features = ["serde"] }

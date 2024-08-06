@@ -13,7 +13,6 @@ repository = "https://codeberg.org/ExanimaModding/Toolkit"
 license = "GPL-3.0-only"
 
 [workspace.dependencies]
-bitstream-io = "2.5.0"
 detours-sys = { path = "./crates/detours" }
 emf-types = { path = "./crates/emf-types" }
 log = "0.4.21"
