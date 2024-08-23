@@ -12,10 +12,11 @@ use async_stream::stream;
 use iced::{
 	futures::Stream,
 	widget::{
-		checkbox::Checkbox, pane_grid, progress_bar, Button, Column, Container, PaneGrid, Row,
-		Rule, Text,
+		checkbox::Checkbox,
+		container::{self},
+		pane_grid, progress_bar, Button, Column, Container, PaneGrid, Row, Rule, Text,
 	},
-	Element, Length, Task,
+	Element, Length, Task, Theme,
 };
 
 #[derive(Debug, Clone)]
@@ -24,7 +25,6 @@ pub enum Message {
 	StartGame(GameStartType),
 	LoadSettings(crate::config::AppSettings),
 	LaunchExanima(GameStartState),
-	ModDragged(pane_grid::DragEvent),
 	UpdateModOrder,
 	UpdateModSettings(bool),
 	UpdateProgress(ProgressBar),
@@ -75,106 +75,108 @@ impl Default for Home {
 
 impl Home {
 	pub fn view(&self) -> Element<Message> {
-		Column::new()
-			.spacing(10)
-			.push(Text::new("Welcome to the Exanima Modding Toolkit Launcher!").size(20))
-			.push(Rule::horizontal(1))
-			.push(self.mods_list())
-			.push(self.show_home_section())
-			.into()
+		Container::new(
+			Column::new()
+				.push(Text::new("Welcome to the Exanima Modding Toolkit Launcher!").size(20))
+				.push(Rule::horizontal(1))
+				.push(self.mods_list())
+				.push(self.show_home_section())
+				.spacing(10),
+		)
+		.width(Length::Fill)
+		.height(Length::Fill)
+		.into()
 	}
 
 	fn mods_list(&self) -> Element<Message> {
-		let mod_order = PaneGrid::new(&self.plugin_panes, |pane, plugin, is_maximized| {
-			let mod_toggle = Checkbox::new(plugin.name.clone(), plugin.enabled)
-				.on_toggle(Message::UpdateModSettings);
-			let col = Column::new().push(mod_toggle);
-			pane_grid::Content::new(col)
-		})
-		.on_drag(Message::ModDragged);
-		Container::new(mod_order).into()
+		Container::new(Text::new("WIP"))
+			.width(Length::Fill)
+			.height(Length::Fill)
+			.into()
 	}
 
 	fn show_home_section(&self) -> Element<Message> {
 		let col = Column::new();
 
-		let col = if let GameStartState::Loading(progress) = &self.game_start_state {
-			let progress_col = Column::new().push(
-				progress_bar(
-					0.0..=progress.rpks.len() as f32,
-					(progress.rpk_step + 1) as f32,
-				)
-				.height(Length::Fixed(10.0)),
-			);
+		let col = col.push_maybe(
+			if let GameStartState::Loading(progress) = &self.game_start_state {
+				let progress_col = Column::new().push(
+					progress_bar(
+						0.0..=progress.rpks.len() as f32,
+						(progress.rpk_step + 1) as f32,
+					)
+					.height(Length::Fixed(10.0)),
+				);
 
-			let rpk_row = Row::new().push(
-				Text::new(format!(
-					"Rpks: {} / {}",
-					progress.rpk_step + 1,
-					progress.rpks.len(),
-				))
-				.width(Length::Fill),
-			);
-			let rpk_name = progress.rpks.get(progress.rpk_step);
-			let rpk_row = if let Some(name) = rpk_name {
-				rpk_row.push(Text::new(name))
+				let rpk_row = Row::new().push(
+					Text::new(format!(
+						"Rpks: {} / {}",
+						progress.rpk_step + 1,
+						progress.rpks.len(),
+					))
+					.width(Length::Fill),
+				);
+				let rpk_name = progress.rpks.get(progress.rpk_step);
+				let rpk_row = if let Some(name) = rpk_name {
+					rpk_row.push(Text::new(name))
+				} else {
+					rpk_row
+				};
+				let progress_col = progress_col.push(rpk_row);
+
+				let progress_col = progress_col.push(
+					progress_bar(
+						0.0..=progress.mods.len() as f32,
+						(progress.mod_step + 1) as f32,
+					)
+					.height(Length::Fixed(10.0)),
+				);
+
+				let mod_row = Row::new().push(
+					Text::new(format!(
+						"Mods: {} / {}",
+						progress.mod_step + 1,
+						progress.mods.len(),
+					))
+					.width(Length::Fill),
+				);
+				let mod_name = progress.mods.get(progress.mod_step);
+				let mod_row = if let Some(name) = mod_name {
+					mod_row.push(Text::new(name))
+				} else {
+					mod_row
+				};
+				let progress_col = progress_col.push(mod_row);
+
+				let progress_col = progress_col.push(
+					progress_bar(
+						0.0..=progress.entries.len() as f32,
+						(progress.entry_step + 1) as f32,
+					)
+					.height(Length::Fixed(10.0)),
+				);
+
+				let entry_row = Row::new().push(
+					Text::new(format!(
+						"Entries: {} / {}",
+						progress.entry_step + 1,
+						progress.entries.len(),
+					))
+					.width(Length::Fill),
+				);
+				let entry_name = progress.entries.get(progress.entry_step);
+				let entry_row = if let Some(name) = entry_name {
+					entry_row.push(Text::new(name))
+				} else {
+					entry_row
+				};
+				let progress_col = progress_col.push(entry_row);
+
+				Some(progress_col)
 			} else {
-				rpk_row
-			};
-			let progress_col = progress_col.push(rpk_row);
-
-			let progress_col = progress_col.push(
-				progress_bar(
-					0.0..=progress.mods.len() as f32,
-					(progress.mod_step + 1) as f32,
-				)
-				.height(Length::Fixed(10.0)),
-			);
-
-			let mod_row = Row::new().push(
-				Text::new(format!(
-					"Mods: {} / {}",
-					progress.mod_step + 1,
-					progress.mods.len(),
-				))
-				.width(Length::Fill),
-			);
-			let mod_name = progress.mods.get(progress.mod_step);
-			let mod_row = if let Some(name) = mod_name {
-				mod_row.push(Text::new(name))
-			} else {
-				mod_row
-			};
-			let progress_col = progress_col.push(mod_row);
-
-			let progress_col = progress_col.push(
-				progress_bar(
-					0.0..=progress.entries.len() as f32,
-					(progress.entry_step + 1) as f32,
-				)
-				.height(Length::Fixed(10.0)),
-			);
-
-			let entry_row = Row::new().push(
-				Text::new(format!(
-					"Entries: {} / {}",
-					progress.entry_step + 1,
-					progress.entries.len(),
-				))
-				.width(Length::Fill),
-			);
-			let entry_name = progress.entries.get(progress.entry_step);
-			let entry_row = if let Some(name) = entry_name {
-				entry_row.push(Text::new(name))
-			} else {
-				entry_row
-			};
-			let progress_col = progress_col.push(entry_row);
-
-			col.push(progress_col)
-		} else {
-			col
-		};
+				None
+			},
+		);
 
 		let col = col.push(self.play_buttons());
 
@@ -252,12 +254,6 @@ impl Home {
 				log::info!("Launching exanima...");
 				Task::none()
 			}
-			Message::ModDragged(pane_grid::DragEvent::Dropped { pane, target }) => {
-				println!("Hello world");
-				self.plugin_panes.drop(pane, target);
-				Task::none()
-			}
-			Message::ModDragged(_) => Task::none(),
 			Message::UpdateModOrder => Task::none(),
 			Message::UpdateModSettings(mod_toggle) => {
 				// TODO: save settings
@@ -274,7 +270,6 @@ impl Home {
 }
 
 fn load_mods(settings: AppSettings) -> impl Stream<Item = Message> {
-	// fn load_mods(mod_load_order: Vec<String>, exanima_exe: String) {
 	stream! {
 		let (tx, mut rx) = tokio::sync::mpsc::channel::<GameStartState>(1);
 

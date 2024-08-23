@@ -59,11 +59,12 @@ impl Settings {
 			.push(Button::new(Text::new("Changelog")).on_press(Message::ToggleChangelog))
 			.spacing(10);
 
-		if self.expand_changelog {
-			col.push(self.changelog()).into()
+		col.push_maybe(if self.expand_changelog {
+			Some(self.changelog())
 		} else {
-			col.into()
-		}
+			None
+		})
+		.into()
 	}
 
 	fn version(&self) -> Element<Message> {
