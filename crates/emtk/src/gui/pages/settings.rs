@@ -2,9 +2,9 @@ use crate::gui::constants;
 use iced::{
 	theme,
 	widget::{
-		self,
+		self, button, horizontal_rule,
 		markdown::{self},
-		scrollable, Button, Column, Rule, Text,
+		scrollable, text, Column,
 	},
 	Element, Task,
 };
@@ -100,15 +100,15 @@ impl Settings {
 
 	pub fn view(&self) -> Element<Message> {
 		let col = Column::new()
-			.push(Text::new("Here you can configure the toolkit.").size(20))
-			.push(Rule::horizontal(1))
+			.push(text("Here you can configure the toolkit.").size(20))
+			.push(horizontal_rule(1))
 			.spacing(10);
 
 		let col = col.push(self.version());
 
 		// TODO: indicate changelog button is a collapsible button
 		let col = col
-			.push(Button::new(Text::new("Changelog")).on_press(Message::ToggleChangelog))
+			.push(button(text("Changelog")).on_press(Message::ToggleChangelog))
 			.spacing(10);
 
 		col.push_maybe(if self.expand_changelog {
@@ -122,22 +122,22 @@ impl Settings {
 	fn version(&self) -> Element<Message> {
 		Column::new()
 			.push(
-				Text::new(format!(
+				text(format!(
 					"You're currently on version {}",
 					constants::CARGO_PKG_VERSION
 				))
 				.size(20),
 			)
 			.push(self.get_latest_release(&self.latest_release))
-			.push(Rule::horizontal(1))
+			.push(horizontal_rule(1))
 			.spacing(10)
 			.into()
 	}
 
 	fn get_latest_release(&self, latest_release: &GetLatestReleaseState) -> Element<Message> {
 		match &latest_release {
-			GetLatestReleaseState::NotStarted => Text::new("Checking for updates...").into(),
-			GetLatestReleaseState::Loading => Text::new("Checking for updates...").into(),
+			GetLatestReleaseState::NotStarted => text("Checking for updates...").into(),
+			GetLatestReleaseState::Loading => text("Checking for updates...").into(),
 			GetLatestReleaseState::Loaded(release) => {
 				let ver = semver::Version::parse(release.tag_name.trim_start_matches("v"))
 					.unwrap_or(semver::Version::new(0, 0, 0));
@@ -146,8 +146,8 @@ impl Settings {
 					let palette = iced::theme::Palette::CATPPUCCIN_MOCHA;
 					return Column::new()
 						.spacing(10.)
-						.push(Text::new("You're already up to date!"))
-						.push(Rule::horizontal(1.))
+						.push(text("You're already up to date!"))
+						.push(horizontal_rule(1.))
 						// TODO: make changelog a modal
 						.push(scrollable(
 							widget::markdown(
@@ -170,26 +170,26 @@ impl Settings {
 
 				Column::new()
 					.spacing(10.)
-					.push(Text::new(format!(
+					.push(text(format!(
 						"There's a new version available: {} (Published: {})",
 						release.tag_name,
 						release.published_at.format("%Y-%m-%d %H:%M:%S")
 					)))
 					.push(
-						Button::new(Text::new("Download"))
+						button(text("Download"))
 							.on_press(Message::OpenUrl(release.html_url.clone()))
 							.width(100.),
 					)
 			}
 			.into(),
-			GetLatestReleaseState::Error(error) => Text::new(format!("Error: {}", error)).into(),
+			GetLatestReleaseState::Error(error) => text(format!("Error: {}", error)).into(),
 		}
 	}
 
 	fn changelog(&self) -> Element<Message> {
 		match &self.latest_release {
-			GetLatestReleaseState::NotStarted => Text::new("Checking for updates...").into(),
-			GetLatestReleaseState::Loading => Text::new("Checking for updates...").into(),
+			GetLatestReleaseState::NotStarted => text("Checking for updates...").into(),
+			GetLatestReleaseState::Loading => text("Checking for updates...").into(),
 			GetLatestReleaseState::Loaded(_) => {
 				let palette = iced::theme::Palette::CATPPUCCIN_MOCHA;
 				Column::new()
@@ -212,7 +212,7 @@ impl Settings {
 					.spacing(10.)
 			}
 			.into(),
-			GetLatestReleaseState::Error(error) => Text::new(format!("Error: {}", error)).into(),
+			GetLatestReleaseState::Error(error) => text(format!("Error: {}", error)).into(),
 		}
 	}
 }

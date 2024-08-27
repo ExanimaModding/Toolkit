@@ -5,7 +5,7 @@ mod state;
 
 use iced::{
 	event,
-	widget::{Column, Container, Row, Rule, Text},
+	widget::{container, horizontal_rule, text, Column, Row},
 	window, Element, Event, Padding, Subscription, Task, Theme,
 };
 
@@ -63,15 +63,15 @@ impl State {
 			menu::Page::Settings => self.settings.view().map(Message::Settings),
 		};
 
-		Container::new(
+		container(
 			Column::new()
 				.spacing(10.)
 				.push(
 					Row::new()
-						.push(Text::new("Exanima Modding Toolkit").size(30))
+						.push(text("Exanima Modding Toolkit").size(30))
 						.width(iced::Length::Fill),
 				)
-				.push(Rule::horizontal(1.))
+				.push(horizontal_rule(1.))
 				.push(
 					Column::new()
 						.push(self.menu.view().map(Message::Menu))

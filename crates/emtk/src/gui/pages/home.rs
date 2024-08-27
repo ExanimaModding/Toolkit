@@ -12,9 +12,7 @@ use async_stream::stream;
 use iced::{
 	futures::Stream,
 	widget::{
-		checkbox::Checkbox,
-		container::{self},
-		pane_grid, progress_bar, Button, Column, Container, PaneGrid, Row, Rule, Text,
+		button, container, horizontal_rule, pane_grid, progress_bar, text, Column, PaneGrid, Row,
 	},
 	Element, Length, Task, Theme,
 };
@@ -139,10 +137,10 @@ impl Home {
 	}
 
 	pub fn view(&self) -> Element<Message> {
-		Container::new(
+		container(
 			Column::new()
-				.push(Text::new("Welcome to the Exanima Modding Toolkit Launcher!").size(20))
-				.push(Rule::horizontal(1))
+				.push(text("Welcome to the Exanima Modding Toolkit Launcher!").size(20))
+				.push(horizontal_rule(1))
 				.push(self.mods_list())
 				.push(self.show_home_section())
 				.spacing(10),
@@ -153,7 +151,7 @@ impl Home {
 	}
 
 	fn mods_list(&self) -> Element<Message> {
-		Container::new(Text::new("WIP"))
+		container(text("WIP"))
 			.width(Length::Fill)
 			.height(Length::Fill)
 			.into()
@@ -173,7 +171,7 @@ impl Home {
 				);
 
 				let rpk_row = Row::new().push(
-					Text::new(format!(
+					text(format!(
 						"Rpks: {} / {}",
 						progress.rpk_step + 1,
 						progress.rpks.len(),
@@ -182,7 +180,7 @@ impl Home {
 				);
 				let rpk_name = progress.rpks.get(progress.rpk_step);
 				let rpk_row = if let Some(name) = rpk_name {
-					rpk_row.push(Text::new(name))
+					rpk_row.push(text(name))
 				} else {
 					rpk_row
 				};
@@ -197,7 +195,7 @@ impl Home {
 				);
 
 				let mod_row = Row::new().push(
-					Text::new(format!(
+					text(format!(
 						"Mods: {} / {}",
 						progress.mod_step + 1,
 						progress.mods.len(),
@@ -206,7 +204,7 @@ impl Home {
 				);
 				let mod_name = progress.mods.get(progress.mod_step);
 				let mod_row = if let Some(name) = mod_name {
-					mod_row.push(Text::new(name))
+					mod_row.push(text(name))
 				} else {
 					mod_row
 				};
@@ -221,7 +219,7 @@ impl Home {
 				);
 
 				let entry_row = Row::new().push(
-					Text::new(format!(
+					text(format!(
 						"Entries: {} / {}",
 						progress.entry_step + 1,
 						progress.entries.len(),
@@ -230,7 +228,7 @@ impl Home {
 				);
 				let entry_name = progress.entries.get(progress.entry_step);
 				let entry_row = if let Some(name) = entry_name {
-					entry_row.push(Text::new(name))
+					entry_row.push(text(name))
 				} else {
 					entry_row
 				};
@@ -252,18 +250,18 @@ impl Home {
 			GameStartState::NotStarted => Row::new()
 				.spacing(10.)
 				.push(
-					Button::new(Text::new("Play Modded").size(20))
+					button(text("Play Modded").size(20))
 						.on_press(Message::StartGame(GameStartType::Modded)),
 				)
 				.push(
-					Button::new(Text::new("Play Unmodded").size(20))
+					button(text("Play Unmodded").size(20))
 						.on_press(Message::StartGame(GameStartType::Vanilla)),
 				)
 				.into(),
 			_ => Row::new()
 				.spacing(10.)
-				.push(Button::new(Text::new("Play Modded").size(20)))
-				.push(Button::new(Text::new("Play Unmodded").size(20)))
+				.push(button(text("Play Modded").size(20)))
+				.push(button(text("Play Unmodded").size(20)))
 				.into(),
 		}
 	}
