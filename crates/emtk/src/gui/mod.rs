@@ -4,16 +4,14 @@ mod pages;
 mod state;
 
 use iced::{
-	event,
 	widget::{container, horizontal_rule, text, Column, Row},
-	window, Element, Event, Padding, Subscription, Task, Theme,
+	Element, Padding, Task, Theme,
 };
 
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 
 #[derive(Debug, Clone)]
 pub enum Message {
-	EventOccurred(Event),
 	Menu(menu::Message),
 	HomePage(pages::home::Message),
 	Settings(pages::settings::Message),
@@ -44,13 +42,6 @@ impl State {
 
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
-			Message::EventOccurred(event) => {
-				if let Event::Window(window::Event::CloseRequested) = event {
-					window::get_latest().and_then(window::close)
-				} else {
-					Task::none()
-				}
-			}
 			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
 			Message::Settings(message) => self.settings.update(&mut self.app_state, message),
 			Message::Menu(message) => self.menu.update(&mut self.app_state, message),
@@ -80,10 +71,6 @@ impl State {
 		)
 		.padding(Padding::new(12.0))
 		.into()
-	}
-
-	pub fn subscription(&self) -> Subscription<Message> {
-		event::listen().map(Message::EventOccurred)
 	}
 }
 
