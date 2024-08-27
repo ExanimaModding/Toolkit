@@ -13,7 +13,6 @@ static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 
 #[derive(Debug, Clone)]
 pub enum Message {
-	FirstRun,
 	EventOccurred(Event),
 	Menu(menu::Message),
 	HomePage(pages::home::Message),
@@ -32,7 +31,15 @@ pub struct State {
 
 impl State {
 	pub fn new() -> (Self, Task<Message>) {
-		(Self::default(), Task::done(Message::FirstRun))
+		let state = Self::default();
+		let settings = state.app_state.settings.clone();
+		(
+			state,
+			Task::batch([
+				Task::done(pages::settings::Message::default()).map(Message::Settings),
+				Task::done(pages::home::Message::LoadSettings(settings)).map(Message::HomePage),
+			]),
+		)
 	}
 
 	pub fn view(&self) -> Element<Message> {
@@ -62,13 +69,6 @@ impl State {
 
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
-			Message::FirstRun => Task::batch([
-				Task::done(pages::settings::Message::default()).map(Message::Settings),
-				Task::done(pages::home::Message::LoadSettings(
-					self.app_state.settings.clone(),
-				))
-				.map(Message::HomePage),
-			]),
 			Message::EventOccurred(event) => {
 				if let Event::Window(window::Event::CloseRequested) = event {
 					window::get_latest().and_then(window::close)
