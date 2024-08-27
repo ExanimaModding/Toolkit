@@ -42,6 +42,21 @@ impl State {
 		)
 	}
 
+	pub fn update(&mut self, message: Message) -> Task<Message> {
+		match message {
+			Message::EventOccurred(event) => {
+				if let Event::Window(window::Event::CloseRequested) = event {
+					window::get_latest().and_then(window::close)
+				} else {
+					Task::none()
+				}
+			}
+			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
+			Message::Settings(message) => self.settings.update(&mut self.app_state, message),
+			Message::Menu(message) => self.menu.update(&mut self.app_state, message),
+		}
+	}
+
 	pub fn view(&self) -> Element<Message> {
 		let page: Element<Message> = match self.menu.current_page {
 			menu::Page::Home => self.home_page.view().map(Message::HomePage),
@@ -65,21 +80,6 @@ impl State {
 		)
 		.padding(Padding::new(12.0))
 		.into()
-	}
-
-	pub fn update(&mut self, message: Message) -> Task<Message> {
-		match message {
-			Message::EventOccurred(event) => {
-				if let Event::Window(window::Event::CloseRequested) = event {
-					window::get_latest().and_then(window::close)
-				} else {
-					Task::none()
-				}
-			}
-			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
-			Message::Settings(message) => self.settings.update(&mut self.app_state, message),
-			Message::Menu(message) => self.menu.update(&mut self.app_state, message),
-		}
 	}
 
 	pub fn subscription(&self) -> Subscription<Message> {

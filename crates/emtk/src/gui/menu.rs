@@ -27,6 +27,19 @@ pub struct Menu {
 }
 
 impl Menu {
+	pub fn update(
+		&mut self,
+		_app_state: &mut crate::gui::state::AppState,
+		message: Message,
+	) -> Task<crate::gui::Message> {
+		match message {
+			Message::PageChange(page) => {
+				self.current_page = page;
+				Task::none()
+			}
+		}
+	}
+
 	pub fn view(&self) -> Element<'_, Message> {
 		let mut column: Row<Message> = Row::new().width(iced::Length::Fill).spacing(10.);
 
@@ -50,18 +63,5 @@ impl Menu {
 		}
 
 		column.into()
-	}
-
-	pub fn update(
-		&mut self,
-		_app_state: &mut crate::gui::state::AppState,
-		message: Message,
-	) -> Task<crate::gui::Message> {
-		match message {
-			Message::PageChange(page) => {
-				self.current_page = page;
-				Task::none()
-			}
-		}
 	}
 }

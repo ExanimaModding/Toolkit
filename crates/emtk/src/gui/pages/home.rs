@@ -74,6 +74,70 @@ impl Default for Home {
 }
 
 impl Home {
+	pub fn update(
+		&mut self,
+		_app_state: &mut crate::gui::state::AppState,
+		message: Message,
+	) -> Task<crate::gui::Message> {
+		let result = match message {
+			Message::OpenUrl(url) => {
+				log::info!("Opening URL: {}", url);
+				open::that(url).unwrap();
+				Task::none()
+			}
+			Message::StartGame(GameStartType::Modded) => {
+				self.game_start_state = GameStartState::Loading(ProgressBar::default());
+				log::info!("Starting modded Exanima...");
+				Task::stream(load_mods(self.settings.clone()))
+			}
+			Message::StartGame(GameStartType::Vanilla) => {
+				// TODO: start vanilla exanima
+				self.game_start_state = GameStartState::Loading(ProgressBar::default());
+				log::info!("Starting vanilla Exanima...");
+				Task::none()
+			}
+			Message::LoadSettings(settings) => {
+				self.settings = settings;
+
+				let (mut plugin_panes, pane) = pane_grid::State::new(Plugin::default());
+				for (i, mod_setting) in self.settings.mods.iter().enumerate() {
+					plugin_panes.split(
+						pane_grid::Axis::Horizontal,
+						pane,
+						Plugin::new(
+							i,
+							None,
+							mod_setting.info.config.plugin.enabled,
+							mod_setting.info.config.plugin.name.clone(),
+						),
+					);
+				}
+				plugin_panes.close(pane);
+
+				self.plugin_panes = plugin_panes;
+				Task::none()
+			}
+			Message::LaunchExanima(state) => {
+				self.game_start_state = state;
+				// TODO: launch exanima
+				// crate::launch_exanima();
+				log::info!("Launching exanima...");
+				Task::none()
+			}
+			Message::UpdateModOrder => Task::none(),
+			Message::UpdateModSettings(mod_toggle) => {
+				// TODO: save settings
+				Task::none()
+			}
+			Message::UpdateProgress(progress) => {
+				self.game_start_state = GameStartState::Loading(progress);
+				Task::none()
+			}
+		};
+
+		result.map(crate::gui::Message::HomePage)
+	}
+
 	pub fn view(&self) -> Element<Message> {
 		Container::new(
 			Column::new()
@@ -202,70 +266,6 @@ impl Home {
 				.push(Button::new(Text::new("Play Unmodded").size(20)))
 				.into(),
 		}
-	}
-
-	pub fn update(
-		&mut self,
-		_app_state: &mut crate::gui::state::AppState,
-		message: Message,
-	) -> Task<crate::gui::Message> {
-		let result = match message {
-			Message::OpenUrl(url) => {
-				log::info!("Opening URL: {}", url);
-				open::that(url).unwrap();
-				Task::none()
-			}
-			Message::StartGame(GameStartType::Modded) => {
-				self.game_start_state = GameStartState::Loading(ProgressBar::default());
-				log::info!("Starting modded Exanima...");
-				Task::stream(load_mods(self.settings.clone()))
-			}
-			Message::StartGame(GameStartType::Vanilla) => {
-				// TODO: start vanilla exanima
-				self.game_start_state = GameStartState::Loading(ProgressBar::default());
-				log::info!("Starting vanilla Exanima...");
-				Task::none()
-			}
-			Message::LoadSettings(settings) => {
-				self.settings = settings;
-
-				let (mut plugin_panes, pane) = pane_grid::State::new(Plugin::default());
-				for (i, mod_setting) in self.settings.mods.iter().enumerate() {
-					plugin_panes.split(
-						pane_grid::Axis::Horizontal,
-						pane,
-						Plugin::new(
-							i,
-							None,
-							mod_setting.info.config.plugin.enabled,
-							mod_setting.info.config.plugin.name.clone(),
-						),
-					);
-				}
-				plugin_panes.close(pane);
-
-				self.plugin_panes = plugin_panes;
-				Task::none()
-			}
-			Message::LaunchExanima(state) => {
-				self.game_start_state = state;
-				// TODO: launch exanima
-				// crate::launch_exanima();
-				log::info!("Launching exanima...");
-				Task::none()
-			}
-			Message::UpdateModOrder => Task::none(),
-			Message::UpdateModSettings(mod_toggle) => {
-				// TODO: save settings
-				Task::none()
-			}
-			Message::UpdateProgress(progress) => {
-				self.game_start_state = GameStartState::Loading(progress);
-				Task::none()
-			}
-		};
-
-		result.map(crate::gui::Message::HomePage)
 	}
 }
 
