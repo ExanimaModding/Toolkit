@@ -91,14 +91,25 @@ impl Settings {
 					.unwrap_or(semver::Version::new(0, 0, 0));
 
 				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
+					let palette = iced::theme::Palette::CATPPUCCIN_MOCHA;
 					return Column::new()
 						.spacing(10.)
 						.push(Text::new("You're already up to date!"))
 						.push(Rule::horizontal(1.))
+						// TODO: make changelog a modal
 						.push(scrollable(
 							widget::markdown(
 								&self.changelog,
 								widget::markdown::Settings::default(),
+								markdown::Style {
+									inline_code_highlight: markdown::Highlight {
+										background: iced::Background::Color(palette.background),
+										border: iced::Border::default(),
+									},
+									inline_code_padding: iced::Padding::default(),
+									inline_code_color: palette.text,
+									link_color: palette.primary,
+								},
 							)
 							.map(|url| Message::OpenUrl(url.to_string())),
 						))
@@ -128,10 +139,23 @@ impl Settings {
 			GetLatestReleaseState::NotStarted => Text::new("Checking for updates...").into(),
 			GetLatestReleaseState::Loading => Text::new("Checking for updates...").into(),
 			GetLatestReleaseState::Loaded(_) => {
+				let palette = iced::theme::Palette::CATPPUCCIN_MOCHA;
 				Column::new()
 					.push(scrollable(
-						widget::markdown(&self.changelog, widget::markdown::Settings::default())
-							.map(|url| Message::OpenUrl(url.to_string())),
+						widget::markdown(
+							&self.changelog,
+							widget::markdown::Settings::default(),
+							markdown::Style {
+								inline_code_highlight: markdown::Highlight {
+									background: iced::Background::Color(palette.background),
+									border: iced::Border::default(),
+								},
+								inline_code_padding: iced::Padding::default(),
+								inline_code_color: palette.text,
+								link_color: palette.primary,
+							},
+						)
+						.map(|url| Message::OpenUrl(url.to_string())),
 					))
 					.spacing(10.)
 			}
@@ -161,14 +185,11 @@ impl Settings {
 				})
 			}
 			Message::GetLatestRelease(GetLatestReleaseState::Loaded(release)) => {
-				self.changelog = markdown::parse(
-					&format!("[View in browser]({})\n", release.html_url),
-					theme::Palette::CATPPUCCIN_MOCHA,
-				)
-				.collect();
+				self.changelog =
+					markdown::parse(&format!("[View in browser]({})\n", release.html_url))
+						.collect();
 
-				let mut changelog: Vec<_> =
-					markdown::parse(&release.body, theme::Palette::CATPPUCCIN_MOCHA).collect();
+				let mut changelog: Vec<_> = markdown::parse(&release.body).collect();
 
 				self.changelog.append(&mut changelog);
 				log::info!("Latest release: {}", release.tag_name);

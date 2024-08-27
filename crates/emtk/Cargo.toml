@@ -13,7 +13,7 @@ anyhow = "1.0.86"
 detours-sys = { workspace = true }
 # EMF is needed as a dependency so that emf.dll gets compiled before running EMTK.
 emf = { path = "../emf" }
-iced = { git = "https://github.com/iced-rs/iced", rev = "fd593f8fb0c8476463f9c04ae2bcc96784b8c530", features = [
+iced = { git = "https://github.com/iced-rs/iced", version = "0.13.0-dev", features = [
 	"markdown",
 	"tokio",
 ] }
