@@ -11,6 +11,21 @@ use iced::{
 
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 
+pub(crate) async fn start_gui() -> iced::Result {
+	let image = image::load_from_memory(ICON).unwrap();
+	let icon =
+		iced::window::icon::from_rgba(image.as_bytes().to_vec(), image.height(), image.width())
+			.unwrap();
+
+	iced::application("Exanima Modding Toolkit", State::update, State::view)
+		.theme(State::theme)
+		.window(iced::window::Settings {
+			icon: Some(icon),
+			..Default::default()
+		})
+		.run_with(State::new)
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
 	HomePage(pages::home::Message),
@@ -45,6 +60,10 @@ impl State {
 		)
 	}
 
+	pub fn theme(_state: &State) -> Theme {
+		Theme::CatppuccinFrappe
+	}
+
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
 			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
@@ -60,13 +79,7 @@ impl State {
 				.spacing(10.)
 				.push(
 					Column::new()
-						.push(
-							self.sidebar
-								.view()
-								// TODO: remove explain
-								.explain(iced::Color::BLACK)
-								.map(Message::Sidebar),
-						)
+						.push(self.sidebar.view().map(Message::Sidebar))
 						.width(Length::Fixed(256.)),
 				)
 				.push(Column::new().push(self.page()).width(Length::Fill)),
@@ -93,23 +106,4 @@ impl State {
 		)
 		.into()
 	}
-}
-
-fn theme(_state: &State) -> Theme {
-	Theme::CatppuccinFrappe
-}
-
-pub(crate) async fn start_gui() -> iced::Result {
-	let image = image::load_from_memory(ICON).unwrap();
-	let icon =
-		iced::window::icon::from_rgba(image.as_bytes().to_vec(), image.height(), image.width())
-			.unwrap();
-
-	iced::application("Exanima Modding Toolkit", State::update, State::view)
-		.theme(theme)
-		.window(iced::window::Settings {
-			icon: Some(icon),
-			..Default::default()
-		})
-		.run_with(State::new)
 }

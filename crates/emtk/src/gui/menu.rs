@@ -1,6 +1,6 @@
 use iced::{
-	widget::{self, button, text, Row},
-	Element, Task, Theme,
+	widget::{button, text, Row},
+	Element, Task,
 };
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, strum::Display)]
@@ -12,7 +12,7 @@ pub enum Page {
 
 #[derive(Debug, Clone, Copy)]
 pub enum Message {
-	PageChange(Page),
+	PageChanged(Page),
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -27,7 +27,7 @@ impl Menu {
 		message: Message,
 	) -> Task<crate::gui::Message> {
 		match message {
-			Message::PageChange(page) => {
+			Message::PageChanged(page) => {
 				self.current_page = page;
 				Task::none()
 			}
@@ -39,17 +39,17 @@ impl Menu {
 
 		for item in &[Page::Home, Page::Settings] {
 			let button = button(text(item.to_string()).center().size(20.))
-				.on_press(Message::PageChange(*item))
-				.style(|theme: &Theme, status| {
-					let palette = theme.extended_palette();
-					match self.current_page == *item {
-						// FIX: affects all buttons on the page
-						true => widget::button::Style::default()
-							.with_background(palette.primary.strong.color),
-						false => widget::button::primary(theme, status)
-							.with_background(palette.primary.base.color),
-					}
-				});
+				.on_press(Message::PageChanged(*item));
+			// .style(|theme: &Theme, status| {
+			// 	let palette = theme.extended_palette();
+			// 	match self.current_page == *item {
+			// 		// FIX: affects all buttons on the page
+			// 		true => widget::button::Style::default()
+			// 			.with_background(palette.primary.strong.color),
+			// 		false => widget::button::primary(theme, status)
+			// 			.with_background(palette.primary.base.color),
+			// 	}
+			// });
 			// .width(100.);
 
 			column = column.push(button);

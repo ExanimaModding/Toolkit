@@ -25,9 +25,9 @@ pub enum GetLatestReleaseState {
 
 #[derive(Debug, Clone)]
 pub enum Message {
+	ChangelogToggled,
 	GetLatestRelease(GetLatestReleaseState),
-	OpenUrl(String),
-	ToggleChangelog,
+	UrlOpened(String),
 }
 
 #[derive(Debug, Default, Clone)]
@@ -51,11 +51,16 @@ impl Settings {
 		message: Message,
 	) -> Task<crate::gui::Message> {
 		let result = match message {
+			Message::ChangelogToggled => {
+				self.expand_changelog = !self.expand_changelog;
+				Task::none()
+			}
 			Message::GetLatestRelease(GetLatestReleaseState::Error(error)) => {
 				log::error!("Error checking for updates: {}", error);
 				self.latest_release = GetLatestReleaseState::Error(error);
 				Task::none()
 			}
+			Message::GetLatestRelease(GetLatestReleaseState::Loading) => Task::none(),
 			Message::GetLatestRelease(GetLatestReleaseState::Loaded(release)) => {
 				self.changelog =
 					markdown::parse(&format!("[View in browser]({})\n", release.html_url))
@@ -82,16 +87,11 @@ impl Settings {
 					}
 				})
 			}
-			Message::OpenUrl(url) => {
+			Message::UrlOpened(url) => {
 				log::info!("Opening URL: {}", url);
 				open::that(url).unwrap();
 				Task::none()
 			}
-			Message::ToggleChangelog => {
-				self.expand_changelog = !self.expand_changelog;
-				Task::none()
-			}
-			_ => Task::none(),
 		};
 
 		result.map(crate::gui::Message::Settings)
@@ -107,7 +107,7 @@ impl Settings {
 
 		// TODO: indicate changelog button is a collapsible button
 		let col = col
-			.push(button(text("Changelog")).on_press(Message::ToggleChangelog))
+			.push(button(text("Changelog")).on_press(Message::ChangelogToggled))
 			.spacing(10);
 
 		col.push_maybe(if self.expand_changelog {
@@ -142,7 +142,7 @@ impl Settings {
 					.unwrap_or(semver::Version::new(0, 0, 0));
 
 				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
-					let palette = iced::theme::Palette::CATPPUCCIN_MOCHA;
+					let palette = iced::theme::Palette::CATPPUCCIN_FRAPPE;
 					return Column::new()
 						.spacing(10.)
 						.push(text("You're already up to date!"))
@@ -162,7 +162,7 @@ impl Settings {
 									link_color: palette.primary,
 								},
 							)
-							.map(|url| Message::OpenUrl(url.to_string())),
+							.map(|url| Message::UrlOpened(url.to_string())),
 						))
 						.into();
 				}
@@ -176,7 +176,7 @@ impl Settings {
 					)))
 					.push(
 						button(text("Download"))
-							.on_press(Message::OpenUrl(release.html_url.clone()))
+							.on_press(Message::UrlOpened(release.html_url.clone()))
 							.width(100.),
 					)
 			}
@@ -190,7 +190,7 @@ impl Settings {
 			GetLatestReleaseState::NotStarted => text("Checking for updates...").into(),
 			GetLatestReleaseState::Loading => text("Checking for updates...").into(),
 			GetLatestReleaseState::Loaded(_) => {
-				let palette = iced::theme::Palette::CATPPUCCIN_MOCHA;
+				let palette = iced::theme::Palette::CATPPUCCIN_FRAPPE;
 				Column::new()
 					.push(scrollable(
 						widget::markdown(
@@ -206,7 +206,7 @@ impl Settings {
 								link_color: palette.primary,
 							},
 						)
-						.map(|url| Message::OpenUrl(url.to_string())),
+						.map(|url| Message::UrlOpened(url.to_string())),
 					))
 					.spacing(10.)
 			}

@@ -5,7 +5,6 @@ use iced::{
 	widget::{button, container, progress_bar, text, Column, Row},
 	Element, Length, Task,
 };
-use iced_aw::{drop_down, widgets::DropDown};
 use std::{fs, io, path::PathBuf};
 use tokio::sync::mpsc::Sender;
 
@@ -53,13 +52,13 @@ impl SidebarList {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-	DismissExpand,
-	LaunchExanima(GameStartState),
+	ExanimaLaunched(GameStartState),
+	ExpandDismissed,
+	ExpandToggled,
 	ListSelected(SidebarList),
 	LoadSettings(crate::config::AppSettings),
+	ProgressUpdated(ProgressBar),
 	StartGame(GameStartType),
-	ToggleExpand,
-	UpdateProgress(ProgressBar),
 }
 
 #[derive(Debug, Default, Clone)]
@@ -72,15 +71,19 @@ pub struct Sidebar {
 impl Sidebar {
 	pub fn update(&mut self, message: Message) -> Task<crate::gui::Message> {
 		match message {
-			Message::DismissExpand => {
-				self.list_expanded = false;
-				Task::none()
-			}
-			Message::LaunchExanima(state) => {
+			Message::ExanimaLaunched(state) => {
 				self.game_start_state = state;
 				// TODO: launch exanima
 				// crate::launch_exanima();
 				log::info!("Launching exanima...");
+				Task::none()
+			}
+			Message::ExpandDismissed => {
+				self.list_expanded = false;
+				Task::none()
+			}
+			Message::ExpandToggled => {
+				self.list_expanded = !self.list_expanded;
 				Task::none()
 			}
 			Message::ListSelected(value) => match value {
@@ -93,10 +96,14 @@ impl Sidebar {
 
 				Task::none()
 			}
+			Message::ProgressUpdated(progress) => {
+				self.game_start_state = GameStartState::Loading(progress);
+				Task::none()
+			}
 			Message::StartGame(GameStartType::Modded) => {
 				self.game_start_state = GameStartState::Loading(ProgressBar::default());
 				log::info!("Starting modded Exanima...");
-				Task::stream(load_mods(self.settings.clone()))
+				Task::stream(load_mods(self.settings.clone())).map(crate::gui::Message::Sidebar)
 			}
 			Message::StartGame(GameStartType::Vanilla) => {
 				// TODO: start vanilla exanima
@@ -104,16 +111,7 @@ impl Sidebar {
 				log::info!("Starting vanilla Exanima...");
 				Task::none()
 			}
-			Message::ToggleExpand => {
-				self.list_expanded = !self.list_expanded;
-				Task::none()
-			}
-			Message::UpdateProgress(progress) => {
-				self.game_start_state = GameStartState::Loading(progress);
-				Task::none()
-			}
 		}
-		.map(crate::gui::Message::Sidebar)
 	}
 
 	pub fn view(&self) -> Element<Message> {
@@ -212,35 +210,11 @@ impl Sidebar {
 	fn play_buttons(&self) -> Element<Message> {
 		let play_button = button(text("Play").size(20)).width(Length::FillPortion(7));
 
-		let underlay = button(text(">").size(20)).width(Length::FillPortion(1));
-		let overlay = Column::with_children(SidebarList::ALL.map(|choice| {
-			Row::new()
-				.push(button(text(choice.to_string())).on_press(Message::ListSelected(choice)))
-				.into()
-		}));
-
 		match self.game_start_state {
-			// TODO: overlay DropDown
 			GameStartState::NotStarted => Row::new()
 				.push(play_button.on_press(Message::StartGame(GameStartType::Modded)))
-				.push(
-					DropDown::new(
-						underlay.on_press(Message::ToggleExpand),
-						overlay,
-						self.list_expanded,
-					)
-					.on_dismiss(Message::DismissExpand)
-					.alignment(drop_down::Alignment::Top),
-				)
 				.into(),
-			_ => Row::new()
-				.push(play_button)
-				.push(
-					DropDown::new(underlay, overlay, self.list_expanded)
-						.on_dismiss(Message::DismissExpand)
-						.alignment(drop_down::Alignment::Top),
-				)
-				.into(),
+			_ => Row::new().push(play_button).into(),
 		}
 	}
 }
@@ -255,9 +229,9 @@ fn load_mods(settings: AppSettings) -> impl Stream<Item = Message> {
 
 		while let Some(state) = rx.recv().await {
 			if let GameStartState::Loading(progress) = state {
-				yield Message::UpdateProgress(progress)
+				yield Message::ProgressUpdated(progress)
 			} else if let GameStartState::Loaded = state {
-				yield Message::LaunchExanima(state)
+				yield Message::ExanimaLaunched(state)
 			}
 		}
 	}
