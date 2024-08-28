@@ -3,17 +3,11 @@ use iced::{
 	Element, Task, Theme,
 };
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, strum::Display)]
 pub enum Page {
 	#[default]
 	Home,
 	Settings,
-}
-
-impl std::fmt::Display for Page {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		write!(f, "{:?}", self)
-	}
 }
 
 #[derive(Debug, Clone, Copy)]
