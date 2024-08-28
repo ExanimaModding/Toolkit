@@ -57,6 +57,8 @@ pub enum Message {
 	ExpandToggled,
 	ListSelected(SidebarList),
 	LoadSettings(crate::config::AppSettings),
+	ModalLaunching,
+	ModalTest,
 	ProgressUpdated(ProgressBar),
 	StartGame(GameStartType),
 }
@@ -96,6 +98,8 @@ impl Sidebar {
 
 				Task::none()
 			}
+			Message::ModalLaunching => Task::done(crate::gui::Message::ModalLaunching),
+			Message::ModalTest => Task::done(crate::gui::Message::ModalTest),
 			Message::ProgressUpdated(progress) => {
 				self.game_start_state = GameStartState::Loading(progress);
 				Task::none()
@@ -117,6 +121,8 @@ impl Sidebar {
 	pub fn view(&self) -> Element<Message> {
 		container(
 			Column::new()
+				.push(Column::new().push(button("Launch Modal").on_press(Message::ModalLaunching)))
+				.push(Column::new().push(button("Test Modal").on_press(Message::ModalTest)))
 				.push(Column::new().push(text("Sidebar!")).height(Length::Fill))
 				.push(Column::new().push(self.play_buttons())),
 		)
@@ -212,6 +218,7 @@ impl Sidebar {
 
 		match self.game_start_state {
 			GameStartState::NotStarted => Row::new()
+				// TODO: use on_press_maybe
 				.push(play_button.on_press(Message::StartGame(GameStartType::Modded)))
 				.into(),
 			_ => Row::new().push(play_button).into(),
