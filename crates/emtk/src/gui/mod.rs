@@ -1,11 +1,12 @@
 mod constants;
 mod menu;
 mod pages;
+mod sidebar;
 mod state;
 
 use iced::{
 	widget::{container, horizontal_rule, text, Column, Row},
-	Element, Padding, Task, Theme,
+	Element, Length, Padding, Task, Theme,
 };
 
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
@@ -15,10 +16,12 @@ pub enum Message {
 	Menu(menu::Message),
 	HomePage(pages::home::Message),
 	Settings(pages::settings::Message),
+	Sidebar(sidebar::Message),
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct State {
+	sidebar: sidebar::Sidebar,
 	menu: menu::Menu,
 
 	home_page: pages::home::Home,
@@ -35,7 +38,9 @@ impl State {
 			state,
 			Task::batch([
 				Task::done(pages::settings::Message::default()).map(Message::Settings),
-				Task::done(pages::home::Message::LoadSettings(settings)).map(Message::HomePage),
+				Task::done(pages::home::Message::LoadSettings(settings.clone()))
+					.map(Message::HomePage),
+				Task::done(sidebar::Message::LoadSettings(settings)).map(Message::Sidebar),
 			]),
 		)
 	}
@@ -45,10 +50,32 @@ impl State {
 			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
 			Message::Settings(message) => self.settings.update(&mut self.app_state, message),
 			Message::Menu(message) => self.menu.update(&mut self.app_state, message),
+			Message::Sidebar(message) => self.sidebar.update(message),
 		}
 	}
 
 	pub fn view(&self) -> Element<Message> {
+		container(
+			Row::new()
+				.spacing(10.)
+				.push(
+					Column::new()
+						.push(
+							self.sidebar
+								.view()
+								// TODO: remove explain
+								.explain(iced::Color::BLACK)
+								.map(Message::Sidebar),
+						)
+						.width(Length::Fixed(256.)),
+				)
+				.push(Column::new().push(self.page()).width(Length::Fill)),
+		)
+		.padding(Padding::new(12.0))
+		.into()
+	}
+
+	pub fn page(&self) -> Element<Message> {
 		let page: Element<Message> = match self.menu.current_page {
 			menu::Page::Home => self.home_page.view().map(Message::HomePage),
 			menu::Page::Settings => self.settings.view().map(Message::Settings),
@@ -56,12 +83,7 @@ impl State {
 
 		container(
 			Column::new()
-				.spacing(10.)
-				.push(
-					Row::new()
-						.push(text("Exanima Modding Toolkit").size(30))
-						.width(iced::Length::Fill),
-				)
+				.push(text("Exanima Modding Toolkit").size(30))
 				.push(horizontal_rule(1.))
 				.push(
 					Column::new()
@@ -69,13 +91,12 @@ impl State {
 						.push(page),
 				),
 		)
-		.padding(Padding::new(12.0))
 		.into()
 	}
 }
 
 fn theme(_state: &State) -> Theme {
-	Theme::CatppuccinMocha
+	Theme::CatppuccinFrappe
 }
 
 pub(crate) async fn start_gui() -> iced::Result {

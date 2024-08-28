@@ -1,6 +1,5 @@
 use crate::gui::constants;
 use iced::{
-	theme,
 	widget::{
 		self, button, horizontal_rule,
 		markdown::{self},
