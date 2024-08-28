@@ -7,8 +7,8 @@ use iced::{
 
 #[derive(Debug, Clone)]
 pub enum Message {
-	OpenUrl(String),
 	LoadSettings(crate::config::AppSettings),
+	OpenUrl(String),
 	UpdateModOrder,
 	UpdateModSettings(bool),
 }
@@ -25,14 +25,14 @@ impl Home {
 		message: Message,
 	) -> Task<crate::gui::Message> {
 		match message {
-			Message::OpenUrl(url) => {
-				log::info!("Opening URL: {}", url);
-				open::that(url).unwrap();
-				Task::none()
-			}
 			Message::LoadSettings(settings) => {
 				self.settings = settings;
 
+				Task::none()
+			}
+			Message::OpenUrl(url) => {
+				log::info!("Opening URL: {}", url);
+				open::that(url).unwrap();
 				Task::none()
 			}
 			Message::UpdateModOrder => Task::none(),

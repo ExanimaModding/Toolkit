@@ -51,6 +51,17 @@ impl SidebarList {
 	];
 }
 
+#[derive(Debug, Clone)]
+pub enum Message {
+	DismissExpand,
+	LaunchExanima(GameStartState),
+	ListSelected(SidebarList),
+	LoadSettings(crate::config::AppSettings),
+	StartGame(GameStartType),
+	ToggleExpand,
+	UpdateProgress(ProgressBar),
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct Sidebar {
 	game_start_state: GameStartState,
@@ -58,20 +69,30 @@ pub struct Sidebar {
 	list_expanded: bool,
 }
 
-#[derive(Debug, Clone)]
-pub enum Message {
-	StartGame(GameStartType),
-	LoadSettings(crate::config::AppSettings),
-	LaunchExanima(GameStartState),
-	UpdateProgress(ProgressBar),
-	ToggleExpand,
-	DismissExpand,
-	ListSelected(SidebarList),
-}
-
 impl Sidebar {
 	pub fn update(&mut self, message: Message) -> Task<crate::gui::Message> {
 		match message {
+			Message::DismissExpand => {
+				self.list_expanded = false;
+				Task::none()
+			}
+			Message::LaunchExanima(state) => {
+				self.game_start_state = state;
+				// TODO: launch exanima
+				// crate::launch_exanima();
+				log::info!("Launching exanima...");
+				Task::none()
+			}
+			Message::ListSelected(value) => match value {
+				SidebarList::Mods => Task::none(),
+				SidebarList::PlayVanilla => Task::none(),
+				SidebarList::Settings => Task::none(),
+			},
+			Message::LoadSettings(settings) => {
+				self.settings = settings;
+
+				Task::none()
+			}
 			Message::StartGame(GameStartType::Modded) => {
 				self.game_start_state = GameStartState::Loading(ProgressBar::default());
 				log::info!("Starting modded Exanima...");
@@ -83,35 +104,14 @@ impl Sidebar {
 				log::info!("Starting vanilla Exanima...");
 				Task::none()
 			}
-			Message::LoadSettings(settings) => {
-				self.settings = settings;
-
-				Task::none()
-			}
-			Message::LaunchExanima(state) => {
-				self.game_start_state = state;
-				// TODO: launch exanima
-				// crate::launch_exanima();
-				log::info!("Launching exanima...");
+			Message::ToggleExpand => {
+				self.list_expanded = !self.list_expanded;
 				Task::none()
 			}
 			Message::UpdateProgress(progress) => {
 				self.game_start_state = GameStartState::Loading(progress);
 				Task::none()
 			}
-			Message::ToggleExpand => {
-				self.list_expanded = !self.list_expanded;
-				Task::none()
-			}
-			Message::DismissExpand => {
-				self.list_expanded = false;
-				Task::none()
-			}
-			Message::ListSelected(value) => match value {
-				SidebarList::Mods => Task::none(),
-				SidebarList::PlayVanilla => Task::none(),
-				SidebarList::Settings => Task::none(),
-			},
 		}
 		.map(crate::gui::Message::Sidebar)
 	}

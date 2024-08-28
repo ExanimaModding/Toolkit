@@ -3,11 +3,6 @@ use iced::{
 	Element, Task, Theme,
 };
 
-#[derive(Debug, Clone, Copy)]
-pub enum Message {
-	PageChange(Page),
-}
-
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
 	#[default]
@@ -19,6 +14,11 @@ impl std::fmt::Display for Page {
 	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
 		write!(f, "{:?}", self)
 	}
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Message {
+	PageChange(Page),
 }
 
 #[derive(Debug, Default, Clone, Copy)]

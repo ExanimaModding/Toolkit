@@ -8,13 +8,6 @@ use iced::{
 	Element, Task,
 };
 
-#[derive(Debug, Clone)]
-pub enum Message {
-	GetLatestRelease(GetLatestReleaseState),
-	OpenUrl(String),
-	ToggleChangelog,
-}
-
 impl Default for Message {
 	fn default() -> Self {
 		Message::GetLatestRelease(GetLatestReleaseState::NotStarted)
@@ -28,6 +21,13 @@ pub enum GetLatestReleaseState {
 	Loading,
 	Loaded(Release),
 	Error(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum Message {
+	GetLatestRelease(GetLatestReleaseState),
+	OpenUrl(String),
+	ToggleChangelog,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -51,19 +51,10 @@ impl Settings {
 		message: Message,
 	) -> Task<crate::gui::Message> {
 		let result = match message {
-			Message::GetLatestRelease(GetLatestReleaseState::NotStarted) => {
-				log::info!("Checking for updates...");
-				self.latest_release = GetLatestReleaseState::Loading;
-				Task::future(get_latest_release()).map(|result| match result {
-					Ok(release) => {
-						log::info!("Latest release: {}", release.tag_name);
-						Message::GetLatestRelease(GetLatestReleaseState::Loaded(release))
-					}
-					Err(error) => {
-						log::error!("Error checking for updates: {}", error);
-						Message::GetLatestRelease(GetLatestReleaseState::Error(error.to_string()))
-					}
-				})
+			Message::GetLatestRelease(GetLatestReleaseState::Error(error)) => {
+				log::error!("Error checking for updates: {}", error);
+				self.latest_release = GetLatestReleaseState::Error(error);
+				Task::none()
 			}
 			Message::GetLatestRelease(GetLatestReleaseState::Loaded(release)) => {
 				self.changelog =
@@ -77,10 +68,19 @@ impl Settings {
 				self.latest_release = GetLatestReleaseState::Loaded(release);
 				Task::none()
 			}
-			Message::GetLatestRelease(GetLatestReleaseState::Error(error)) => {
-				log::error!("Error checking for updates: {}", error);
-				self.latest_release = GetLatestReleaseState::Error(error);
-				Task::none()
+			Message::GetLatestRelease(GetLatestReleaseState::NotStarted) => {
+				log::info!("Checking for updates...");
+				self.latest_release = GetLatestReleaseState::Loading;
+				Task::future(get_latest_release()).map(|result| match result {
+					Ok(release) => {
+						log::info!("Latest release: {}", release.tag_name);
+						Message::GetLatestRelease(GetLatestReleaseState::Loaded(release))
+					}
+					Err(error) => {
+						log::error!("Error checking for updates: {}", error);
+						Message::GetLatestRelease(GetLatestReleaseState::Error(error.to_string()))
+					}
+				})
 			}
 			Message::OpenUrl(url) => {
 				log::info!("Opening URL: {}", url);

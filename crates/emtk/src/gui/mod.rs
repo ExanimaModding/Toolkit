@@ -13,8 +13,8 @@ static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 
 #[derive(Debug, Clone)]
 pub enum Message {
-	Menu(menu::Message),
 	HomePage(pages::home::Message),
+	Menu(menu::Message),
 	Settings(pages::settings::Message),
 	Sidebar(sidebar::Message),
 }
@@ -48,9 +48,9 @@ impl State {
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
 			Message::HomePage(message) => self.home_page.update(&mut self.app_state, message),
-			Message::Settings(message) => self.settings.update(&mut self.app_state, message),
 			Message::Menu(message) => self.menu.update(&mut self.app_state, message),
 			Message::Sidebar(message) => self.sidebar.update(message),
+			Message::Settings(message) => self.settings.update(&mut self.app_state, message),
 		}
 	}
 
