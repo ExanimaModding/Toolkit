@@ -8,12 +8,6 @@ use iced::{
 	Element, Task,
 };
 
-impl Default for Message {
-	fn default() -> Self {
-		Message::GetLatestRelease(GetLatestReleaseState::NotStarted)
-	}
-}
-
 #[derive(Debug, Default, Clone)]
 pub enum GetLatestReleaseState {
 	#[default]
@@ -28,6 +22,12 @@ pub enum Message {
 	ChangelogToggled,
 	GetLatestRelease(GetLatestReleaseState),
 	UrlOpened(String),
+}
+
+impl Default for Message {
+	fn default() -> Self {
+		Message::GetLatestRelease(GetLatestReleaseState::NotStarted)
+	}
 }
 
 #[derive(Debug, Default, Clone)]

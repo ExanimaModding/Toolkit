@@ -41,7 +41,7 @@ impl Home {
 				Task::none()
 			}
 		}
-		.map(crate::gui::Message::HomePage)
+		.map(crate::gui::Message::Home)
 	}
 
 	pub fn view(&self) -> Element<Message> {

@@ -9,6 +9,7 @@ use std::{fs, io, path::PathBuf};
 use tokio::sync::mpsc::Sender;
 
 use crate::config::AppSettings;
+use crate::gui::screen::ScreenKind;
 
 #[derive(Debug, Clone, Default)]
 pub struct ProgressBar {
@@ -60,11 +61,13 @@ pub enum Message {
 	ModalLaunching,
 	ModalTest,
 	ProgressUpdated(ProgressBar),
+	ScreenChanged(ScreenKind),
 	StartGame(GameStartType),
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct Sidebar {
+	screen_kind: ScreenKind,
 	game_start_state: GameStartState,
 	settings: AppSettings,
 	list_expanded: bool,
@@ -104,6 +107,10 @@ impl Sidebar {
 				self.game_start_state = GameStartState::Loading(progress);
 				Task::none()
 			}
+			Message::ScreenChanged(kind) => {
+				self.screen_kind = kind.clone();
+				Task::done(crate::gui::Message::ScreenChanged(kind))
+			}
 			Message::StartGame(GameStartType::Modded) => {
 				self.game_start_state = GameStartState::Loading(ProgressBar::default());
 				log::info!("Starting modded Exanima...");
@@ -121,6 +128,18 @@ impl Sidebar {
 	pub fn view(&self) -> Element<Message> {
 		container(
 			Column::new()
+				.push(Column::new().push(button(text("Home")).on_press_maybe(
+					match self.screen_kind {
+						ScreenKind::Home => None,
+						_ => Some(Message::ScreenChanged(ScreenKind::Home)),
+					},
+				)))
+				.push(Column::new().push(button(text("Settings")).on_press_maybe(
+					match self.screen_kind {
+						ScreenKind::Settings => None,
+						_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
+					},
+				)))
 				.push(Column::new().push(button("Launch Modal").on_press(Message::ModalLaunching)))
 				.push(Column::new().push(button("Test Modal").on_press(Message::ModalTest)))
 				.push(Column::new().push(text("Sidebar!")).height(Length::Fill))
