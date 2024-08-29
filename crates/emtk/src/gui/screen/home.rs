@@ -23,7 +23,7 @@ impl Home {
 		&mut self,
 		_app_state: &mut crate::gui::state::AppState,
 		message: Message,
-	) -> Task<crate::gui::Message> {
+	) -> Task<Message> {
 		match message {
 			Message::LoadSettings(settings) => {
 				self.settings = settings;
@@ -41,7 +41,6 @@ impl Home {
 				Task::none()
 			}
 		}
-		.map(crate::gui::Message::Home)
 	}
 
 	pub fn view(&self) -> Element<Message> {

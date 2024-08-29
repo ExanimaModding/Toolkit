@@ -4,9 +4,8 @@ pub mod settings;
 use home::Home;
 use settings::Settings;
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Debug, Clone)]
 pub enum ScreenKind {
-	#[default]
 	Home,
 	Settings,
 }

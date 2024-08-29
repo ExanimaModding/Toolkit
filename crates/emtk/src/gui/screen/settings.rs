@@ -49,8 +49,8 @@ impl Settings {
 		&mut self,
 		_app_state: &mut crate::gui::state::AppState,
 		message: Message,
-	) -> Task<crate::gui::Message> {
-		let result = match message {
+	) -> Task<Message> {
+		match message {
 			Message::ChangelogToggled => {
 				self.expand_changelog = !self.expand_changelog;
 				Task::none()
@@ -92,9 +92,7 @@ impl Settings {
 				open::that(url).unwrap();
 				Task::none()
 			}
-		};
-
-		result.map(crate::gui::Message::Settings)
+		}
 	}
 
 	pub fn view(&self) -> Element<Message> {
