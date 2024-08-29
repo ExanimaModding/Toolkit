@@ -55,38 +55,42 @@ impl Settings {
 				self.expand_changelog = !self.expand_changelog;
 				Task::none()
 			}
-			Message::GetLatestRelease(GetLatestReleaseState::Error(error)) => {
-				log::error!("Error checking for updates: {}", error);
-				self.latest_release = GetLatestReleaseState::Error(error);
-				Task::none()
-			}
-			Message::GetLatestRelease(GetLatestReleaseState::Loading) => Task::none(),
-			Message::GetLatestRelease(GetLatestReleaseState::Loaded(release)) => {
-				self.changelog =
-					markdown::parse(&format!("[View in browser]({})\n", release.html_url))
-						.collect();
+			Message::GetLatestRelease(state) => match state {
+				GetLatestReleaseState::NotStarted => {
+					log::info!("Checking for updates...");
+					self.latest_release = GetLatestReleaseState::Loading;
+					Task::future(get_latest_release()).map(|result| match result {
+						Ok(release) => {
+							log::info!("Latest release: {}", release.tag_name);
+							Message::GetLatestRelease(GetLatestReleaseState::Loaded(release))
+						}
+						Err(error) => {
+							log::error!("Error checking for updates: {}", error);
+							Message::GetLatestRelease(GetLatestReleaseState::Error(
+								error.to_string(),
+							))
+						}
+					})
+				}
+				GetLatestReleaseState::Loading => Task::none(),
+				GetLatestReleaseState::Loaded(release) => {
+					self.changelog =
+						markdown::parse(&format!("[View in browser]({})\n", release.html_url))
+							.collect();
 
-				let mut changelog: Vec<_> = markdown::parse(&release.body).collect();
+					let mut changelog: Vec<_> = markdown::parse(&release.body).collect();
 
-				self.changelog.append(&mut changelog);
-				log::info!("Latest release: {}", release.tag_name);
-				self.latest_release = GetLatestReleaseState::Loaded(release);
-				Task::none()
-			}
-			Message::GetLatestRelease(GetLatestReleaseState::NotStarted) => {
-				log::info!("Checking for updates...");
-				self.latest_release = GetLatestReleaseState::Loading;
-				Task::future(get_latest_release()).map(|result| match result {
-					Ok(release) => {
-						log::info!("Latest release: {}", release.tag_name);
-						Message::GetLatestRelease(GetLatestReleaseState::Loaded(release))
-					}
-					Err(error) => {
-						log::error!("Error checking for updates: {}", error);
-						Message::GetLatestRelease(GetLatestReleaseState::Error(error.to_string()))
-					}
-				})
-			}
+					self.changelog.append(&mut changelog);
+					log::info!("Latest release: {}", release.tag_name);
+					self.latest_release = GetLatestReleaseState::Loaded(release);
+					Task::none()
+				}
+				GetLatestReleaseState::Error(error) => {
+					log::error!("Error checking for updates: {}", error);
+					self.latest_release = GetLatestReleaseState::Error(error);
+					Task::none()
+				}
+			},
 			Message::UrlOpened(url) => {
 				log::info!("Opening URL: {}", url);
 				open::that(url).unwrap();
