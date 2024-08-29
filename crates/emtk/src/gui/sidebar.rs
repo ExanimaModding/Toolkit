@@ -51,6 +51,14 @@ impl SidebarList {
 	];
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct Sidebar {
+	screen_kind: ScreenKind,
+	game_start_state: GameStartState,
+	settings: AppSettings,
+	list_expanded: bool,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
 	ExanimaLaunched(GameStartState),
@@ -63,14 +71,6 @@ pub enum Message {
 	ProgressUpdated(ProgressBar),
 	ScreenChanged(ScreenKind),
 	StartGame(GameStartType),
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Sidebar {
-	screen_kind: ScreenKind,
-	game_start_state: GameStartState,
-	settings: AppSettings,
-	list_expanded: bool,
 }
 
 impl Sidebar {

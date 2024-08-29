@@ -5,17 +5,17 @@ use iced::{
 	Element, Length, Task,
 };
 
+#[derive(Debug, Default, Clone)]
+pub struct Home {
+	settings: AppSettings,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
 	LoadSettings(crate::config::AppSettings),
 	ModOrderUpdated,
 	ModSettingsUpdated(bool),
 	UrlOpened(String),
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Home {
-	settings: AppSettings,
 }
 
 impl Home {

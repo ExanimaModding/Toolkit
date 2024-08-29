@@ -33,6 +33,14 @@ pub(crate) async fn start_gui() -> iced::Result {
 		.run_with(Emtk::new)
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct Emtk {
+	sidebar: Sidebar,
+	app_state: state::AppState,
+	modal: Option<ModalKind>,
+	screen: Screen,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
 	Home(home::Message),
@@ -42,14 +50,6 @@ pub enum Message {
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
 	Sidebar(sidebar::Message),
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Emtk {
-	sidebar: Sidebar,
-	app_state: state::AppState,
-	modal: Option<ModalKind>,
-	screen: Screen,
 }
 
 impl Emtk {
@@ -66,10 +66,6 @@ impl Emtk {
 				Task::done(sidebar::Message::LoadSettings(settings)).map(Message::Sidebar),
 			]),
 		)
-	}
-
-	pub fn theme(_state: &Emtk) -> Theme {
-		Theme::CatppuccinFrappe
 	}
 
 	pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -131,5 +127,9 @@ impl Emtk {
 		} else {
 			con.into()
 		}
+	}
+
+	pub fn theme(_state: &Emtk) -> Theme {
+		Theme::CatppuccinFrappe
 	}
 }

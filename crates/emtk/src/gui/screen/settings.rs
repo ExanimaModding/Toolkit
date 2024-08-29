@@ -17,6 +17,13 @@ pub enum GetLatestReleaseState {
 	Error(String),
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct Settings {
+	pub latest_release: GetLatestReleaseState,
+	expand_changelog: bool,
+	changelog: Vec<markdown::Item>,
+}
+
 #[derive(Debug, Clone)]
 pub enum Message {
 	ChangelogToggled,
@@ -28,13 +35,6 @@ impl Default for Message {
 	fn default() -> Self {
 		Message::GetLatestRelease(GetLatestReleaseState::NotStarted)
 	}
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct Settings {
-	pub latest_release: GetLatestReleaseState,
-	expand_changelog: bool,
-	changelog: Vec<markdown::Item>,
 }
 
 impl Settings {
