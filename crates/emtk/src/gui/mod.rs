@@ -298,21 +298,21 @@ impl Emtk {
 					button("View Changelog").on_press(Message::ModalChanged(ScreenKind::Changelog)),
 				))
 				.push(Column::new().push(text("Sidebar!")).height(Length::Fill))
-				.push(Column::new().push(self.play_buttons())),
+				.push(
+					Column::new().push(
+						button(text("Play").size(20))
+							.on_press_maybe(
+								if let GameStartState::NotStarted = self.game_start_state {
+									Some(Message::StartGame(GameStartType::Modded))
+								} else {
+									None
+								},
+							)
+							.width(Length::Fill),
+					),
+				),
 		)
 		.into()
-	}
-
-	fn play_buttons(&self) -> Element<Message> {
-		let play_button = button(text("Play").size(20)).width(Length::FillPortion(7));
-
-		match self.game_start_state {
-			GameStartState::NotStarted => Row::new()
-				// TODO: use on_press_maybe
-				.push(play_button.on_press(Message::StartGame(GameStartType::Modded)))
-				.into(),
-			_ => Row::new().push(play_button).into(),
-		}
 	}
 
 	fn version(&self) -> Element<Message> {
