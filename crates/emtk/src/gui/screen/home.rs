@@ -21,8 +21,8 @@ pub enum Message {
 impl Home {
 	pub fn update(
 		&mut self,
-		_app_state: &mut crate::gui::state::AppState,
 		message: Message,
+		_app_state: &mut crate::gui::state::AppState,
 	) -> Task<Message> {
 		match message {
 			Message::LoadSettings(settings) => {

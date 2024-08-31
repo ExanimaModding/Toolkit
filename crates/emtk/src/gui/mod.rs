@@ -1,24 +1,28 @@
 mod constants;
-mod modal;
 mod screen;
 mod state;
+mod widget;
 
 use crate::config::AppSettings;
 use async_stream::stream;
 use exparser::{deku::prelude::*, Format};
 use iced::{
+	event,
 	futures::Stream,
-	widget::{button, container, progress_bar, text, Column, Row},
-	Element, Length, Padding, Task, Theme,
+	widget::{
+		button, container, horizontal_rule, markdown, progress_bar, scrollable, text, Column, Row,
+	},
+	window, Element, Event, Length, Padding, Size, Subscription, Task, Theme,
 };
-use modal::ModalKind;
 use screen::{
+	changelog::{self, Changelog},
 	home::{self, Home},
 	settings::{self, Settings},
 	Screen, ScreenKind,
 };
 use std::{fs, io, path::PathBuf};
 use tokio::sync::mpsc::Sender;
+use widget::modal::modal;
 
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 
@@ -34,28 +38,52 @@ pub(crate) async fn start_gui() -> iced::Result {
 			icon: Some(icon),
 			..Default::default()
 		})
+		.subscription(Emtk::subscription)
 		.run_with(Emtk::new)
+}
+
+#[derive(Debug, Default, Clone)]
+pub enum GetLatestReleaseState {
+	#[default]
+	NotStarted,
+	Loading,
+	Loaded(Release),
+	Error(String),
+}
+
+#[derive(Debug, Default, Clone, ureq::serde::Deserialize)]
+pub struct Release {
+	pub tag_name: String,
+	pub html_url: String,
+	pub body: String,
+	pub published_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Default, Clone)]
 pub struct Emtk {
 	app_state: state::AppState,
-	modal: Option<ModalKind>,
-	screen: Screen,
+	changelog: Vec<markdown::Item>,
 	game_start_state: GameStartState,
+	latest_release: GetLatestReleaseState,
+	modal: Option<Screen>,
+	screen: Screen,
+	window_size: Size,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
+	Changelog(changelog::Message),
+	Event(Event),
 	ExanimaLaunched(GameStartState),
+	GetLatestRelease(GetLatestReleaseState),
 	Home(home::Message),
-	Modal,
-	ModalLaunching,
-	ModalTest,
+	ModalChanged(ScreenKind),
+	ModalClosed,
 	ProgressUpdated(ProgressBar),
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
 	StartGame(GameStartType),
+	LinkClicked(String),
 }
 
 impl Emtk {
@@ -70,12 +98,51 @@ impl Emtk {
 			// 	Task::done(screen::home::Message::LoadSettings(settings.clone()))
 			// 		.map(Message::Home),
 			// ]),
-			Task::none(),
+			Task::done(Message::GetLatestRelease(GetLatestReleaseState::NotStarted)),
 		)
 	}
 
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
+			Message::Changelog(message) => match &mut self.modal {
+				Some(screen) => match screen {
+					Screen::Changelog(changelog) => {
+						let (task, action) = changelog.update(message);
+						let action = match action {
+							changelog::Action::LinkClicked(url) => {
+								Task::done(Message::LinkClicked(url))
+							}
+							changelog::Action::None => Task::none(),
+						};
+						Task::batch([task.map(Message::Changelog), action])
+					}
+					_ => Task::none(),
+				},
+				None => Task::none(),
+			},
+			Message::Event(event) => match event {
+				Event::Window(event) => match event {
+					window::Event::Resized(size) => {
+						self.window_size = size;
+						let Some(screen) = &mut self.modal else {
+							return Task::none();
+						};
+						match screen {
+							Screen::Changelog(changelog) => {
+								let width = size.width * 0.8;
+								let height = size.height * 0.8;
+								let size = Size::new(width, height);
+								let (task, _action) =
+									changelog.update(changelog::Message::SizeChanged(size));
+								task.map(Message::Changelog)
+							}
+							_ => Task::none(),
+						}
+					}
+					_ => Task::none(),
+				},
+				_ => Task::none(),
+			},
 			Message::ExanimaLaunched(state) => {
 				self.game_start_state = state;
 				// TODO: launch exanima
@@ -83,22 +150,59 @@ impl Emtk {
 				log::info!("Launching exanima...");
 				Task::none()
 			}
+			Message::GetLatestRelease(state) => match state {
+				GetLatestReleaseState::NotStarted => {
+					log::info!("Checking for updates...");
+					self.latest_release = GetLatestReleaseState::Loading;
+					Task::future(get_latest_release()).map(|result| match result {
+						Ok(release) => {
+							log::info!("Latest release: {}", release.tag_name);
+							Message::GetLatestRelease(GetLatestReleaseState::Loaded(release))
+						}
+						Err(error) => {
+							log::error!("Error checking for updates: {}", error);
+							Message::GetLatestRelease(GetLatestReleaseState::Error(
+								error.to_string(),
+							))
+						}
+					})
+				}
+				GetLatestReleaseState::Loading => Task::none(),
+				GetLatestReleaseState::Loaded(release) => {
+					self.changelog =
+						markdown::parse(&format!("[View in browser]({})\n", release.html_url))
+							.collect();
+
+					let mut changelog: Vec<_> = markdown::parse(&release.body).collect();
+
+					self.changelog.append(&mut changelog);
+					log::info!("Latest release: {}", release.tag_name);
+					self.latest_release = GetLatestReleaseState::Loaded(release);
+					Task::none()
+				}
+				GetLatestReleaseState::Error(error) => {
+					log::error!("Error checking for updates: {}", error);
+					self.latest_release = GetLatestReleaseState::Error(error);
+					Task::none()
+				}
+			},
 			Message::Home(message) => match &mut self.screen {
-				Screen::Home(screen) => screen
-					.update(&mut self.app_state, message)
-					.map(Message::Home),
+				Screen::Home(home) => home.update(message, &mut self.app_state).map(Message::Home),
 				_ => Task::none(),
 			},
-			Message::Modal => {
+			Message::ModalChanged(kind) => match kind {
+				ScreenKind::Changelog => {
+					self.modal = Some(Screen::Changelog(Changelog::new(
+						self.changelog.clone(),
+						self.latest_release.clone(),
+						Some(self.window_size * 0.8),
+					)));
+					Task::none()
+				}
+				_ => Task::none(),
+			},
+			Message::ModalClosed => {
 				self.modal = None;
-				Task::none()
-			}
-			Message::ModalLaunching => {
-				self.modal = Some(ModalKind::Launching);
-				Task::none()
-			}
-			Message::ModalTest => {
-				self.modal = Some(ModalKind::Test);
 				Task::none()
 			}
 			Message::ProgressUpdated(progress) => {
@@ -106,6 +210,7 @@ impl Emtk {
 				Task::none()
 			}
 			Message::ScreenChanged(kind) => match kind {
+				ScreenKind::Changelog => Task::none(),
 				ScreenKind::Home => {
 					self.screen = Screen::Home(Home::default());
 					Task::none()
@@ -116,8 +221,8 @@ impl Emtk {
 				}
 			},
 			Message::Settings(message) => match &mut self.screen {
-				Screen::Settings(screen) => screen
-					.update(&mut self.app_state, message)
+				Screen::Settings(settings) => settings
+					.update(message, &mut self.app_state)
 					.map(Message::Settings),
 				_ => Task::none(),
 			},
@@ -134,6 +239,11 @@ impl Emtk {
 					Task::none()
 				}
 			},
+			Message::LinkClicked(url) => {
+				log::info!("Opening URL: {}", url);
+				open::that(url).unwrap();
+				Task::none()
+			}
 		}
 	}
 
@@ -141,6 +251,7 @@ impl Emtk {
 		let screen = match &self.screen {
 			Screen::Home(screen) => screen.view().map(Message::Home),
 			Screen::Settings(screen) => screen.view().map(Message::Settings),
+			_ => unreachable!("Unsupported screen"),
 		};
 
 		let con = container(
@@ -155,8 +266,15 @@ impl Emtk {
 		)
 		.padding(Padding::new(12.0));
 
-		if let Some(modal) = &self.modal {
-			modal::modal(con, modal.view(), Message::Modal)
+		if let Some(screen) = &self.modal {
+			match screen {
+				Screen::Changelog(changelog) => {
+					modal(con, changelog.view().map(Message::Changelog), || {
+						Message::ModalClosed
+					})
+				}
+				_ => con.into(),
+			}
 		} else {
 			con.into()
 		}
@@ -177,8 +295,9 @@ impl Emtk {
 						_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
 					},
 				)))
-				.push(Column::new().push(button("Launch Modal").on_press(Message::ModalLaunching)))
-				.push(Column::new().push(button("Test Modal").on_press(Message::ModalTest)))
+				.push(Column::new().push(
+					button("View Changelog").on_press(Message::ModalChanged(ScreenKind::Changelog)),
+				))
 				.push(Column::new().push(text("Sidebar!")).height(Length::Fill))
 				.push(Column::new().push(self.play_buttons())),
 		)
@@ -194,6 +313,73 @@ impl Emtk {
 				.push(play_button.on_press(Message::StartGame(GameStartType::Modded)))
 				.into(),
 			_ => Row::new().push(play_button).into(),
+		}
+	}
+
+	fn version(&self) -> Element<Message> {
+		Column::new()
+			.push(
+				text(format!(
+					"You're currently on version {}",
+					constants::CARGO_PKG_VERSION
+				))
+				.size(20),
+			)
+			.push(self.get_latest_release(&self.latest_release))
+			.push(horizontal_rule(1))
+			.spacing(10)
+			.into()
+	}
+
+	fn get_latest_release(&self, latest_release: &GetLatestReleaseState) -> Element<Message> {
+		match &latest_release {
+			GetLatestReleaseState::NotStarted => text("Checking for updates...").into(),
+			GetLatestReleaseState::Loading => text("Checking for updates...").into(),
+			GetLatestReleaseState::Loaded(release) => {
+				let ver = semver::Version::parse(release.tag_name.trim_start_matches("v"))
+					.unwrap_or(semver::Version::new(0, 0, 0));
+
+				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
+					let palette = iced::theme::Palette::CATPPUCCIN_FRAPPE;
+					return Column::new()
+						.spacing(10.)
+						.push(text("You're already up to date!"))
+						.push(horizontal_rule(1.))
+						// TODO: make changelog a modal
+						.push(scrollable(
+							markdown(
+								&self.changelog,
+								markdown::Settings::default(),
+								markdown::Style {
+									inline_code_highlight: markdown::Highlight {
+										background: iced::Background::Color(palette.background),
+										border: iced::Border::default(),
+									},
+									inline_code_padding: iced::Padding::default(),
+									inline_code_color: palette.text,
+									link_color: palette.primary,
+								},
+							)
+							.map(|url| Message::LinkClicked(url.to_string())),
+						))
+						.into();
+				}
+
+				Column::new()
+					.spacing(10.)
+					.push(text(format!(
+						"There's a new version available: {} (Published: {})",
+						release.tag_name,
+						release.published_at.format("%Y-%m-%d %H:%M:%S")
+					)))
+					.push(
+						button(text("Download"))
+							.on_press(Message::LinkClicked(release.html_url.clone()))
+							.width(100.),
+					)
+			}
+			.into(),
+			GetLatestReleaseState::Error(error) => text(format!("Error: {}", error)).into(),
 		}
 	}
 
@@ -283,6 +469,10 @@ impl Emtk {
 
 	pub fn theme(_state: &Emtk) -> Theme {
 		Theme::CatppuccinFrappe
+	}
+
+	pub fn subscription(&self) -> Subscription<Message> {
+		event::listen().map(Message::Event)
 	}
 }
 
@@ -501,4 +691,12 @@ async fn merge_mod_assets(tx: Sender<GameStartState>, settings: AppSettings) {
 	tx.send(GameStartState::Loaded)
 		.await
 		.expect("error while sending finished state to channel");
+}
+
+async fn get_latest_release() -> anyhow::Result<Release> {
+	let url = "https://codeberg.org/api/v1/repos/ExanimaModding/Toolkit/releases/latest";
+
+	let release: Release = ureq::get(url).call()?.into_json()?;
+
+	Ok(release)
 }
