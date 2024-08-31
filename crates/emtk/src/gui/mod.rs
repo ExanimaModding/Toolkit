@@ -4,15 +4,14 @@ mod state;
 mod widget;
 
 use crate::config::AppSettings;
-use async_stream::stream;
 use exparser::{deku::prelude::*, Format};
 use iced::{
 	event,
-	futures::Stream,
+	futures::{channel::mpsc::Sender, SinkExt, Stream},
 	widget::{
 		button, container, horizontal_rule, markdown, progress_bar, scrollable, text, Column, Row,
 	},
-	window, Element, Event, Length, Padding, Size, Subscription, Task, Theme,
+	window, Element, Length, Padding, Size, Subscription, Task, Theme,
 };
 use screen::{
 	changelog::{self, Changelog},
@@ -21,7 +20,6 @@ use screen::{
 	Screen, ScreenKind,
 };
 use std::{fs, io, path::PathBuf};
-use tokio::sync::mpsc::Sender;
 use widget::modal::modal;
 
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
@@ -74,12 +72,11 @@ pub struct Emtk {
 pub enum Message {
 	Changelog(changelog::Message),
 	Event(Event),
-	ExanimaLaunched(GameStartState),
 	GetLatestRelease(GetLatestReleaseState),
 	Home(home::Message),
+	IcedEvent(iced::Event),
 	ModalChanged(ScreenKind),
 	ModalClosed,
-	ProgressUpdated(ProgressBar),
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
 	StartGame(GameStartType),
@@ -121,35 +118,18 @@ impl Emtk {
 				None => Task::none(),
 			},
 			Message::Event(event) => match event {
-				Event::Window(event) => match event {
-					window::Event::Resized(size) => {
-						self.window_size = size;
-						let Some(screen) = &mut self.modal else {
-							return Task::none();
-						};
-						match screen {
-							Screen::Changelog(changelog) => {
-								let width = size.width * 0.8;
-								let height = size.height * 0.8;
-								let size = Size::new(width, height);
-								let (task, _action) =
-									changelog.update(changelog::Message::SizeChanged(size));
-								task.map(Message::Changelog)
-							}
-							_ => Task::none(),
-						}
-					}
-					_ => Task::none(),
-				},
-				_ => Task::none(),
+				Event::ExanimaLaunched(state) => {
+					self.game_start_state = state;
+					// TODO: launch exanima
+					// crate::launch_exanima();
+					log::info!("Launching exanima...");
+					Task::none()
+				}
+				Event::ProgressUpdated(bar) => {
+					self.game_start_state = GameStartState::Loading(bar);
+					Task::none()
+				}
 			},
-			Message::ExanimaLaunched(state) => {
-				self.game_start_state = state;
-				// TODO: launch exanima
-				// crate::launch_exanima();
-				log::info!("Launching exanima...");
-				Task::none()
-			}
 			Message::GetLatestRelease(state) => match state {
 				GetLatestReleaseState::NotStarted => {
 					log::info!("Checking for updates...");
@@ -190,6 +170,29 @@ impl Emtk {
 				Screen::Home(home) => home.update(message, &mut self.app_state).map(Message::Home),
 				_ => Task::none(),
 			},
+			Message::IcedEvent(event) => match event {
+				iced::Event::Window(event) => match event {
+					window::Event::Resized(size) => {
+						self.window_size = size;
+						let Some(screen) = &mut self.modal else {
+							return Task::none();
+						};
+						match screen {
+							Screen::Changelog(changelog) => {
+								let width = size.width * 0.8;
+								let height = size.height * 0.8;
+								let size = Size::new(width, height);
+								let (task, _action) =
+									changelog.update(changelog::Message::SizeChanged(size));
+								task.map(Message::Changelog)
+							}
+							_ => Task::none(),
+						}
+					}
+					_ => Task::none(),
+				},
+				_ => Task::none(),
+			},
 			Message::ModalChanged(kind) => match kind {
 				ScreenKind::Changelog => {
 					self.modal = Some(Screen::Changelog(Changelog::new(
@@ -203,10 +206,6 @@ impl Emtk {
 			},
 			Message::ModalClosed => {
 				self.modal = None;
-				Task::none()
-			}
-			Message::ProgressUpdated(progress) => {
-				self.game_start_state = GameStartState::Loading(progress);
 				Task::none()
 			}
 			Message::ScreenChanged(kind) => match kind {
@@ -230,7 +229,7 @@ impl Emtk {
 				GameStartType::Modded => {
 					self.game_start_state = GameStartState::Loading(ProgressBar::default());
 					log::info!("Starting modded Exanima...");
-					Task::stream(load_mods(self.app_state.settings.clone()))
+					Task::stream(load_mods(self.app_state.settings.clone())).map(Message::Event)
 				}
 				GameStartType::Vanilla => {
 					// TODO: start vanilla exanima
@@ -472,7 +471,7 @@ impl Emtk {
 	}
 
 	pub fn subscription(&self) -> Subscription<Message> {
-		event::listen().map(Message::Event)
+		event::listen().map(Message::IcedEvent)
 	}
 }
 
@@ -500,197 +499,194 @@ pub enum GameStartState {
 	Loaded,
 }
 
-fn load_mods(settings: AppSettings) -> impl Stream<Item = Message> {
-	stream! {
-		let (tx, mut rx) = tokio::sync::mpsc::channel::<GameStartState>(1);
-
-		tokio::spawn(async move {
-			merge_mod_assets(tx, settings).await;
-		});
-
-		while let Some(state) = rx.recv().await {
-			if let GameStartState::Loading(progress) = state {
-				yield Message::ProgressUpdated(progress)
-			} else if let GameStartState::Loaded = state {
-				yield Message::ExanimaLaunched(state)
-			}
-		}
-	}
+#[derive(Debug, Clone)]
+pub enum Event {
+	ExanimaLaunched(GameStartState),
+	ProgressUpdated(ProgressBar),
 }
 
-async fn merge_mod_assets(tx: Sender<GameStartState>, settings: AppSettings) {
-	let mut progress_bar = ProgressBar::default();
+fn load_mods(settings: AppSettings) -> impl Stream<Item = Event> {
+	iced::stream::channel(0, |mut tx: Sender<Event>| async move {
+		let mut progress_bar = ProgressBar::default();
 
-	let exanima_exe = PathBuf::from(
-		settings
-			.exanima_exe
-			.expect("error while getting exanima exe path"),
-	);
-	let exanima_path = exanima_exe
-		.parent()
-		.expect("error while getting parent directory of exanima exe");
+		let exanima_exe = PathBuf::from(
+			settings
+				.exanima_exe
+				.expect("error while getting exanima exe path"),
+		);
+		let exanima_path = exanima_exe
+			.parent()
+			.expect("error while getting parent directory of exanima exe");
 
-	let exanima_rpks: Vec<PathBuf> = exanima_path
-		.read_dir()
-		.expect("error while reading exanima directory")
-		.flatten()
-		.filter_map(|entry| {
-			let path = entry.path();
+		let exanima_rpks: Vec<PathBuf> = exanima_path
+			.read_dir()
+			.expect("error while reading exanima directory")
+			.flatten()
+			.filter_map(|entry| {
+				let path = entry.path();
+				let file_name = path
+					.file_name()
+					.expect("error while reading file name")
+					.to_str()
+					.expect("error while getting file name");
+				if path.is_dir() || !file_name.ends_with(".rpk") {
+					None
+				} else {
+					Some(path)
+				}
+			})
+			.collect();
+
+		progress_bar.rpks = exanima_rpks
+			.iter()
+			.map(|path| {
+				path.file_name()
+					.expect("error while reading file name")
+					.to_str()
+					.expect("error while getting file name")
+					.to_string()
+			})
+			.collect();
+		progress_bar.mods = settings.mod_load_order.clone();
+
+		for (i, path) in exanima_rpks.iter().enumerate() {
 			let file_name = path
 				.file_name()
 				.expect("error while reading file name")
 				.to_str()
 				.expect("error while getting file name");
-			if path.is_dir() || !file_name.ends_with(".rpk") {
-				None
-			} else {
-				Some(path)
-			}
-		})
-		.collect();
 
-	progress_bar.rpks = exanima_rpks
-		.iter()
-		.map(|path| {
-			path.file_name()
-				.expect("error while reading file name")
-				.to_str()
-				.expect("error while getting file name")
-				.to_string()
-		})
-		.collect();
-	progress_bar.mods = settings.mod_load_order.clone();
+			let mut buf_reader =
+				io::BufReader::new(fs::File::open(path).expect("error while opening exanima file"));
+			let mut reader = Reader::new(&mut buf_reader);
 
-	for (i, path) in exanima_rpks.iter().enumerate() {
-		let file_name = path
-			.file_name()
-			.expect("error while reading file name")
-			.to_str()
-			.expect("error while getting file name");
+			let mut exanima_format = Format::from_reader_with_ctx(&mut reader, ())
+				.expect("error while reading exanima format");
 
-		let mut buf_reader =
-			io::BufReader::new(fs::File::open(path).expect("error while opening exanima file"));
-		let mut reader = Reader::new(&mut buf_reader);
+			if let Format::Rpk(exanima_rpk) = &mut exanima_format {
+				let mut exanima_sorted_entries = exanima_rpk.entries.to_vec();
+				exanima_sorted_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
-		let mut exanima_format = Format::from_reader_with_ctx(&mut reader, ())
-			.expect("error while reading exanima format");
+				// TODO: design how mods should be considered enabled/disabled and how the mod load
+				// order should be like
+				// let enabled_plugins = settings.mods.iter().filter(|&plugin| {
+				// 	plugin.info.config.plugin.id
+				// });
+				//
+				// settings.mods;
+				// mod_load_order is a vec of mod ids where the order matters that includes all mods in settings.mods
+				// settings.mod_load_order;
+				// enabled_mods will be a vec of mod ids where the order doesn't matter that will be used to filter mod_load_order
+				// settings.enabled_mods;
+				// FIX: currently will loop through all mods regardless if it's enabled/disabled
+				// TODO: has_assets from config.toml should be used somewhere
+				for (j, plugin) in settings
+					.mods
+					.iter()
+					.filter(|&m| settings.mod_load_order.contains(&m.info.config.plugin.id))
+					.enumerate()
+				{
+					let mod_path = PathBuf::from(&plugin.info.path)
+						.join("assets")
+						.join(file_name);
+					if mod_path.exists() {
+						let mut buf_reader = io::BufReader::new(
+							fs::File::open(mod_path).expect("error while opening mod file"),
+						);
+						let mut reader = Reader::new(&mut buf_reader);
+						let mod_format = Format::from_reader_with_ctx(&mut reader, ())
+							.expect("error while reading mod format");
 
-		if let Format::Rpk(exanima_rpk) = &mut exanima_format {
-			let mut exanima_sorted_entries = exanima_rpk.entries.to_vec();
-			exanima_sorted_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
+						if let Format::Rpk(mod_rpk) = mod_format {
+							let mut sorted_mod_entries = mod_rpk.entries.to_vec();
+							sorted_mod_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
-			// TODO: design how mods should be considered enabled/disabled and how the mod load
-			// order should be like
-			// let enabled_plugins = settings.mods.iter().filter(|&plugin| {
-			// 	plugin.info.config.plugin.id
-			// });
-			//
-			// settings.mods;
-			// mod_load_order is a vec of mod ids where the order matters that includes all mods in settings.mods
-			// settings.mod_load_order;
-			// enabled_mods will be a vec of mod ids where the order doesn't matter that will be used to filter mod_load_order
-			// settings.enabled_mods;
-			// FIX: currently will loop through all mods regardless if it's enabled/disabled
-			// TODO: has_assets from config.toml should be used somewhere
-			for (j, plugin) in settings
-				.mods
-				.iter()
-				.filter(|&m| settings.mod_load_order.contains(&m.info.config.plugin.id))
-				.enumerate()
-			{
-				let mod_path = PathBuf::from(&plugin.info.path)
-					.join("assets")
-					.join(file_name);
-				if mod_path.exists() {
-					let mut buf_reader = io::BufReader::new(
-						fs::File::open(mod_path).expect("error while opening mod file"),
-					);
-					let mut reader = Reader::new(&mut buf_reader);
-					let mod_format = Format::from_reader_with_ctx(&mut reader, ())
-						.expect("error while reading mod format");
-
-					if let Format::Rpk(mod_rpk) = mod_format {
-						let mut sorted_mod_entries = mod_rpk.entries.to_vec();
-						sorted_mod_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
-
-						progress_bar.entries = sorted_mod_entries
-							.iter()
-							.map(|entry| entry.name.clone())
-							.collect();
-
-						for (mod_entry_idx, mod_entry) in sorted_mod_entries.iter().enumerate() {
-							if let Some(exanima_entry_idx) = exanima_sorted_entries
+							progress_bar.entries = sorted_mod_entries
 								.iter()
-								.position(|e| e.name == mod_entry.name)
+								.map(|entry| entry.name.clone())
+								.collect();
+
+							for (mod_entry_idx, mod_entry) in sorted_mod_entries.iter().enumerate()
 							{
-								let mod_data = mod_rpk
-									.data
-									.get(mod_entry_idx)
-									.expect("error while getting mod rpk data");
-								let rpk_data = exanima_rpk
-									.data
-									.get_mut(exanima_entry_idx)
-									.expect("error while getting exanima rpk data");
-								*rpk_data = mod_data.clone();
-							} else {
-								// TODO: Verify this works
-								// add the mod's entry to exanima's rpk file
-								exanima_sorted_entries.push(mod_entry.clone());
-								exanima_rpk.data.push(mod_rpk.data[mod_entry_idx].clone());
-							}
-							tx.send(GameStartState::Loading(progress_bar.clone()))
+								if let Some(exanima_entry_idx) = exanima_sorted_entries
+									.iter()
+									.position(|e| e.name == mod_entry.name)
+								{
+									let mod_data = mod_rpk
+										.data
+										.get(mod_entry_idx)
+										.expect("error while getting mod rpk data");
+									let rpk_data = exanima_rpk
+										.data
+										.get_mut(exanima_entry_idx)
+										.expect("error while getting exanima rpk data");
+									*rpk_data = mod_data.clone();
+								} else {
+									// TODO: Verify this works
+									// add the mod's entry to exanima's rpk file
+									exanima_sorted_entries.push(mod_entry.clone());
+									exanima_rpk.data.push(mod_rpk.data[mod_entry_idx].clone());
+								}
+								tx.send(Event::ExanimaLaunched(GameStartState::Loading(
+									progress_bar.clone(),
+								)))
 								.await
 								.expect("error while sending progress of entry to channel");
-							progress_bar.entry_step = mod_entry_idx;
+								progress_bar.entry_step = mod_entry_idx;
+							}
 						}
 					}
-				}
-				tx.send(GameStartState::Loading(progress_bar.clone()))
+					tx.send(Event::ExanimaLaunched(GameStartState::Loading(
+						progress_bar.clone(),
+					)))
 					.await
 					.expect("error while sending progress of mod to channel");
-				progress_bar.mod_step = j;
-			}
-			let mut prev_offset = 0;
-			let mut prev_size = 0;
-			for (i, exanima_data) in exanima_rpk.data.iter().enumerate() {
-				let entry = exanima_sorted_entries
-					.get_mut(i)
-					.expect("error while getting exanima rpk entry");
-				entry.offset = prev_offset + prev_size;
-				entry.size = exanima_data.len() as u32;
-				prev_offset = entry.offset;
-				prev_size = entry.size;
-			}
-			exanima_sorted_entries.sort_by(|a, b| a.name.cmp(&b.name));
-			exanima_rpk.entries = exanima_sorted_entries;
-		};
+					progress_bar.mod_step = j;
+				}
+				let mut prev_offset = 0;
+				let mut prev_size = 0;
+				for (i, exanima_data) in exanima_rpk.data.iter().enumerate() {
+					let entry = exanima_sorted_entries
+						.get_mut(i)
+						.expect("error while getting exanima rpk entry");
+					entry.offset = prev_offset + prev_size;
+					entry.size = exanima_data.len() as u32;
+					prev_offset = entry.offset;
+					prev_size = entry.size;
+				}
+				exanima_sorted_entries.sort_by(|a, b| a.name.cmp(&b.name));
+				exanima_rpk.entries = exanima_sorted_entries;
+			};
 
-		// let cache_path = get_local_dir().join("AssetCache").join(file_name);
-		// if !cache_path.exists() {
-		// 	fs::create_dir_all(
-		// 		cache_path
-		// 			.parent()
-		// 			.expect("error while getting parent of cache path"),
-		// 	)
-		// 	.expect("error while creating cache directory");
-		// }
-		// let mut cache_buf_writer = io::BufWriter::new(
-		// 	fs::File::create(cache_path).expect("error while creating cache file"),
-		// );
-		// let mut cache_writer = Writer::new(&mut cache_buf_writer);
-		// exanima_format
-		// 	.to_writer(&mut cache_writer, ())
-		// 	.expect("error while serializing to cache file");
+			// let cache_path = get_local_dir().join("AssetCache").join(file_name);
+			// if !cache_path.exists() {
+			// 	fs::create_dir_all(
+			// 		cache_path
+			// 			.parent()
+			// 			.expect("error while getting parent of cache path"),
+			// 	)
+			// 	.expect("error while creating cache directory");
+			// }
+			// let mut cache_buf_writer = io::BufWriter::new(
+			// 	fs::File::create(cache_path).expect("error while creating cache file"),
+			// );
+			// let mut cache_writer = Writer::new(&mut cache_buf_writer);
+			// exanima_format
+			// 	.to_writer(&mut cache_writer, ())
+			// 	.expect("error while serializing to cache file");
 
-		progress_bar.rpk_step = i;
-		tx.send(GameStartState::Loading(progress_bar.clone()))
+			progress_bar.rpk_step = i;
+			tx.send(Event::ExanimaLaunched(GameStartState::Loading(
+				progress_bar.clone(),
+			)))
 			.await
 			.expect("error while sending progress to channel");
-	}
+		}
 
-	tx.send(GameStartState::Loaded)
-		.await
-		.expect("error while sending finished state to channel");
+		tx.send(Event::ExanimaLaunched(GameStartState::Loaded))
+			.await
+			.expect("error while sending finished state to channel");
+	})
 }
 
 async fn get_latest_release() -> anyhow::Result<Release> {
