@@ -39,6 +39,7 @@ dirs = "5.0.1"
 emf-types = { workspace = true }
 exparser = { path = "../exparser" }
 strum = { version = "0.26.3", features = ["derive"] }
+lilt = "0.7.0"
 
 [build-dependencies]
 cbindgen = "0.26.0"

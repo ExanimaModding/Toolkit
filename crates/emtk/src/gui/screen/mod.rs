@@ -1,15 +1,18 @@
 pub mod changelog;
 pub mod home;
+pub mod progress;
 pub mod settings;
 
 use changelog::Changelog;
 use home::Home;
+use progress::Progress;
 use settings::Settings;
 
 #[derive(Debug, Clone)]
 pub enum ScreenKind {
 	Changelog,
 	Home,
+	Progress,
 	Settings,
 }
 
@@ -17,6 +20,7 @@ pub enum ScreenKind {
 pub enum Screen {
 	Changelog(Changelog),
 	Home(Home),
+	Progress(Progress),
 	Settings(Settings),
 }
 
