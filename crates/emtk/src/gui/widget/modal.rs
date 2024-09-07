@@ -1,6 +1,8 @@
 //! License SPDX: GPL-3.0-only
 //! Source: https://github.com/squidowl/halloy/blob/main/src/widget/modal.rs
 
+use std::time::Instant;
+
 use iced::{
 	advanced::{
 		self,
@@ -14,8 +16,10 @@ use iced::{
 	keyboard::{self, key},
 	mouse, Color, Element, Event, Length, Point, Rectangle, Size, Vector,
 };
+use lilt::Animated;
 
 pub fn modal<'a, Message, Theme, Renderer>(
+	animated: Animated<bool, Instant>,
 	base: impl Into<Element<'a, Message, Theme, Renderer>>,
 	modal: impl Into<Element<'a, Message, Theme, Renderer>>,
 	on_blur: impl Fn() -> Message + 'a,
@@ -25,11 +29,12 @@ where
 	Renderer: 'a + advanced::Renderer,
 	Message: 'a,
 {
-	Modal::new(base, modal, on_blur).into()
+	Modal::new(animated, base, modal, on_blur).into()
 }
 
 /// A widget that centers a modal element over some base element
 pub struct Modal<'a, Message, Theme, Renderer> {
+	animation: Animated<bool, Instant>,
 	base: Element<'a, Message, Theme, Renderer>,
 	modal: Element<'a, Message, Theme, Renderer>,
 	on_blur: Box<dyn Fn() -> Message + 'a>,
@@ -38,11 +43,13 @@ pub struct Modal<'a, Message, Theme, Renderer> {
 impl<'a, Message, Theme, Renderer> Modal<'a, Message, Theme, Renderer> {
 	/// Returns a new [`Modal`]
 	pub fn new(
+		animation: Animated<bool, Instant>,
 		base: impl Into<Element<'a, Message, Theme, Renderer>>,
 		modal: impl Into<Element<'a, Message, Theme, Renderer>>,
 		on_blur: impl Fn() -> Message + 'a,
 	) -> Self {
 		Self {
+			animation,
 			base: base.into(),
 			modal: modal.into(),
 			on_blur: Box::new(on_blur),
@@ -133,6 +140,7 @@ where
 		translation: Vector,
 	) -> Option<overlay::Element<'b, Message, Theme, Renderer>> {
 		Some(overlay::Element::new(Box::new(Overlay {
+			animation: self.animation.clone(),
 			position: layout.position() + translation,
 			content: &mut self.modal,
 			tree: &mut state.children[1],
@@ -172,6 +180,7 @@ where
 }
 
 struct Overlay<'a, 'b, Message, Theme, Renderer> {
+	animation: Animated<bool, Instant>,
 	position: Point,
 	content: &'b mut Element<'a, Message, Theme, Renderer>,
 	tree: &'b mut widget::Tree,
@@ -246,13 +255,15 @@ where
 		layout: Layout<'_>,
 		cursor: mouse::Cursor,
 	) {
+		let now = Instant::now();
+
 		renderer.fill_quad(
 			renderer::Quad {
 				bounds: layout.bounds(),
 				..renderer::Quad::default()
 			},
 			Color {
-				a: 0.80,
+				a: self.animation.animate_bool(0.0, 0.8, now),
 				..Color::BLACK
 			},
 		);

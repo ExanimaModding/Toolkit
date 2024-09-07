@@ -1,14 +1,17 @@
+use crate::{
+	config::{get_local_dir, AppSettings},
+	gui::FADE_DURATION,
+};
 use exparser::{deku::prelude::*, Format};
-use lilt::{Animated, Easing};
-use std::{fs, io, path::PathBuf, time::Instant};
-
-use crate::config::{get_local_dir, AppSettings};
 use iced::{
 	futures::{channel::mpsc::Sender, SinkExt, Stream, StreamExt},
-	task,
+	stream, task, theme,
 	widget::{button, container, progress_bar, text, Column, Row},
 	window, Alignment, Background, Border, Element, Length, Padding, Size, Subscription, Task,
+	Theme,
 };
+use lilt::{Animated, Easing};
+use std::{fs, io, path::PathBuf, time::Instant};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -23,16 +26,27 @@ pub enum Event {
 	ProgressUpdated(Bar),
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Bar {
 	pub current_step: usize,
 	pub steps: Vec<String>,
 	pub title: String,
 }
 
+impl Default for Bar {
+	fn default() -> Self {
+		Self {
+			current_step: usize::default(),
+			steps: Vec::default(),
+			title: String::from("Loading..."),
+		}
+	}
+}
+
 #[derive(Debug, Clone)]
 pub struct Progress {
 	bar: Bar,
+	fade: Animated<bool, Instant>,
 	size: Option<Size>,
 	spinner_rotation: Animated<bool, Instant>,
 	handle: task::Handle,
@@ -54,6 +68,11 @@ impl Progress {
 		(
 			Self {
 				bar: Bar::default(),
+				fade: Animated::new(false)
+					.duration(FADE_DURATION as f32)
+					.easing(Easing::EaseOut)
+					.delay(0.)
+					.auto_start(true, now),
 				size: Some(size),
 				spinner_rotation: Animated::new(false)
 					.easing(Easing::Linear)
@@ -67,9 +86,12 @@ impl Progress {
 	}
 
 	pub fn update(&mut self, message: Message) -> Action {
+		let now = Instant::now();
+
 		match message {
 			Message::Canceled => {
 				self.handle.abort();
+				self.fade.transition(false, now);
 				Action::Canceled
 			}
 			Message::Event(event) => match event {
@@ -117,17 +139,28 @@ impl Progress {
 				)
 				.push(container(
 					Column::new().push(bar_header).push(
-						// TODO: add rounded corners
+						// TODO: animate progression and color transition from primary to success
 						progress_bar(
 							0.0..=self.bar.steps.len() as f32,
 							self.bar.current_step as f32,
 						)
 						.height(Length::Fixed(16.))
-						.style(|_theme| {
-							let palette = &iced::theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
-							iced::widget::progress_bar::Style {
-								background: Background::Color(palette.background.weak.color),
-								bar: Background::Color(palette.primary.strong.color),
+						.style(move |_theme| {
+							let animate_alpha = self.fade.animate_bool(0., 1., now);
+							let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
+							let mut bar_color = if self.bar.current_step == self.bar.steps.len()
+								&& self.bar.current_step != 0
+							{
+								palette.success.base.color
+							} else {
+								palette.primary.strong.color
+							};
+							bar_color.a = animate_alpha;
+							let mut bg = palette.background.weak.color;
+							bg.a = animate_alpha;
+							progress_bar::Style {
+								background: Background::Color(bg),
+								bar: Background::Color(bar_color),
 								border: Border {
 									radius: 8.0.into(),
 									..Default::default()
@@ -138,6 +171,7 @@ impl Progress {
 				))
 				.push(
 					container(
+						// TODO: animate color transition from primary to success
 						button(
 							if self.bar.current_step == self.bar.steps.len()
 								&& self.bar.current_step != 0
@@ -147,7 +181,41 @@ impl Progress {
 								"Cancel"
 							},
 						)
-						.on_press(Message::Canceled),
+						.on_press(Message::Canceled)
+						.style(move |theme, status| match theme {
+							Theme::CatppuccinFrappe => {
+								let animate_alpha = self.fade.animate_bool(0., 1., now);
+								let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
+								let mut text = palette.background.base.color;
+								text.a = animate_alpha;
+								let (mut btn_color, mut btn_hover_color) = if self.bar.current_step
+									== self.bar.steps.len()
+									&& self.bar.current_step != 0
+								{
+									(palette.success.base.color, palette.success.weak.color)
+								} else {
+									(palette.primary.strong.color, palette.primary.weak.color)
+								};
+								btn_color.a = animate_alpha;
+								btn_hover_color.a = animate_alpha;
+								let mut style = button::Style {
+									background: Some(Background::Color(btn_color)),
+									text_color: text,
+									..Default::default()
+								};
+								match status {
+									button::Status::Active => (),
+									button::Status::Hovered => {
+										// TODO: hovered is wrong color
+										style.background = Some(Background::Color(btn_hover_color))
+									}
+									button::Status::Pressed => (),
+									button::Status::Disabled => (),
+								};
+								style
+							}
+							_ => button::Style::default(),
+						}),
 					)
 					.padding(Padding::new(0.).top(12))
 					.width(Length::Fill)
@@ -155,12 +223,20 @@ impl Progress {
 				),
 		)
 		.padding(12)
-		.style(|_theme| {
-			let palette = iced::theme::Palette::CATPPUCCIN_FRAPPE;
+		.style(move |_theme| {
+			let animate_alpha = self.fade.animate_bool(0., 1., now);
+			let palette = theme::Palette::CATPPUCCIN_FRAPPE;
+
+			let mut text_color = palette.text;
+			let mut bg_color = palette.background;
+
+			text_color.a = animate_alpha;
+			bg_color.a = animate_alpha;
+
 			container::Style {
-				text_color: Some(palette.text),
-				background: Some(iced::Background::Color(palette.background)),
-				border: iced::Border {
+				text_color: Some(text_color),
+				background: Some(Background::Color(bg_color)),
+				border: Border {
 					radius: 8.0.into(),
 					..Default::default()
 				},
@@ -187,7 +263,7 @@ impl Progress {
 }
 
 fn load_mods(settings: AppSettings) -> impl Stream<Item = Event> {
-	iced::stream::channel(0, |mut tx: Sender<Event>| async move {
+	stream::channel(0, |mut tx: Sender<Event>| async move {
 		let mut bar = Bar::default();
 
 		let exanima_exe = PathBuf::from(

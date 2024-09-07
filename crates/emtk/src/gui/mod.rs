@@ -4,9 +4,9 @@ mod state;
 mod widget;
 
 use iced::{
-	event,
+	event, theme,
 	widget::{button, container, horizontal_rule, markdown, scrollable, text, Column, Row},
-	window, Element, Length, Size, Subscription, Task, Theme,
+	window, Background, Border, Element, Length, Padding, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
 use screen::{
@@ -19,7 +19,10 @@ use screen::{
 use std::time::Instant;
 use widget::modal::modal;
 
+// TODO: animate scrolling in scrollbars
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
+/// The animation duration for fade transitions in milliseconds.
+pub static FADE_DURATION: u64 = 100;
 
 pub(crate) async fn start_gui() -> iced::Result {
 	let image = image::load_from_memory(ICON).unwrap();
@@ -55,7 +58,7 @@ pub struct Release {
 
 #[derive(Debug, Clone)]
 pub struct Emtk {
-	modal_fade: Animated<bool, Instant>,
+	fade: Animated<bool, Instant>,
 	app_state: state::AppState,
 	changelog: Vec<markdown::Item>,
 	latest_release: GetLatestReleaseState,
@@ -73,6 +76,7 @@ pub enum Message {
 	IcedEvent(iced::Event),
 	LinkClicked(String),
 	ModalChanged(ScreenKind),
+	ModalCleanup,
 	ModalClosed,
 	Nothing,
 	Progress(progress::Message),
@@ -200,7 +204,7 @@ impl Emtk {
 			}
 			Message::ModalChanged(kind) => match kind {
 				ScreenKind::Changelog => {
-					self.modal_fade.transition(false, now);
+					self.fade.transition(true, now);
 					self.modal = Some(Screen::Changelog(Changelog::new(
 						self.changelog.clone(),
 						self.latest_release.clone(),
@@ -210,9 +214,25 @@ impl Emtk {
 				}
 				_ => Task::none(),
 			},
-			Message::ModalClosed => {
+			Message::ModalCleanup => {
 				self.modal = None;
 				Task::none()
+			}
+			Message::ModalClosed => {
+				self.fade.transition(false, now);
+				match &mut self.modal {
+					Some(screen) => match screen {
+						Screen::Changelog(changelog) => {
+							changelog.update(changelog::Message::FadeOut);
+						}
+						_ => (),
+					},
+					None => (),
+				}
+				Task::perform(
+					tokio::time::sleep(tokio::time::Duration::from_millis(FADE_DURATION)),
+					|_| Message::ModalCleanup,
+				)
 			}
 			Message::Nothing => Task::none(),
 			Message::Progress(message) => match &mut self.modal {
@@ -221,8 +241,15 @@ impl Emtk {
 						let action = progress.update(message);
 						match action {
 							progress::Action::Canceled => {
-								self.modal = None;
-								Task::none()
+								self.fade.transition(false, now);
+								// PERF: consider self.fade.in_progress instead of sleeping for a
+								// fixed duration
+								Task::perform(
+									tokio::time::sleep(tokio::time::Duration::from_millis(
+										FADE_DURATION,
+									)),
+									|_| Message::ModalCleanup,
+								)
 							}
 							progress::Action::ExanimaLaunched => {
 								Task::done(Message::ExanimaLaunched)
@@ -257,7 +284,7 @@ impl Emtk {
 					log::info!("Starting modded Exanima...");
 					let (progress, task) =
 						Progress::new(self.app_state.settings.clone(), self.window_size * 0.8);
-					self.modal_fade.transition(false, now);
+					self.fade.transition(true, now);
 					self.modal = Some(Screen::Progress(progress));
 					task.map(Message::Progress)
 				}
@@ -294,16 +321,18 @@ impl Emtk {
 
 		if let Some(screen) = &self.modal {
 			match screen {
-				Screen::Changelog(changelog) => {
-					modal(con, changelog.view().map(Message::Changelog), || {
-						Message::ModalClosed
-					})
-				}
-				Screen::Progress(progress) => {
-					modal(con, progress.view().map(Message::Progress), || {
-						Message::Nothing
-					})
-				}
+				Screen::Changelog(changelog) => modal(
+					self.fade.clone(),
+					con,
+					changelog.view().map(Message::Changelog),
+					|| Message::ModalClosed,
+				),
+				Screen::Progress(progress) => modal(
+					self.fade.clone(),
+					con,
+					progress.view().map(Message::Progress),
+					|| Message::Nothing,
+				),
 				_ => con.into(),
 			}
 		} else {
@@ -365,7 +394,7 @@ impl Emtk {
 					.unwrap_or(semver::Version::new(0, 0, 0));
 
 				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
-					let palette = iced::theme::Palette::CATPPUCCIN_FRAPPE;
+					let palette = theme::Palette::CATPPUCCIN_FRAPPE;
 					return Column::new()
 						.spacing(10.)
 						.push(text("You're already up to date!"))
@@ -376,10 +405,10 @@ impl Emtk {
 								markdown::Settings::default(),
 								markdown::Style {
 									inline_code_highlight: markdown::Highlight {
-										background: iced::Background::Color(palette.background),
-										border: iced::Border::default(),
+										background: Background::Color(palette.background),
+										border: Border::default(),
 									},
-									inline_code_padding: iced::Padding::default(),
+									inline_code_padding: Padding::default(),
 									inline_code_color: palette.text,
 									link_color: palette.primary,
 								},
@@ -417,7 +446,7 @@ impl Emtk {
 		// TODO: replace listen() with listen_with()
 		let events = event::listen().map(Message::IcedEvent);
 
-		let modal_fade = if self.modal_fade.in_progress(now) {
+		let modal_fade = if self.fade.in_progress(now) {
 			window::frames().map(|_| Message::Tick)
 		} else {
 			Subscription::none()
@@ -439,8 +468,8 @@ impl Emtk {
 impl Default for Emtk {
 	fn default() -> Self {
 		Self {
-			modal_fade: Animated::new(false)
-				.duration(100.)
+			fade: Animated::new(false)
+				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
 				.delay(0.),
 			app_state: state::AppState::default(),
