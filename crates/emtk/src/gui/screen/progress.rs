@@ -120,7 +120,7 @@ impl Progress {
 						// TODO: add rounded corners
 						progress_bar(
 							0.0..=self.bar.steps.len() as f32,
-							(self.bar.current_step + 1) as f32,
+							self.bar.current_step as f32,
 						)
 						.height(Length::Fixed(16.))
 						.style(|_theme| {
