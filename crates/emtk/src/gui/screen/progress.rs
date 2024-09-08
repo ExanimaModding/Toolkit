@@ -7,8 +7,8 @@ use iced::{
 	futures::{channel::mpsc::Sender, SinkExt, Stream, StreamExt},
 	stream, task, theme,
 	widget::{button, container, progress_bar, text, Column, Row},
-	window, Alignment, Background, Border, Element, Length, Padding, Size, Subscription, Task,
-	Theme,
+	window, Alignment, Background, Border, Color, Element, Length, Padding, Size, Subscription,
+	Task, Theme,
 };
 use lilt::{Animated, Easing};
 use std::{fs, io, path::PathBuf, time::Instant};
@@ -45,6 +45,7 @@ impl Default for Bar {
 
 #[derive(Debug, Clone)]
 pub struct Progress {
+	animate_completion: Animated<bool, Instant>,
 	bar: Bar,
 	fade: Animated<bool, Instant>,
 	size: Option<Size>,
@@ -67,6 +68,10 @@ impl Progress {
 		let (task, handle) = Task::stream(load_mods(settings).map(Message::Event)).abortable();
 		(
 			Self {
+				animate_completion: Animated::new(false)
+					.duration(500.)
+					.easing(Easing::EaseOut)
+					.delay(0.),
 				bar: Bar::default(),
 				fade: Animated::new(false)
 					.duration(FADE_DURATION as f32)
@@ -97,6 +102,7 @@ impl Progress {
 			Message::Event(event) => match event {
 				Event::ProgressCompleted(bar) => {
 					self.bar = bar;
+					self.animate_completion.transition(true, now);
 					Action::ExanimaLaunched
 				}
 				Event::ProgressUpdated(bar) => {
@@ -139,7 +145,6 @@ impl Progress {
 				)
 				.push(container(
 					Column::new().push(bar_header).push(
-						// TODO: animate progression and color transition from primary to success
 						progress_bar(
 							0.0..=self.bar.steps.len() as f32,
 							self.bar.current_step as f32,
@@ -148,14 +153,19 @@ impl Progress {
 						.style(move |_theme| {
 							let animate_alpha = self.fade.animate_bool(0., 1., now);
 							let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
-							let mut bar_color = if self.bar.current_step == self.bar.steps.len()
-								&& self.bar.current_step != 0
-							{
-								palette.success.base.color
-							} else {
-								palette.primary.strong.color
-							};
-							bar_color.a = animate_alpha;
+
+							let primary = palette.primary.strong.color;
+							let success = palette.success.base.color;
+							let bar_color = iced::Color::from_rgba(
+								self.animate_completion
+									.animate_bool(primary.r, success.r, now),
+								self.animate_completion
+									.animate_bool(primary.g, success.g, now),
+								self.animate_completion
+									.animate_bool(primary.b, success.b, now),
+								animate_alpha,
+							);
+
 							let mut bg = palette.background.weak.color;
 							bg.a = animate_alpha;
 							progress_bar::Style {
@@ -171,7 +181,6 @@ impl Progress {
 				))
 				.push(
 					container(
-						// TODO: animate color transition from primary to success
 						button(
 							if self.bar.current_step == self.bar.steps.len()
 								&& self.bar.current_step != 0
@@ -186,18 +195,52 @@ impl Progress {
 							Theme::CatppuccinFrappe => {
 								let animate_alpha = self.fade.animate_bool(0., 1., now);
 								let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
+
 								let mut text = palette.background.base.color;
 								text.a = animate_alpha;
-								let (mut btn_color, mut btn_hover_color) = if self.bar.current_step
-									== self.bar.steps.len()
-									&& self.bar.current_step != 0
-								{
-									(palette.success.base.color, palette.success.weak.color)
-								} else {
-									(palette.primary.strong.color, palette.primary.weak.color)
-								};
-								btn_color.a = animate_alpha;
-								btn_hover_color.a = animate_alpha;
+
+								let primary_strong = palette.primary.strong.color;
+								let success_base = palette.success.base.color;
+								let btn_color = Color::from_rgba(
+									self.animate_completion.animate_bool(
+										primary_strong.r,
+										success_base.r,
+										now,
+									),
+									self.animate_completion.animate_bool(
+										primary_strong.g,
+										success_base.g,
+										now,
+									),
+									self.animate_completion.animate_bool(
+										primary_strong.b,
+										success_base.b,
+										now,
+									),
+									animate_alpha,
+								);
+
+								let primary_weak = palette.primary.weak.color;
+								let success_weak = palette.success.weak.color;
+								let btn_hover_color = Color::from_rgba(
+									self.animate_completion.animate_bool(
+										primary_weak.r,
+										success_weak.r,
+										now,
+									),
+									self.animate_completion.animate_bool(
+										primary_weak.g,
+										success_weak.g,
+										now,
+									),
+									self.animate_completion.animate_bool(
+										primary_weak.b,
+										success_weak.b,
+										now,
+									),
+									animate_alpha,
+								);
+
 								let mut style = button::Style {
 									background: Some(Background::Color(btn_color)),
 									text_color: text,
