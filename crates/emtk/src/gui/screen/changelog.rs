@@ -1,11 +1,13 @@
-use crate::gui::{GetLatestReleaseState, FADE_DURATION};
+use std::time::Instant;
+
 use iced::{
 	theme,
 	widget::{container, markdown, scrollable, text, Column},
 	Background, Border, Element, Padding, Size, Task,
 };
 use lilt::{Animated, Easing};
-use std::time::Instant;
+
+use crate::gui::{GetLatestReleaseState, FADE_DURATION};
 
 pub enum Action {
 	LinkClicked(String),

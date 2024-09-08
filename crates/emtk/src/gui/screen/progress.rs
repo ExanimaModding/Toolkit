@@ -1,7 +1,5 @@
-use crate::{
-	config::{get_local_dir, AppSettings},
-	gui::FADE_DURATION,
-};
+use std::{fs, io, path::PathBuf, time::Instant};
+
 use exparser::{deku::prelude::*, Format};
 use iced::{
 	futures::{channel::mpsc::Sender, SinkExt, Stream, StreamExt},
@@ -11,7 +9,11 @@ use iced::{
 	Task, Theme,
 };
 use lilt::{Animated, Easing};
-use std::{fs, io, path::PathBuf, time::Instant};
+
+use crate::{
+	config::{get_local_dir, AppSettings},
+	gui::constants::FADE_DURATION,
+};
 
 #[derive(Debug, Clone)]
 pub enum Action {

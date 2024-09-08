@@ -3,6 +3,9 @@ mod screen;
 mod state;
 mod widget;
 
+use std::time::Instant;
+
+use constants::FADE_DURATION;
 use iced::{
 	event, theme,
 	widget::{button, container, horizontal_rule, markdown, scrollable, text, Column, Row},
@@ -16,13 +19,10 @@ use screen::{
 	settings::{self, Settings},
 	Screen, ScreenKind,
 };
-use std::time::Instant;
 use widget::modal::modal;
 
 // TODO: animate scrolling in scrollbars
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
-/// The animation duration for fade transitions in milliseconds.
-pub static FADE_DURATION: u64 = 100;
 
 pub(crate) async fn start_gui() -> iced::Result {
 	let image = image::load_from_memory(ICON).unwrap();
