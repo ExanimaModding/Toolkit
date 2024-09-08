@@ -25,28 +25,19 @@ pub enum Event {
 	ProgressUpdated(Bar),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Bar {
 	pub current_step: usize,
 	pub steps: Vec<String>,
 	pub title: String,
 }
 
-impl Default for Bar {
-	fn default() -> Self {
-		Self {
-			current_step: usize::default(),
-			steps: Vec::default(),
-			title: String::from("Loading..."),
-		}
-	}
-}
-
 #[derive(Debug, Clone)]
 pub struct Progress {
-	animate_completion: Animated<bool, Instant>,
 	bar: Bar,
 	fade: Animated<bool, Instant>,
+	progress_completion: Animated<bool, Instant>,
+	progress_increment: Animated<f32, Instant>,
 	size: Option<Size>,
 	spinner_rotation: Animated<bool, Instant>,
 	handle: task::Handle,
@@ -67,16 +58,17 @@ impl Progress {
 		let (task, handle) = Task::stream(load_mods(settings).map(Message::Event)).abortable();
 		(
 			Self {
-				animate_completion: Animated::new(false)
-					.duration(500.)
-					.easing(Easing::EaseOut)
-					.delay(0.),
 				bar: Bar::default(),
 				fade: Animated::new(false)
 					.duration(FADE_DURATION as f32)
 					.easing(Easing::EaseOut)
 					.delay(0.)
 					.auto_start(true, now),
+				progress_completion: Animated::new(false)
+					.duration(500.)
+					.easing(Easing::Linear)
+					.delay(0.),
+				progress_increment: Animated::new(0.0).easing(Easing::Linear).duration(500.),
 				size: Some(size),
 				spinner_rotation: Animated::new(false)
 					.easing(Easing::Linear)
@@ -101,11 +93,13 @@ impl Progress {
 			Message::Event(event) => match event {
 				Event::ProgressCompleted(bar) => {
 					self.bar = bar;
-					self.animate_completion.transition(true, now);
+					self.progress_completion.transition(true, now);
 					Action::ExanimaLaunched
 				}
 				Event::ProgressUpdated(bar) => {
 					self.bar = bar;
+					self.progress_increment
+						.transition(self.bar.current_step as f32, now);
 					Action::None
 				}
 			},
@@ -136,7 +130,16 @@ impl Progress {
 			bar_header
 		};
 
-		let content = container(
+		let progress = if self.bar.steps.is_empty() {
+			Column::new().push(
+				container(
+					text("Loading...")
+						.width(Length::Fill)
+						.align_x(Alignment::Center),
+				)
+				.padding(24.),
+			)
+		} else {
 			Column::new()
 				.push(
 					container(Row::new().push(text(self.bar.title.clone())))
@@ -146,7 +149,7 @@ impl Progress {
 					Column::new().push(bar_header).push(
 						progress_bar(
 							0.0..=self.bar.steps.len() as f32,
-							self.bar.current_step as f32,
+							self.progress_increment.animate(|step| step, now),
 						)
 						.height(Length::Fixed(16.))
 						.style(move |_theme| {
@@ -155,12 +158,12 @@ impl Progress {
 
 							let primary = palette.primary.strong.color;
 							let success = palette.success.base.color;
-							let bar_color = iced::Color::from_rgba(
-								self.animate_completion
+							let bar_color = Color::from_rgba(
+								self.progress_completion
 									.animate_bool(primary.r, success.r, now),
-								self.animate_completion
+								self.progress_completion
 									.animate_bool(primary.g, success.g, now),
-								self.animate_completion
+								self.progress_completion
 									.animate_bool(primary.b, success.b, now),
 								animate_alpha,
 							);
@@ -178,91 +181,94 @@ impl Progress {
 						}),
 					),
 				))
-				.push(
-					container(
-						button(
-							if self.bar.current_step == self.bar.steps.len()
-								&& self.bar.current_step != 0
-							{
-								"Close"
-							} else {
-								"Cancel"
-							},
-						)
-						.on_press(Message::Canceled)
-						.style(move |theme, status| match theme {
-							Theme::CatppuccinFrappe => {
-								let animate_alpha = self.fade.animate_bool(0., 1., now);
-								let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
+		};
 
-								let mut text = palette.background.base.color;
-								text.a = animate_alpha;
-
-								let primary_strong = palette.primary.strong.color;
-								let success_base = palette.success.base.color;
-								let btn_color = Color::from_rgba(
-									self.animate_completion.animate_bool(
-										primary_strong.r,
-										success_base.r,
-										now,
-									),
-									self.animate_completion.animate_bool(
-										primary_strong.g,
-										success_base.g,
-										now,
-									),
-									self.animate_completion.animate_bool(
-										primary_strong.b,
-										success_base.b,
-										now,
-									),
-									animate_alpha,
-								);
-
-								let primary_weak = palette.primary.weak.color;
-								let success_weak = palette.success.weak.color;
-								let btn_hover_color = Color::from_rgba(
-									self.animate_completion.animate_bool(
-										primary_weak.r,
-										success_weak.r,
-										now,
-									),
-									self.animate_completion.animate_bool(
-										primary_weak.g,
-										success_weak.g,
-										now,
-									),
-									self.animate_completion.animate_bool(
-										primary_weak.b,
-										success_weak.b,
-										now,
-									),
-									animate_alpha,
-								);
-
-								let mut style = button::Style {
-									background: Some(Background::Color(btn_color)),
-									text_color: text,
-									..Default::default()
-								};
-								match status {
-									button::Status::Active => (),
-									button::Status::Hovered => {
-										// TODO: hovered is wrong color
-										style.background = Some(Background::Color(btn_hover_color))
-									}
-									button::Status::Pressed => (),
-									button::Status::Disabled => (),
-								};
-								style
-							}
-							_ => button::Style::default(),
-						}),
+		let content = container(
+			progress.push(
+				container(
+					button(
+						if self.bar.current_step == self.bar.steps.len()
+							&& self.bar.current_step != 0
+						{
+							"Close"
+						} else {
+							"Cancel"
+						},
 					)
-					.padding(Padding::new(0.).top(12))
-					.width(Length::Fill)
-					.align_x(Alignment::Center),
-				),
+					.on_press(Message::Canceled)
+					.style(move |theme, status| match theme {
+						Theme::CatppuccinFrappe => {
+							let animate_alpha = self.fade.animate_bool(0., 1., now);
+							let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
+
+							let mut text = palette.background.base.color;
+							text.a = animate_alpha;
+
+							let primary_strong = palette.primary.strong.color;
+							let success_base = palette.success.base.color;
+							let btn_color = Color::from_rgba(
+								self.progress_completion.animate_bool(
+									primary_strong.r,
+									success_base.r,
+									now,
+								),
+								self.progress_completion.animate_bool(
+									primary_strong.g,
+									success_base.g,
+									now,
+								),
+								self.progress_completion.animate_bool(
+									primary_strong.b,
+									success_base.b,
+									now,
+								),
+								animate_alpha,
+							);
+
+							let primary_weak = palette.primary.weak.color;
+							let success_weak = palette.success.weak.color;
+							let btn_hover_color = Color::from_rgba(
+								self.progress_completion.animate_bool(
+									primary_weak.r,
+									success_weak.r,
+									now,
+								),
+								self.progress_completion.animate_bool(
+									primary_weak.g,
+									success_weak.g,
+									now,
+								),
+								self.progress_completion.animate_bool(
+									primary_weak.b,
+									success_weak.b,
+									now,
+								),
+								animate_alpha,
+							);
+
+							let mut style = button::Style {
+								background: Some(Background::Color(btn_color)),
+								text_color: text,
+								..Default::default()
+							};
+							match status {
+								button::Status::Active => (),
+								button::Status::Hovered => {
+									// TODO: hovered is wrong color
+									style.background = Some(Background::Color(btn_hover_color))
+								}
+								button::Status::Pressed => (),
+								button::Status::Disabled => (),
+							};
+							style
+						}
+						_ => button::Style::default(),
+					}),
+				)
+				.padding(Padding::new(0.).top(12))
+				.width(Length::Fill)
+				.align_x(Alignment::Center),
+			),
 		)
 		.padding(12)
 		.style(move |_theme| {
