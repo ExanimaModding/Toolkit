@@ -29,7 +29,7 @@ pub(crate) async fn start_gui() -> iced::Result {
 	let icon =
 		window::icon::from_rgba(image.as_bytes().to_vec(), image.height(), image.width()).unwrap();
 
-	iced::application("Exanima Modding Toolkit", Emtk::update, Emtk::view)
+	iced::application(Emtk::title, Emtk::update, Emtk::view)
 		.theme(Emtk::theme)
 		.window(window::Settings {
 			icon: Some(icon),
@@ -58,9 +58,9 @@ pub struct Release {
 
 #[derive(Debug, Clone)]
 pub struct Emtk {
-	fade: Animated<bool, Instant>,
 	app_state: state::AppState,
 	changelog: Vec<markdown::Item>,
+	fade: Animated<bool, Instant>,
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
 	screen: Screen,
@@ -436,8 +436,12 @@ impl Emtk {
 		}
 	}
 
-	pub fn theme(_state: &Emtk) -> Theme {
+	pub fn theme(&self) -> Theme {
 		Theme::CatppuccinFrappe
+	}
+
+	pub fn title(&self) -> String {
+		String::from("Exanima Modding Toolkit")
 	}
 
 	pub fn subscription(&self) -> Subscription<Message> {
@@ -468,12 +472,12 @@ impl Emtk {
 impl Default for Emtk {
 	fn default() -> Self {
 		Self {
+			app_state: state::AppState::default(),
+			changelog: Vec::default(),
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
 				.delay(0.),
-			app_state: state::AppState::default(),
-			changelog: Vec::default(),
 			latest_release: GetLatestReleaseState::default(),
 			modal: Option::default(),
 			screen: Screen::default(),
