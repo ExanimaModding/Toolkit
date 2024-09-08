@@ -58,17 +58,6 @@ fn get_settings_dir() -> path::PathBuf {
 	settings_dir
 }
 
-pub fn get_local_dir() -> path::PathBuf {
-	let mut local_dir = dirs::data_local_dir().expect("Could not find config directory");
-	local_dir.push("Exanima Modding Toolkit");
-
-	if !local_dir.exists() {
-		fs::create_dir_all(&local_dir).expect("Could not create settings directory");
-	}
-
-	local_dir
-}
-
 fn load_mod_info(exanima_exe: &str) -> Vec<ModSetting> {
 	let mods_dir = path::Path::new(exanima_exe).parent().unwrap().join("mods");
 

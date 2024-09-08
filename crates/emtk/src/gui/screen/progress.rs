@@ -10,10 +10,7 @@ use iced::{
 };
 use lilt::{Animated, Easing};
 
-use crate::{
-	config::{get_local_dir, AppSettings},
-	gui::constants::FADE_DURATION,
-};
+use crate::{config::AppSettings, gui::constants::FADE_DURATION};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -448,8 +445,9 @@ fn load_mods(settings: AppSettings) -> impl Stream<Item = Event> {
 			};
 
 			// NOTE: code block writes to disk and is commented out for testing
-			// let cache_path = get_local_dir().join("AssetCache").join(file_name);
-			// if !cache_path.exists() {
+			// let emtk_data_path = exanima_exe.parent().unwrap().join(".emtk");
+			// let cache_path = emtk_data_path.join("cache").join(file_name);
+			// if !cache_path.is_dir() {
 			// 	fs::create_dir_all(
 			// 		cache_path
 			// 			.parent()
