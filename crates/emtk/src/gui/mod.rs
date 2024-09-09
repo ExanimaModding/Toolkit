@@ -73,7 +73,6 @@ pub enum Message {
 	ExanimaLaunched,
 	GetLatestRelease(GetLatestReleaseState),
 	Home(home::Message),
-	IcedEvent(iced::Event),
 	LinkClicked(String),
 	ModalChanged(ScreenKind),
 	ModalCleanup,
@@ -82,6 +81,7 @@ pub enum Message {
 	Progress(progress::Message),
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
+	SizeChanged(Size),
 	StartGame(GameStartType),
 	Tick,
 }
@@ -168,35 +168,6 @@ impl Emtk {
 				Screen::Home(home) => home.update(message, &mut self.app_state).map(Message::Home),
 				_ => Task::none(),
 			},
-			Message::IcedEvent(event) => match event {
-				iced::Event::Window(event) => match event {
-					window::Event::Resized(size) => {
-						self.window_size = size;
-						let Some(screen) = &mut self.modal else {
-							return Task::none();
-						};
-						match screen {
-							Screen::Changelog(changelog) => {
-								let width = size.width * 0.8;
-								let height = size.height * 0.8;
-								let size = Size::new(width, height);
-								let (task, _action) =
-									changelog.update(changelog::Message::SizeChanged(size));
-								task.map(Message::Changelog)
-							}
-							Screen::Progress(progress) => {
-								let width = size.width * 0.8;
-								let size = Size::new(width, 0.);
-								progress.update(progress::Message::SizeChanged(size));
-								Task::none()
-							}
-							_ => Task::none(),
-						}
-					}
-					_ => Task::none(),
-				},
-				_ => Task::none(),
-			},
 			Message::LinkClicked(url) => {
 				log::info!("Opening URL: {}", url);
 				open::that(url).unwrap();
@@ -279,6 +250,29 @@ impl Emtk {
 					.map(Message::Settings),
 				_ => Task::none(),
 			},
+			Message::SizeChanged(size) => {
+				self.window_size = size;
+				let Some(screen) = &mut self.modal else {
+					return Task::none();
+				};
+				match screen {
+					Screen::Changelog(changelog) => {
+						let width = size.width * 0.8;
+						let height = size.height * 0.8;
+						let size = Size::new(width, height);
+						let (task, _action) =
+							changelog.update(changelog::Message::SizeChanged(size));
+						task.map(Message::Changelog)
+					}
+					Screen::Progress(progress) => {
+						let width = size.width * 0.8;
+						let size = Size::new(width, 0.);
+						progress.update(progress::Message::SizeChanged(size));
+						Task::none()
+					}
+					_ => Task::none(),
+				}
+			}
 			Message::StartGame(kind) => match kind {
 				GameStartType::Modded => {
 					log::info!("Starting modded Exanima...");
@@ -447,8 +441,13 @@ impl Emtk {
 	pub fn subscription(&self) -> Subscription<Message> {
 		let now = Instant::now();
 
-		// TODO: replace listen() with listen_with()
-		let events = event::listen().map(Message::IcedEvent);
+		let events = event::listen_with(|event, _status, _id| match event {
+			iced::Event::Window(event) => match event {
+				window::Event::Resized(size) => Some(Message::SizeChanged(size)),
+				_ => None,
+			},
+			_ => None,
+		});
 
 		let modal_fade = if self.fade.in_progress(now) {
 			window::frames().map(|_| Message::Tick)
