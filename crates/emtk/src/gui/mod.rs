@@ -219,7 +219,17 @@ impl Emtk {
 								);
 							}
 							progress::Action::ExanimaLaunched => {
-								return Task::done(Message::ExanimaLaunched)
+								let (task, _action) = match &mut self.screen {
+									Screen::Settings(settings) => settings.update(
+										settings::Message::CacheChecked,
+										&mut self.app_state,
+									),
+									_ => (Task::none(), settings::Action::None),
+								};
+								return Task::batch([
+									Task::done(Message::ExanimaLaunched),
+									task.map(Message::Settings),
+								]);
 							}
 							progress::Action::None => (),
 						}
