@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use iced::{
-	widget::{button, checkbox, container, text, Column, Row},
+	widget::{button, checkbox, container, horizontal_rule, scrollable, text, Column, Row},
 	Alignment, Element, Length, Task,
 };
 
@@ -84,47 +84,70 @@ impl Settings {
 	pub fn view(&self) -> Element<Message> {
 		// let col = Column::new().push(self.version());
 
-		let row_padding = 5;
-		container(
-			Column::new()
-				.push(
-					Row::new()
-						.push(button("View Changelog").on_press(Message::Changelog))
-						.padding(row_padding),
-				)
-				.push(
-					Row::new()
-						.push(button("Clear Cache").on_press(Message::CacheCleared))
-						.push(
-							container(text(format!(
-								"Size: {:.2} GBs",
-								self.cache_size as f32 / 1_000_000_000.
-							)))
-							.padding(5),
-						)
-						.padding(row_padding)
-						.align_y(Alignment::Center),
-				)
-				.push(
-					Row::new()
-						.push(
-							checkbox("Developer Mode", self.developer_enabled)
-								.on_toggle(Message::DeveloperToggled),
-						)
-						.padding(row_padding),
-				)
-				.push_maybe(if self.developer_enabled {
-					Some(
-						Row::new()
-							.push(
-								checkbox("Explain UI Layout", self.explain_enabled)
-									.on_toggle(Message::ExplainToggled),
-							)
-							.padding(row_padding),
+		let spacing = 12;
+		let category_size = 24;
+		scrollable(
+			container(
+				Column::new()
+					.push(
+						Column::new()
+							.push(text("Settings").size(36))
+							.push(horizontal_rule(1))
+							.spacing(spacing),
 					)
-				} else {
-					None
-				}),
+					.push(
+						Column::new()
+							.push(text("About").size(category_size))
+							.push(
+								Row::new()
+									.push(button("View Changelog").on_press(Message::Changelog)),
+							)
+							.push(horizontal_rule(1))
+							.spacing(spacing),
+					)
+					.push(
+						Column::new()
+							.push(text("Cache").size(category_size))
+							.push(
+								Row::new()
+									.push(button("Clear Cache").on_press(Message::CacheCleared))
+									.push(
+										container(text(format!(
+											"Size: {:.2} GBs",
+											self.cache_size as f32 / 1_000_000_000.
+										)))
+										.padding(5),
+									)
+									.align_y(Alignment::Center),
+							)
+							.push(horizontal_rule(1))
+							.spacing(spacing),
+					)
+					.push(
+						Column::new()
+							.push(text("Developer").size(category_size))
+							.push(
+								Row::new().push(
+									checkbox("Developer Mode", self.developer_enabled)
+										.on_toggle(Message::DeveloperToggled),
+								),
+							)
+							.push_maybe(if self.developer_enabled {
+								Some(
+									Row::new().push(
+										checkbox("Explain UI Layout", self.explain_enabled)
+											.on_toggle(Message::ExplainToggled),
+									),
+								)
+							} else {
+								None
+							})
+							.push(horizontal_rule(1))
+							.spacing(spacing),
+					)
+					.spacing(spacing),
+			)
+			.padding(12),
 		)
 		.width(Length::Fill)
 		.height(Length::Fill)

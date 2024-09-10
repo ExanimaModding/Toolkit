@@ -41,11 +41,12 @@ impl Home {
 	pub fn view(&self) -> Element<Message> {
 		container(
 			Column::new()
-				.push(text("Welcome to the Exanima Modding Toolkit Launcher!").size(20))
+				.push(text("Exanima Modding Toolkit Launcher").size(36))
 				.push(horizontal_rule(1))
 				.push(self.mods_list())
 				.spacing(10),
 		)
+		.padding(12)
 		.width(Length::Fill)
 		.height(Length::Fill)
 		.into()
