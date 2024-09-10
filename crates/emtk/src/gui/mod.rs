@@ -242,16 +242,21 @@ impl Emtk {
 			Message::Settings(message) => match &mut self.screen {
 				Screen::Settings(settings) => {
 					let (task, action) = settings.update(message, &mut self.app_state);
-					match action {
+					let action = match action {
 						settings::Action::DeveloperToggled(developer_enabled) => {
-							self.developer_enabled = developer_enabled
+							self.developer_enabled = developer_enabled;
+							Task::none()
 						}
 						settings::Action::ExplainToggled(explain_enabled) => {
-							self.explain_enabled = explain_enabled
+							self.explain_enabled = explain_enabled;
+							Task::none()
 						}
-						settings::Action::None => (),
+						settings::Action::ViewChangelog => {
+							Task::done(Message::ModalChanged(ScreenKind::Changelog))
+						}
+						settings::Action::None => Task::none(),
 					};
-					return task.map(Message::Settings);
+					return Task::batch([task.map(Message::Settings), action]);
 				}
 				_ => (),
 			},
@@ -365,9 +370,6 @@ impl Emtk {
 						_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
 					},
 				)))
-				.push(Column::new().push(
-					button("View Changelog").on_press(Message::ModalChanged(ScreenKind::Changelog)),
-				))
 				.push(vertical_space())
 				.push(
 					Column::new().push(

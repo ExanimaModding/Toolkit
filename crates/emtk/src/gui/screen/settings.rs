@@ -9,6 +9,7 @@ use iced::{
 pub enum Action {
 	DeveloperToggled(bool),
 	ExplainToggled(bool),
+	ViewChangelog,
 	None,
 }
 
@@ -24,6 +25,7 @@ pub enum Message {
 	CacheChecked,
 	CacheCleared,
 	CacheSize(u64),
+	Changelog,
 	DeveloperToggled(bool),
 	ExplainToggled(bool),
 }
@@ -65,6 +67,7 @@ impl Settings {
 				)
 			}
 			Message::CacheSize(cache_size) => self.cache_size = cache_size,
+			Message::Changelog => return (Task::none(), Action::ViewChangelog),
 			Message::DeveloperToggled(developer_enabled) => {
 				self.developer_enabled = developer_enabled;
 				return (Task::none(), Action::DeveloperToggled(developer_enabled));
@@ -84,6 +87,11 @@ impl Settings {
 		let row_padding = 5;
 		container(
 			Column::new()
+				.push(
+					Row::new()
+						.push(button("View Changelog").on_press(Message::Changelog))
+						.padding(row_padding),
+				)
 				.push(
 					Row::new()
 						.push(button("Clear Cache").on_press(Message::CacheCleared))
