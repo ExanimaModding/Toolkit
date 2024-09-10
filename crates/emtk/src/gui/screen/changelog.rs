@@ -32,6 +32,7 @@ pub enum Message {
 impl Changelog {
 	pub fn new(
 		content: Vec<markdown::Item>,
+		// TODO: state doesn't get updated in this context
 		latest_release: GetLatestReleaseState,
 		size: Option<Size>,
 	) -> Self {
@@ -53,16 +54,12 @@ impl Changelog {
 		let now = Instant::now();
 
 		match message {
-			Message::FadeOut => {
-				self.fade.transition(false, now);
-				(Task::none(), Action::None)
-			}
-			Message::LinkClicked(url) => (Task::none(), Action::LinkClicked(url)),
-			Message::SizeChanged(size) => {
-				self.size = Some(size);
-				(Task::none(), Action::None)
-			}
+			Message::FadeOut => self.fade.transition(false, now),
+			Message::LinkClicked(url) => return (Task::none(), Action::LinkClicked(url)),
+			Message::SizeChanged(size) => self.size = Some(size),
 		}
+
+		(Task::none(), Action::None)
 	}
 
 	// FIX: animations don't affect emojis in markdown

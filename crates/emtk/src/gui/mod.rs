@@ -8,8 +8,10 @@ use std::time::Instant;
 use constants::FADE_DURATION;
 use iced::{
 	event, theme,
-	widget::{button, container, horizontal_rule, markdown, scrollable, text, Column, Row},
-	window, Background, Border, Element, Length, Padding, Size, Subscription, Task, Theme,
+	widget::{
+		button, container, horizontal_rule, markdown, scrollable, text, vertical_space, Column, Row,
+	},
+	window, Background, Border, Color, Element, Length, Padding, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
 use screen::{
@@ -60,6 +62,8 @@ pub struct Release {
 pub struct Emtk {
 	app_state: state::AppState,
 	changelog: Vec<markdown::Item>,
+	developer_enabled: bool,
+	explain_enabled: bool,
 	fade: Animated<bool, Instant>,
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
@@ -116,23 +120,20 @@ impl Emtk {
 							}
 							changelog::Action::None => Task::none(),
 						};
-						Task::batch([task.map(Message::Changelog), action])
+						return Task::batch([task.map(Message::Changelog), action]);
 					}
-					_ => Task::none(),
+					_ => (),
 				},
-				None => Task::none(),
+				None => (),
 			},
-			Message::ExanimaLaunched => {
-				// TODO: launch exanima
-				// crate::launch_exanima();
-				log::info!("Launching exanima...");
-				Task::none()
-			}
+			// TODO: launch exanima
+			// crate::launch_exanima();
+			Message::ExanimaLaunched => log::info!("Launching exanima..."),
 			Message::GetLatestRelease(state) => match state {
 				GetLatestReleaseState::NotStarted => {
 					log::info!("Checking for updates...");
 					self.latest_release = GetLatestReleaseState::Loading;
-					Task::future(get_latest_release()).map(|result| match result {
+					return Task::future(get_latest_release()).map(|result| match result {
 						Ok(release) => {
 							log::info!("Latest release: {}", release.tag_name);
 							Message::GetLatestRelease(GetLatestReleaseState::Loaded(release))
@@ -143,9 +144,9 @@ impl Emtk {
 								error.to_string(),
 							))
 						}
-					})
+					});
 				}
-				GetLatestReleaseState::Loading => Task::none(),
+				GetLatestReleaseState::Loading => (),
 				GetLatestReleaseState::Loaded(release) => {
 					self.changelog =
 						markdown::parse(&format!("[View in browser]({})\n", release.html_url))
@@ -156,22 +157,21 @@ impl Emtk {
 					self.changelog.append(&mut changelog);
 					log::info!("Latest release: {}", release.tag_name);
 					self.latest_release = GetLatestReleaseState::Loaded(release);
-					Task::none()
 				}
 				GetLatestReleaseState::Error(error) => {
 					log::error!("Error checking for updates: {}", error);
 					self.latest_release = GetLatestReleaseState::Error(error);
-					Task::none()
 				}
 			},
 			Message::Home(message) => match &mut self.screen {
-				Screen::Home(home) => home.update(message, &mut self.app_state).map(Message::Home),
-				_ => Task::none(),
+				Screen::Home(home) => {
+					return home.update(message, &mut self.app_state).map(Message::Home)
+				}
+				_ => (),
 			},
 			Message::LinkClicked(url) => {
 				log::info!("Opening URL: {}", url);
 				open::that(url).unwrap();
-				Task::none()
 			}
 			Message::ModalChanged(kind) => match kind {
 				ScreenKind::Changelog => {
@@ -181,31 +181,27 @@ impl Emtk {
 						self.latest_release.clone(),
 						Some(self.window_size * 0.8),
 					)));
-					Task::none()
 				}
-				_ => Task::none(),
+				_ => (),
 			},
-			Message::ModalCleanup => {
-				self.modal = None;
-				Task::none()
-			}
+			Message::ModalCleanup => self.modal = None,
 			Message::ModalClosed => {
 				self.fade.transition(false, now);
 				match &mut self.modal {
 					Some(screen) => match screen {
 						Screen::Changelog(changelog) => {
-							changelog.update(changelog::Message::FadeOut);
+							let (_task, _action) = changelog.update(changelog::Message::FadeOut);
 						}
 						_ => (),
 					},
 					None => (),
 				}
-				Task::perform(
+				return Task::perform(
 					tokio::time::sleep(tokio::time::Duration::from_millis(FADE_DURATION)),
 					|_| Message::ModalCleanup,
-				)
+				);
 			}
-			Message::Nothing => Task::none(),
+			Message::Nothing => (),
 			Message::Progress(message) => match &mut self.modal {
 				Some(screen) => match screen {
 					Screen::Progress(progress) => {
@@ -215,40 +211,49 @@ impl Emtk {
 								self.fade.transition(false, now);
 								// PERF: consider self.fade.in_progress instead of sleeping for a
 								// fixed duration
-								Task::perform(
+								return Task::perform(
 									tokio::time::sleep(tokio::time::Duration::from_millis(
 										FADE_DURATION,
 									)),
 									|_| Message::ModalCleanup,
-								)
+								);
 							}
 							progress::Action::ExanimaLaunched => {
-								Task::done(Message::ExanimaLaunched)
+								return Task::done(Message::ExanimaLaunched)
 							}
-							progress::Action::None => Task::none(),
+							progress::Action::None => (),
 						}
 					}
-					_ => Task::none(),
+					_ => (),
 				},
-				None => Task::none(),
+				None => (),
 			},
 			Message::ScreenChanged(kind) => match kind {
-				ScreenKind::Changelog => Task::none(),
-				ScreenKind::Home => {
-					self.screen = Screen::Home(Home::default());
-					Task::none()
-				}
-				ScreenKind::Progress => Task::none(),
+				ScreenKind::Changelog => (),
+				ScreenKind::Home => self.screen = Screen::Home(Home::default()),
+				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
-					self.screen = Screen::Settings(Settings::default());
-					Task::none()
+					let (settings, task) =
+						Settings::new(self.developer_enabled, self.explain_enabled);
+					self.screen = Screen::Settings(settings);
+					return task.map(Message::Settings);
 				}
 			},
 			Message::Settings(message) => match &mut self.screen {
-				Screen::Settings(settings) => settings
-					.update(message, &mut self.app_state)
-					.map(Message::Settings),
-				_ => Task::none(),
+				Screen::Settings(settings) => {
+					let (task, action) = settings.update(message, &mut self.app_state);
+					match action {
+						settings::Action::DeveloperToggled(developer_enabled) => {
+							self.developer_enabled = developer_enabled
+						}
+						settings::Action::ExplainToggled(explain_enabled) => {
+							self.explain_enabled = explain_enabled
+						}
+						settings::Action::None => (),
+					};
+					return task.map(Message::Settings);
+				}
+				_ => (),
 			},
 			Message::SizeChanged(size) => {
 				self.window_size = size;
@@ -262,15 +267,14 @@ impl Emtk {
 						let size = Size::new(width, height);
 						let (task, _action) =
 							changelog.update(changelog::Message::SizeChanged(size));
-						task.map(Message::Changelog)
+						return task.map(Message::Changelog);
 					}
 					Screen::Progress(progress) => {
 						let width = size.width * 0.8;
 						let size = Size::new(width, 0.);
-						progress.update(progress::Message::SizeChanged(size));
-						Task::none()
+						let _action = progress.update(progress::Message::SizeChanged(size));
 					}
-					_ => Task::none(),
+					_ => (),
 				}
 			}
 			Message::StartGame(kind) => match kind {
@@ -280,30 +284,28 @@ impl Emtk {
 						Progress::new(self.app_state.settings.clone(), self.window_size * 0.8);
 					self.fade.transition(true, now);
 					self.modal = Some(Screen::Progress(progress));
-					task.map(Message::Progress)
+					return task.map(Message::Progress);
 				}
-				GameStartType::Vanilla => {
-					// TODO: start vanilla exanima
-					log::info!("Starting vanilla Exanima...");
-					Task::none()
-				}
+				// TODO: start vanilla exanima
+				GameStartType::Vanilla => log::info!("Starting vanilla Exanima..."),
 			},
-			Message::Tick => Task::none(),
-		}
+			Message::Tick => (),
+		};
+
+		Task::none()
 	}
 
 	pub fn view(&self) -> Element<Message> {
 		let now = Instant::now();
 
 		let screen = match &self.screen {
-			Screen::Home(screen) => screen.view().map(Message::Home),
-			Screen::Settings(screen) => screen.view().map(Message::Settings),
+			Screen::Home(home) => home.view().map(Message::Home),
+			Screen::Settings(settings) => settings.view().map(Message::Settings),
 			_ => unreachable!("Unsupported screen"),
 		};
 
 		let con = container(
 			Row::new()
-				.spacing(10.)
 				.push(
 					Column::new()
 						.push(self.sidebar())
@@ -313,24 +315,38 @@ impl Emtk {
 		)
 		.padding(12);
 
-		if let Some(screen) = &self.modal {
+		let con = if let Some(screen) = &self.modal {
 			match screen {
-				Screen::Changelog(changelog) => modal(
-					self.fade.clone(),
-					con,
-					changelog.view().map(Message::Changelog),
-					|| Message::ModalClosed,
-				),
-				Screen::Progress(progress) => modal(
-					self.fade.clone(),
-					con,
-					progress.view().map(Message::Progress),
-					|| Message::Nothing,
-				),
+				Screen::Changelog(changelog) => {
+					let changelog_view = changelog.view().map(Message::Changelog);
+					let changelog_view = if self.explain_enabled {
+						changelog_view.explain(Color::BLACK)
+					} else {
+						changelog_view
+					};
+					modal(self.fade.clone(), con, changelog_view, || {
+						Message::ModalClosed
+					})
+				}
+				Screen::Progress(progress) => {
+					let progress_view = progress.view().map(Message::Progress);
+					let progress_view = if self.explain_enabled {
+						progress_view.explain(Color::BLACK)
+					} else {
+						progress_view
+					};
+					modal(self.fade.clone(), con, progress_view, || Message::Nothing)
+				}
 				_ => con.into(),
 			}
 		} else {
 			con.into()
+		};
+
+		if self.explain_enabled {
+			con.explain(Color::BLACK)
+		} else {
+			con
 		}
 	}
 
@@ -352,7 +368,7 @@ impl Emtk {
 				.push(Column::new().push(
 					button("View Changelog").on_press(Message::ModalChanged(ScreenKind::Changelog)),
 				))
-				.push(Column::new().height(Length::Fill))
+				.push(vertical_space())
 				.push(
 					Column::new().push(
 						button(text("Play").size(20))
@@ -473,6 +489,8 @@ impl Default for Emtk {
 		Self {
 			app_state: state::AppState::default(),
 			changelog: Vec::default(),
+			developer_enabled: bool::default(),
+			explain_enabled: bool::default(),
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)

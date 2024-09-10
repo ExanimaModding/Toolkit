@@ -88,27 +88,25 @@ impl Progress {
 			Message::Canceled => {
 				self.handle.abort();
 				self.fade.transition(false, now);
-				Action::Canceled
+				return Action::Canceled;
 			}
 			Message::Event(event) => match event {
 				Event::ProgressCompleted(bar) => {
 					self.bar = bar;
 					self.progress_completion.transition(true, now);
-					Action::ExanimaLaunched
+					return Action::ExanimaLaunched;
 				}
 				Event::ProgressUpdated(bar) => {
 					self.bar = bar;
 					self.progress_increment
 						.transition(self.bar.current_step as f32, now);
-					Action::None
 				}
 			},
-			Message::SizeChanged(size) => {
-				self.size = Some(size);
-				Action::None
-			}
-			Message::Tick => Action::None,
-		}
+			Message::SizeChanged(size) => self.size = Some(size),
+			Message::Tick => (),
+		};
+
+		Action::None
 	}
 
 	// TODO: add logs with tracing crate

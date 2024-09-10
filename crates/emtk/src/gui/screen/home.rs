@@ -25,22 +25,17 @@ impl Home {
 		_app_state: &mut crate::gui::state::AppState,
 	) -> Task<Message> {
 		match message {
-			Message::LoadSettings(settings) => {
-				self.settings = settings;
-
-				Task::none()
-			}
-			Message::ModOrderUpdated => Task::none(),
-			Message::ModSettingsUpdated(mod_toggle) => {
-				// TODO: save settings
-				Task::none()
-			}
+			Message::LoadSettings(settings) => self.settings = settings,
+			Message::ModOrderUpdated => (),
+			// TODO: save settings
+			Message::ModSettingsUpdated(_mod_toggle) => (),
 			Message::UrlOpened(url) => {
 				log::info!("Opening URL: {}", url);
 				open::that(url).unwrap();
-				Task::none()
 			}
-		}
+		};
+
+		Task::none()
 	}
 
 	pub fn view(&self) -> Element<Message> {
