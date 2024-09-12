@@ -12,7 +12,7 @@ license = { workspace = true }
 crate-type = ["cdylib"]
 
 [dependencies]
+emf-types = { workspace = true }
 log = { workspace = true }
 pretty_env_logger = { workspace = true }
 safer-ffi = { workspace = true }
-emf-types = { workspace = true }
