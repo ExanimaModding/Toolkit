@@ -1,0 +1,36 @@
+schema_version = "1.0.0"
+
+id = "emtk"
+version = "0.1.0-beta.1"
+name = "Exanima Modding Toolkit"
+tagline = "An extension for Exanima's assets"
+maintainer = "ProffDea <deatea@riseup.net>"
+type = "add-on"
+website = "https://codeberg.org/ExanimaModding/Toolkit"
+tags = [
+	"Material",
+	"Modeling",
+	"Mesh",
+	"Node",
+	"Object",
+	"Scene",
+	"User Interface",
+]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-only"]
+platforms = ["windows-x64"]
+# NOTE: emtk-py wheel
+wheels = ["./wheels/emtk-0.1.0b1-cp311-abi3-win_amd64.whl"]
+
+[permissions]
+files = "Import/export RFC from/to disk"
+
+[build]
+paths_exclude_pattern = [
+	"__pycache__/",
+	"/.git/",
+	"/*.zip",
+	".venv/",
+	".gitignore",
+	"*.md",
+]

@@ -7,14 +7,16 @@ crates depend on pyo3.
 
 ## Development
 
-For developing with the python bindings.
+[uv](https://github.com/astral-sh/uv) is required for developing with the python bindings.
+The same applies to the blender extension.
+
+For developing with the python bindings. The following commands assume it's being ran
+at the root of the `Toolkit` project.
 
 ```bash
-uv venv
-uv pip install maturin
-./.venv/Scripts/activate.ps1
-# run the next command any time new changes are added to the package
-maturin develop --uv
+cargo xtask python
+
+# Test if it works by running an example
 python ./examples/char_ext.py
 ```
 

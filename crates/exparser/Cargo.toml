@@ -14,8 +14,14 @@ license = { workspace = true }
 # See: https://github.com/sharksforarms/deku/pull/454
 deku = { git = "https://github.com/sharksforarms/deku.git", rev = "88e6e0bedbfcec4f2ca6eda964895622cd4391ec" }
 log = { workspace = true }
-pyo3 = { version = "0.22.2", optional = true }
 serde = { workspace = true }
+# Update the following files when modifying the features of pyo3:
+# - ./bindings/python/emtk-py/emtk/blender/blender_manifest.toml
+# - ./crates/xtask/src/main.rs
+pyo3 = { version = "0.22.2", features = [
+	"extension-module",
+	"abi3-py311",
+], optional = true }
 
 [features]
 default = []
