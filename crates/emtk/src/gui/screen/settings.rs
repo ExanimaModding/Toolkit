@@ -25,6 +25,7 @@ pub enum Message {
 	CacheChecked,
 	CacheCleared,
 	CacheSize(u64),
+	CacheOpened,
 	Changelog,
 	DeveloperToggled(bool),
 	ExplainToggled(bool),
@@ -67,6 +68,9 @@ impl Settings {
 				)
 			}
 			Message::CacheSize(cache_size) => self.cache_size = cache_size,
+			Message::CacheOpened => {
+				open::that(cache_path(app_state.settings.exanima_exe.clone().unwrap())).unwrap()
+			}
 			Message::Changelog => return (Task::none(), Action::ViewChangelog),
 			Message::DeveloperToggled(developer_enabled) => {
 				self.developer_enabled = developer_enabled;
@@ -120,6 +124,7 @@ impl Settings {
 									)
 									.align_y(Alignment::Center),
 							)
+							.push(button("Open Cache").on_press(Message::CacheOpened))
 							.push(horizontal_rule(1))
 							.spacing(spacing),
 					)
@@ -157,11 +162,17 @@ impl Settings {
 
 // TODO: move cache_path into a more appropriate file
 pub fn cache_path(exanima_exe: String) -> PathBuf {
-	PathBuf::from(exanima_exe)
+	let path = PathBuf::from(exanima_exe)
 		.parent()
 		.unwrap()
 		.join(".emtk")
-		.join("cache")
+		.join("cache");
+
+	if !path.is_dir() {
+		fs::create_dir_all(&path).unwrap();
+	}
+
+	path
 }
 
 pub async fn cache_size(cache_path: PathBuf) -> u64 {
