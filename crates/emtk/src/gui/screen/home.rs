@@ -44,7 +44,7 @@ impl Home {
 				.push(text("Exanima Modding Toolkit Launcher").size(36))
 				.push(horizontal_rule(1))
 				.push(self.mods_list())
-				.spacing(10),
+				.spacing(12),
 		)
 		.padding(12)
 		.width(Length::Fill)

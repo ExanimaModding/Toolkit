@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use iced::{
 	widget::{button, checkbox, container, horizontal_rule, scrollable, text, Column, Row},
-	Alignment, Element, Length, Task,
+	Alignment, Element, Task,
 };
 
 #[derive(Debug, Clone)]
@@ -88,7 +88,7 @@ impl Settings {
 	pub fn view(&self) -> Element<Message> {
 		// let col = Column::new().push(self.version());
 
-		let spacing = 12;
+		let spacing = 6;
 		let category_size = 24;
 		scrollable(
 			container(
@@ -102,10 +102,7 @@ impl Settings {
 					.push(
 						Column::new()
 							.push(text("About").size(category_size))
-							.push(
-								Row::new()
-									.push(button("View Changelog").on_press(Message::Changelog)),
-							)
+							.push(button("View Changelog").on_press(Message::Changelog))
 							.push(horizontal_rule(1))
 							.spacing(spacing),
 					)
@@ -150,12 +147,10 @@ impl Settings {
 							.push(horizontal_rule(1))
 							.spacing(spacing),
 					)
-					.spacing(spacing),
+					.spacing(12),
 			)
 			.padding(12),
 		)
-		.width(Length::Fill)
-		.height(Length::Fill)
 		.into()
 	}
 }
