@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use crate::Format;
+use crate::VecReader;
 
 pub const MAGIC: u32 = 0xAFBF0C01;
 
@@ -23,8 +23,11 @@ pub struct Rpk {
 	#[deku(count = "size_of_entries / 32")]
 	pub entries: Vec<Entry>,
 	#[pyo3(get)]
-	#[deku(reader = "Rpk::read(deku::reader, entries)")]
-	pub data: Vec<Format>,
+	#[deku(
+		reader = "Rpk::read(deku::reader, entries)",
+		writer = "VecReader::write_nested(deku::writer, &self.data)"
+	)]
+	pub data: Vec<Vec<u8>>,
 }
 
 #[cfg(not(feature = "python"))]
@@ -36,33 +39,30 @@ pub struct Rpk {
 	pub size_of_entries: u32,
 	#[deku(count = "size_of_entries / 32")]
 	pub entries: Vec<Entry>,
-	#[deku(reader = "Rpk::read(deku::reader, entries)")]
-	pub data: Vec<Format>,
+	#[deku(
+		reader = "Rpk::read(deku::reader, entries)",
+		writer = "VecReader::write_nested(deku::writer, &self.data)"
+	)]
+	pub data: Vec<Vec<u8>>,
 }
 
 impl Rpk {
 	fn read<R: io::Read + io::Seek>(
 		reader: &mut Reader<R>,
 		entries: &[Entry],
-	) -> Result<Vec<Format>, DekuError> {
+	) -> Result<Vec<Vec<u8>>, DekuError> {
 		// Sort the entries by offset so we can read them in order.
 		let mut entries = entries.to_vec();
 		entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
-		let mut formats: Vec<Format> = Vec::with_capacity(entries.len());
+		let mut formats: Vec<Vec<u8>> = Vec::with_capacity(entries.len());
 
 		for entry in entries {
 			let mut buf = vec![0; entry.size as usize];
 
 			// deku is slow at reading Vec<u8> so we read the bytes into a buffer ourselves.
 			let format = match reader.read_bytes(entry.size as usize, &mut buf) {
-				Ok(ReaderRet::Bytes) => {
-					let mut cursor = io::Cursor::new(buf);
-					let mut reader = Reader::new(&mut cursor);
-
-					let format = Format::from_reader_with_ctx(&mut reader, entry.size as usize)?;
-					Ok(format)
-				}
+				Ok(ReaderRet::Bytes) => Ok(buf),
 				Ok(ReaderRet::Bits(_)) => {
 					Err(DekuError::InvalidParam("Expected bytes, got bits".into()))
 				}
