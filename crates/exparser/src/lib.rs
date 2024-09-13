@@ -1,4 +1,5 @@
 pub mod fty;
+pub mod rdb;
 pub mod rfc;
 pub mod rfi;
 pub mod rpk;
