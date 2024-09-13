@@ -3,7 +3,7 @@ mod screen;
 mod state;
 mod widget;
 
-use std::time::Instant;
+use std::{path::PathBuf, time::Instant};
 
 use constants::FADE_DURATION;
 use iced::{
@@ -16,6 +16,7 @@ use iced::{
 use lilt::{Animated, Easing};
 use screen::{
 	changelog::{self, Changelog},
+	explorer::{self, Explorer},
 	home::{self, Home},
 	progress::{self, Progress},
 	settings::{self, Settings},
@@ -75,6 +76,7 @@ pub struct Emtk {
 pub enum Message {
 	Changelog(changelog::Message),
 	ExanimaLaunched,
+	Explorer(explorer::Message),
 	GetLatestRelease(GetLatestReleaseState),
 	Home(home::Message),
 	LinkClicked(String),
@@ -129,6 +131,12 @@ impl Emtk {
 			// TODO: launch exanima
 			// crate::launch_exanima();
 			Message::ExanimaLaunched => log::info!("Launching exanima..."),
+			Message::Explorer(message) => match &mut self.screen {
+				Screen::Explorer(explorer) => {
+					return explorer.update(message).map(Message::Explorer);
+				}
+				_ => (),
+			},
 			Message::GetLatestRelease(state) => match state {
 				GetLatestReleaseState::NotStarted => {
 					log::info!("Checking for updates...");
@@ -240,6 +248,35 @@ impl Emtk {
 			},
 			Message::ScreenChanged(kind) => match kind {
 				ScreenKind::Changelog => (),
+				ScreenKind::Explorer => {
+					let exanima_exe =
+						PathBuf::from(self.app_state.settings.exanima_exe.clone().unwrap());
+					// TODO: redundant code taken from crate::gui::screen::progress::load_mods()
+					let exanima_path = exanima_exe
+						.parent()
+						.expect("error while getting parent directory of exanima exe");
+
+					let exanima_rpks: Vec<PathBuf> = exanima_path
+						.read_dir()
+						.expect("error while reading exanima directory")
+						.flatten()
+						.filter_map(|entry| {
+							let path = entry.path();
+							let file_name = path
+								.file_name()
+								.expect("error while reading file name")
+								.to_str()
+								.expect("error while getting file name");
+							if path.is_dir() || !file_name.ends_with(".rpk") {
+								None
+							} else {
+								Some(path)
+							}
+						})
+						.collect();
+
+					self.screen = Screen::Explorer(Explorer::new(exanima_rpks))
+				}
 				ScreenKind::Home => self.screen = Screen::Home(Home::default()),
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
@@ -315,6 +352,7 @@ impl Emtk {
 
 		let screen = match &self.screen {
 			Screen::Home(home) => home.view().map(Message::Home),
+			Screen::Explorer(explorer) => explorer.view().map(Message::Explorer),
 			Screen::Settings(settings) => settings.view().map(Message::Settings),
 			_ => unreachable!("Unsupported screen"),
 		};
@@ -369,17 +407,35 @@ impl Emtk {
 		container(
 			Column::new()
 				.push(
-					Column::new().push(button(text("Home")).on_press_maybe(match self.screen {
-						Screen::Home(_) => None,
-						_ => Some(Message::ScreenChanged(ScreenKind::Home)),
-					})),
+					Column::new().push(
+						button(text("Home"))
+							.on_press_maybe(match self.screen {
+								Screen::Home(_) => None,
+								_ => Some(Message::ScreenChanged(ScreenKind::Home)),
+							})
+							.width(Length::Fill),
+					),
 				)
-				.push(Column::new().push(button(text("Settings")).on_press_maybe(
-					match self.screen {
-						Screen::Settings(_) => None,
-						_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
-					},
-				)))
+				.push(
+					Column::new().push(
+						button(text("Explorer"))
+							.on_press_maybe(match self.screen {
+								Screen::Explorer(_) => None,
+								_ => Some(Message::ScreenChanged(ScreenKind::Explorer)),
+							})
+							.width(Length::Fill),
+					),
+				)
+				.push(
+					Column::new().push(
+						button(text("Settings"))
+							.on_press_maybe(match self.screen {
+								Screen::Settings(_) => None,
+								_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
+							})
+							.width(Length::Fill),
+					),
+				)
 				.push(vertical_space())
 				.push(
 					Column::new().push(

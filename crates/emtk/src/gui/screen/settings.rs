@@ -1,9 +1,12 @@
 use std::{fs, path::PathBuf};
 
+use human_bytes::human_bytes;
 use iced::{
-	widget::{button, checkbox, container, horizontal_rule, scrollable, text, Column, Row},
-	Alignment, Element, Task,
+	widget::{button, checkbox, container, horizontal_rule, scrollable, svg, text, Column, Row},
+	Alignment, Color, Element, Length, Task,
 };
+
+use crate::gui::constants::SQUARE_ARROW_OUT;
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -114,14 +117,33 @@ impl Settings {
 									.push(button("Clear Cache").on_press(Message::CacheCleared))
 									.push(
 										container(text(format!(
-											"Size: {:.2} GBs",
-											self.cache_size as f32 / 1_000_000_000.
+											"Size: {}",
+											human_bytes(self.cache_size as f64)
 										)))
 										.padding(5),
 									)
 									.align_y(Alignment::Center),
 							)
-							.push(button("Open Cache").on_press(Message::CacheOpened))
+							.push(
+								button(
+									Row::new()
+										.push(text("Open Cache"))
+										.push(
+											container(
+												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+													.width(Length::Fixed(16.))
+													.height(Length::Fixed(16.))
+													.style(|_theme, _status| svg::Style {
+														color: Some(Color::BLACK),
+													}),
+											)
+											.height(Length::Fixed(21.))
+											.align_y(Alignment::Center),
+										)
+										.spacing(2),
+								)
+								.on_press(Message::CacheOpened),
+							)
 							.push(horizontal_rule(1))
 							.spacing(spacing),
 					)

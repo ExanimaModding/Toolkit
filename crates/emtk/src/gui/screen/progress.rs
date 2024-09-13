@@ -246,7 +246,7 @@ impl Progress {
 
 							let mut style = button::Style {
 								background: Some(Background::Color(btn_color)),
-								text_color: text,
+								text_color: Color::BLACK,
 								..Default::default()
 							};
 							match status {
