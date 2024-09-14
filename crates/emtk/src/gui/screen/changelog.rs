@@ -1,9 +1,8 @@
 use std::time::Instant;
 
 use iced::{
-	theme,
 	widget::{container, markdown, scrollable, text, Column},
-	Background, Border, Element, Padding, Size, Task, Theme,
+	Border, Element, Size, Task, Theme,
 };
 use lilt::{Animated, Easing};
 

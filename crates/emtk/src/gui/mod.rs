@@ -12,7 +12,7 @@ use iced::{
 	widget::{
 		button, container, horizontal_rule, markdown, scrollable, text, vertical_space, Column, Row,
 	},
-	window, Background, Border, Color, Element, Length, Padding, Size, Subscription, Task, Theme,
+	window, Color, Element, Length, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
 use screen::{
@@ -89,7 +89,7 @@ pub enum Message {
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
 	SizeChanged(Size),
-	StartGame(GameStartType),
+	StartGame,
 	Tick,
 }
 
@@ -113,31 +113,26 @@ impl Emtk {
 		let now = Instant::now();
 
 		match message {
-			Message::Changelog(message) => match &mut self.modal {
-				Some(screen) => match screen {
-					Screen::Changelog(changelog) => {
-						let (task, action) = changelog.update(message);
-						let action = match action {
-							changelog::Action::LinkClicked(url) => {
-								Task::done(Message::LinkClicked(url))
-							}
-							changelog::Action::None => Task::none(),
-						};
-						return Task::batch([task.map(Message::Changelog), action]);
-					}
-					_ => (),
-				},
-				None => (),
-			},
+			Message::Changelog(message) => {
+				if let Some(Screen::Changelog(changelog)) = &mut self.modal {
+					let (task, action) = changelog.update(message);
+					let action = match action {
+						changelog::Action::LinkClicked(url) => {
+							Task::done(Message::LinkClicked(url))
+						}
+						changelog::Action::None => Task::none(),
+					};
+					return Task::batch([task.map(Message::Changelog), action]);
+				}
+			}
 			// TODO: launch exanima
 			// crate::launch_exanima();
 			Message::ExanimaLaunched => log::info!("Launching exanima..."),
-			Message::Explorer(message) => match &mut self.screen {
-				Screen::Explorer(explorer) => {
+			Message::Explorer(message) => {
+				if let Screen::Explorer(explorer) = &mut self.screen {
 					return explorer.update(message).map(Message::Explorer);
 				}
-				_ => (),
-			},
+			}
 			Message::GetLatestRelease(state) => match state {
 				GetLatestReleaseState::NotStarted => {
 					log::info!("Checking for updates...");
@@ -172,18 +167,17 @@ impl Emtk {
 					self.latest_release = GetLatestReleaseState::Error(error);
 				}
 			},
-			Message::Home(message) => match &mut self.screen {
-				Screen::Home(home) => {
-					return home.update(message, &mut self.app_state).map(Message::Home)
+			Message::Home(message) => {
+				if let Screen::Home(home) = &mut self.screen {
+					return home.update(message, &mut self.app_state).map(Message::Home);
 				}
-				_ => (),
-			},
+			}
 			Message::LinkClicked(url) => {
 				log::info!("Opening URL: {}", url);
 				open::that(url).unwrap();
 			}
-			Message::ModalChanged(kind) => match kind {
-				ScreenKind::Changelog => {
+			Message::ModalChanged(kind) => {
+				if let ScreenKind::Changelog = kind {
 					self.fade.transition(true, now);
 					self.modal = Some(Screen::Changelog(Changelog::new(
 						self.changelog.clone(),
@@ -192,19 +186,12 @@ impl Emtk {
 						self.theme.to_owned(),
 					)));
 				}
-				_ => (),
-			},
+			}
 			Message::ModalCleanup => self.modal = None,
 			Message::ModalClosed => {
 				self.fade.transition(false, now);
-				match &mut self.modal {
-					Some(screen) => match screen {
-						Screen::Changelog(changelog) => {
-							let (_task, _action) = changelog.update(changelog::Message::FadeOut);
-						}
-						_ => (),
-					},
-					None => (),
+				if let Some(Screen::Changelog(changelog)) = &mut self.modal {
+					let (_task, _action) = changelog.update(changelog::Message::FadeOut);
 				}
 				return Task::perform(
 					tokio::time::sleep(tokio::time::Duration::from_millis(FADE_DURATION)),
@@ -212,42 +199,36 @@ impl Emtk {
 				);
 			}
 			Message::Nothing => (),
-			Message::Progress(message) => match &mut self.modal {
-				Some(screen) => match screen {
-					Screen::Progress(progress) => {
-						let action = progress.update(message);
-						match action {
-							progress::Action::Canceled => {
-								self.fade.transition(false, now);
-								// PERF: consider self.fade.in_progress instead of sleeping for a
-								// fixed duration
-								return Task::perform(
-									tokio::time::sleep(tokio::time::Duration::from_millis(
-										FADE_DURATION,
-									)),
-									|_| Message::ModalCleanup,
-								);
-							}
-							progress::Action::ExanimaLaunched => {
-								let (task, _action) = match &mut self.screen {
-									Screen::Settings(settings) => settings.update(
-										settings::Message::CacheChecked,
-										&mut self.app_state,
-									),
-									_ => (Task::none(), settings::Action::None),
-								};
-								return Task::batch([
-									Task::done(Message::ExanimaLaunched),
-									task.map(Message::Settings),
-								]);
-							}
-							progress::Action::None => (),
+			Message::Progress(message) => {
+				if let Some(Screen::Progress(progress)) = &mut self.modal {
+					let action = progress.update(message);
+					match action {
+						progress::Action::Canceled => {
+							self.fade.transition(false, now);
+							// PERF: consider self.fade.in_progress instead of sleeping for a
+							// fixed duration
+							return Task::perform(
+								tokio::time::sleep(tokio::time::Duration::from_millis(
+									FADE_DURATION,
+								)),
+								|_| Message::ModalCleanup,
+							);
 						}
+						progress::Action::ExanimaLaunched => {
+							let (task, _action) = match &mut self.screen {
+								Screen::Settings(settings) => settings
+									.update(settings::Message::CacheChecked, &mut self.app_state),
+								_ => (Task::none(), settings::Action::None),
+							};
+							return Task::batch([
+								Task::done(Message::ExanimaLaunched),
+								task.map(Message::Settings),
+							]);
+						}
+						progress::Action::None => (),
 					}
-					_ => (),
-				},
-				None => (),
-			},
+				}
+			}
 			Message::ScreenChanged(kind) => match kind {
 				ScreenKind::Changelog => (),
 				ScreenKind::Explorer => {
@@ -291,8 +272,8 @@ impl Emtk {
 					return task.map(Message::Settings);
 				}
 			},
-			Message::Settings(message) => match &mut self.screen {
-				Screen::Settings(settings) => {
+			Message::Settings(message) => {
+				if let Screen::Settings(settings) = &mut self.screen {
 					let (task, action) = settings.update(message, &mut self.app_state);
 					let action = match action {
 						settings::Action::DeveloperToggled(developer_enabled) => {
@@ -314,8 +295,7 @@ impl Emtk {
 					};
 					return Task::batch([task.map(Message::Settings), action]);
 				}
-				_ => (),
-			},
+			}
 			Message::SizeChanged(size) => {
 				self.window_size = size;
 				let Some(screen) = &mut self.modal else {
@@ -338,18 +318,14 @@ impl Emtk {
 					_ => (),
 				}
 			}
-			Message::StartGame(kind) => match kind {
-				GameStartType::Modded => {
-					log::info!("Starting modded Exanima...");
-					let (progress, task) =
-						Progress::new(self.app_state.settings.clone(), self.window_size * 0.8);
-					self.fade.transition(true, now);
-					self.modal = Some(Screen::Progress(progress));
-					return task.map(Message::Progress);
-				}
-				// TODO: start vanilla exanima
-				GameStartType::Vanilla => log::info!("Starting vanilla Exanima..."),
-			},
+			Message::StartGame => {
+				log::info!("Starting Exanima...");
+				let (progress, task) =
+					Progress::new(self.app_state.settings.clone(), self.window_size * 0.8);
+				self.fade.transition(true, now);
+				self.modal = Some(Screen::Progress(progress));
+				return task.map(Message::Progress);
+			}
 			Message::Tick => (),
 		};
 
@@ -357,8 +333,6 @@ impl Emtk {
 	}
 
 	pub fn view(&self) -> Element<Message> {
-		let now = Instant::now();
-
 		let screen = match &self.screen {
 			Screen::Home(home) => home.view().map(Message::Home),
 			Screen::Explorer(explorer) => explorer.view().map(Message::Explorer),
@@ -452,7 +426,7 @@ impl Emtk {
 				.push(
 					Column::new().push(
 						button(text("Play").size(20))
-							.on_press(Message::StartGame(GameStartType::Modded))
+							.on_press(Message::StartGame)
 							.width(Length::Fill)
 							.style(theme::button),
 					),
@@ -531,12 +505,12 @@ impl Emtk {
 	pub fn subscription(&self) -> Subscription<Message> {
 		let now = Instant::now();
 
-		let events = event::listen_with(|event, _status, _id| match event {
-			iced::Event::Window(event) => match event {
-				window::Event::Resized(size) => Some(Message::SizeChanged(size)),
-				_ => None,
-			},
-			_ => None,
+		let events = event::listen_with(|event, _status, _id| {
+			if let iced::Event::Window(window::Event::Resized(size)) = event {
+				Some(Message::SizeChanged(size))
+			} else {
+				None
+			}
 		});
 
 		let modal_fade = if self.fade.in_progress(now) {
@@ -576,12 +550,6 @@ impl Default for Emtk {
 			window_size: Size::default(),
 		}
 	}
-}
-
-#[derive(Debug, Clone)]
-pub enum GameStartType {
-	Modded,
-	Vanilla,
 }
 
 async fn get_latest_release() -> anyhow::Result<Release> {
