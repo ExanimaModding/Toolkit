@@ -139,7 +139,13 @@ impl Settings {
 							.push(text("Cache").size(category_size))
 							.push(
 								Row::new()
-									.push(button("Clear Cache").on_press(Message::CacheCleared))
+									.push(button("Clear Cache").on_press_maybe(
+										if self.cache_size == 0 {
+											None
+										} else {
+											Some(Message::CacheCleared)
+										},
+									))
 									.push(
 										container(text(format!(
 											"Size: {}",
