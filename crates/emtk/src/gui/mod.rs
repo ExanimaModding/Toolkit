@@ -282,8 +282,11 @@ impl Emtk {
 				ScreenKind::Home => self.screen = Screen::Home(Home::default()),
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
-					let (settings, task) =
-						Settings::new(self.developer_enabled, self.explain_enabled);
+					let (settings, task) = Settings::new(
+						self.developer_enabled,
+						self.explain_enabled,
+						self.theme.to_owned(),
+					);
 					self.screen = Screen::Settings(settings);
 					return task.map(Message::Settings);
 				}
@@ -298,6 +301,10 @@ impl Emtk {
 						}
 						settings::Action::ExplainToggled(explain_enabled) => {
 							self.explain_enabled = explain_enabled;
+							Task::none()
+						}
+						settings::Action::ThemeChanged(theme) => {
+							self.theme = theme;
 							Task::none()
 						}
 						settings::Action::ViewChangelog => {

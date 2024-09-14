@@ -2,16 +2,19 @@ use std::{fs, path::PathBuf};
 
 use human_bytes::human_bytes;
 use iced::{
-	widget::{button, checkbox, container, horizontal_rule, scrollable, svg, text, Column, Row},
-	Alignment, Color, Element, Length, Task,
+	widget::{
+		button, checkbox, container, horizontal_rule, pick_list, scrollable, svg, text, Column, Row,
+	},
+	Alignment, Color, Element, Length, Task, Theme,
 };
 
-use crate::gui::{constants::SQUARE_ARROW_OUT, theme};
+use crate::gui::constants::SQUARE_ARROW_OUT;
 
 #[derive(Debug, Clone)]
 pub enum Action {
 	DeveloperToggled(bool),
 	ExplainToggled(bool),
+	ThemeChanged(Theme),
 	ViewChangelog,
 	None,
 }
@@ -21,6 +24,7 @@ pub struct Settings {
 	cache_size: u64,
 	developer_enabled: bool,
 	explain_enabled: bool,
+	theme: Theme,
 }
 
 #[derive(Debug, Clone)]
@@ -32,14 +36,20 @@ pub enum Message {
 	Changelog,
 	DeveloperToggled(bool),
 	ExplainToggled(bool),
+	ThemeChanged(Theme),
 }
 
 impl Settings {
-	pub fn new(developer_enabled: bool, explain_enabled: bool) -> (Self, Task<Message>) {
+	pub fn new(
+		developer_enabled: bool,
+		explain_enabled: bool,
+		theme: Theme,
+	) -> (Self, Task<Message>) {
 		(
 			Self {
 				developer_enabled,
 				explain_enabled,
+				theme,
 				..Default::default()
 			},
 			Task::done(Message::CacheChecked),
@@ -83,6 +93,10 @@ impl Settings {
 				self.explain_enabled = explain_enabled;
 				return (Task::none(), Action::ExplainToggled(explain_enabled));
 			}
+			Message::ThemeChanged(theme) => {
+				self.theme = theme.to_owned();
+				return (Task::none(), Action::ThemeChanged(theme));
+			}
 		};
 
 		(Task::none(), Action::None)
@@ -99,6 +113,17 @@ impl Settings {
 					.push(
 						Column::new()
 							.push(text("Settings").size(36))
+							.push(horizontal_rule(1))
+							.spacing(spacing),
+					)
+					.push(
+						Column::new()
+							.push(text("Appearance").size(category_size))
+							.push(pick_list(
+								Theme::ALL,
+								Some(self.theme.to_owned()),
+								Message::ThemeChanged,
+							))
 							.push(horizontal_rule(1))
 							.spacing(spacing),
 					)
