@@ -1,13 +1,14 @@
 mod constants;
 mod screen;
 mod state;
+mod theme;
 mod widget;
 
 use std::{path::PathBuf, time::Instant};
 
 use constants::FADE_DURATION;
 use iced::{
-	event, theme,
+	event,
 	widget::{
 		button, container, horizontal_rule, markdown, scrollable, text, vertical_space, Column, Row,
 	},
@@ -59,7 +60,6 @@ pub struct Release {
 	pub published_at: chrono::DateTime<chrono::Utc>,
 }
 
-#[derive(Debug, Clone)]
 pub struct Emtk {
 	app_state: state::AppState,
 	changelog: Vec<markdown::Item>,
@@ -69,6 +69,7 @@ pub struct Emtk {
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
 	screen: Screen,
+	theme: Theme,
 	window_size: Size,
 }
 
@@ -188,6 +189,7 @@ impl Emtk {
 						self.changelog.clone(),
 						self.latest_release.clone(),
 						Some(self.window_size * 0.8),
+						self.theme.to_owned(),
 					)));
 				}
 				_ => (),
@@ -413,7 +415,8 @@ impl Emtk {
 								Screen::Home(_) => None,
 								_ => Some(Message::ScreenChanged(ScreenKind::Home)),
 							})
-							.width(Length::Fill),
+							.width(Length::Fill)
+							.style(theme::transparent_button),
 					),
 				)
 				.push(
@@ -423,7 +426,8 @@ impl Emtk {
 								Screen::Explorer(_) => None,
 								_ => Some(Message::ScreenChanged(ScreenKind::Explorer)),
 							})
-							.width(Length::Fill),
+							.width(Length::Fill)
+							.style(theme::transparent_button),
 					),
 				)
 				.push(
@@ -433,7 +437,8 @@ impl Emtk {
 								Screen::Settings(_) => None,
 								_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
 							})
-							.width(Length::Fill),
+							.width(Length::Fill)
+							.style(theme::transparent_button),
 					),
 				)
 				.push(vertical_space())
@@ -441,9 +446,11 @@ impl Emtk {
 					Column::new().push(
 						button(text("Play").size(20))
 							.on_press(Message::StartGame(GameStartType::Modded))
-							.width(Length::Fill),
+							.width(Length::Fill)
+							.style(theme::button),
 					),
-				),
+				)
+				.spacing(1),
 		)
 		.into()
 	}
@@ -472,7 +479,6 @@ impl Emtk {
 					.unwrap_or(semver::Version::new(0, 0, 0));
 
 				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
-					let palette = theme::Palette::CATPPUCCIN_FRAPPE;
 					return Column::new()
 						.spacing(10.)
 						.push(text("You're already up to date!"))
@@ -481,15 +487,7 @@ impl Emtk {
 							markdown(
 								&self.changelog,
 								markdown::Settings::default(),
-								markdown::Style {
-									inline_code_highlight: markdown::Highlight {
-										background: Background::Color(palette.background),
-										border: Border::default(),
-									},
-									inline_code_padding: Padding::default(),
-									inline_code_color: palette.text,
-									link_color: palette.primary,
-								},
+								markdown::Style::from_palette(self.theme.palette()),
 							)
 							.map(|url| Message::LinkClicked(url.to_string())),
 						))
@@ -506,7 +504,8 @@ impl Emtk {
 					.push(
 						button(text("Download"))
 							.on_press(Message::LinkClicked(release.html_url.clone()))
-							.width(100.),
+							.width(100.)
+							.style(theme::button),
 					)
 			}
 			.into(),
@@ -515,7 +514,7 @@ impl Emtk {
 	}
 
 	pub fn theme(&self) -> Theme {
-		Theme::CatppuccinFrappe
+		self.theme.to_owned()
 	}
 
 	pub fn title(&self) -> String {
@@ -566,6 +565,7 @@ impl Default for Emtk {
 			latest_release: GetLatestReleaseState::default(),
 			modal: Option::default(),
 			screen: Screen::default(),
+			theme: Theme::CatppuccinFrappe,
 			window_size: Size::default(),
 		}
 	}

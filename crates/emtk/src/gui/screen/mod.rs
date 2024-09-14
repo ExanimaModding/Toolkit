@@ -19,7 +19,7 @@ pub enum ScreenKind {
 	Settings,
 }
 
-#[derive(Debug, Clone, strum::Display)]
+#[derive(strum::Display)]
 pub enum Screen {
 	Changelog(Changelog),
 	Explorer(Explorer),

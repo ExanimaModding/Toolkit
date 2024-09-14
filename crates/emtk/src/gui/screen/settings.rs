@@ -6,7 +6,7 @@ use iced::{
 	Alignment, Color, Element, Length, Task,
 };
 
-use crate::gui::constants::SQUARE_ARROW_OUT;
+use crate::gui::{constants::SQUARE_ARROW_OUT, theme};
 
 #[derive(Debug, Clone)]
 pub enum Action {

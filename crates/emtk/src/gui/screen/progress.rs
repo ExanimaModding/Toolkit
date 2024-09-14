@@ -3,14 +3,16 @@ use std::{fs, io, path::PathBuf, time::Instant};
 use exparser::{deku::prelude::*, Format};
 use iced::{
 	futures::{channel::mpsc::Sender, SinkExt, Stream, StreamExt},
-	stream, task, theme,
+	stream, task,
 	widget::{button, container, progress_bar, text, Column, Row},
-	window, Alignment, Background, Border, Color, Element, Length, Padding, Size, Subscription,
-	Task, Theme,
+	window, Alignment, Border, Color, Element, Length, Padding, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
 
-use crate::{config::AppSettings, gui::constants::FADE_DURATION};
+use crate::{
+	config::AppSettings,
+	gui::{constants::FADE_DURATION, theme},
+};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -113,181 +115,137 @@ impl Progress {
 	pub fn view(&self) -> Element<Message> {
 		let now = Instant::now();
 
-		let step_name = self.bar.steps.get(self.bar.current_step);
-		let bar_header = Row::new().push(
-			text(format!(
-				"{} / {} Packages",
-				self.bar.current_step,
-				self.bar.steps.len()
-			))
-			.width(Length::Fill),
-		);
-		let bar_header = if let Some(name) = step_name {
-			bar_header.push(text(name))
-		} else {
-			bar_header
-		};
-
-		let progress = if self.bar.steps.is_empty() {
-			Column::new().push(
-				container(
-					text("Loading...")
-						.width(Length::Fill)
-						.align_x(Alignment::Center),
-				)
-				.padding(24.),
-			)
-		} else {
-			Column::new()
-				.push(
-					container(Row::new().push(text(self.bar.title.clone())))
-						.padding(Padding::new(0.).bottom(12)),
-				)
-				.push(container(
-					Column::new().push(bar_header).push(
-						progress_bar(
-							0.0..=self.bar.steps.len() as f32,
-							self.progress_increment.animate(|step| step, now),
-						)
-						.height(Length::Fixed(16.))
-						.style(move |_theme| {
-							let animate_alpha = self.fade.animate_bool(0., 1., now);
-							let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
-
-							let primary = palette.primary.strong.color;
-							let success = palette.success.base.color;
-							let bar_color = Color::from_rgba(
-								self.progress_completion
-									.animate_bool(primary.r, success.r, now),
-								self.progress_completion
-									.animate_bool(primary.g, success.g, now),
-								self.progress_completion
-									.animate_bool(primary.b, success.b, now),
-								animate_alpha,
-							);
-
-							let mut bg = palette.background.weak.color;
-							bg.a = animate_alpha;
-							progress_bar::Style {
-								background: Background::Color(bg),
-								bar: Background::Color(bar_color),
-								border: Border {
-									radius: 8.0.into(),
-									..Default::default()
-								},
-							}
-						}),
-					),
-				))
-		};
-
 		let content = container(
-			progress.push(
-				container(
-					button(
-						if self.bar.current_step == self.bar.steps.len()
-							&& self.bar.current_step != 0
-						{
-							"Close"
-						} else {
-							"Cancel"
-						},
+			Column::new()
+				.push(if self.bar.steps.is_empty() {
+					Column::new().push(
+						container(
+							text("Loading...")
+								.width(Length::Fill)
+								.align_x(Alignment::Center),
+						)
+						.padding(24.),
 					)
-					.on_press(Message::Canceled)
-					.style(move |theme, status| match theme {
-						Theme::CatppuccinFrappe => {
+				} else {
+					Column::new()
+						.push(
+							container(Row::new().push(text(self.bar.title.clone())))
+								.padding(Padding::new(0.).bottom(12)),
+						)
+						.push(container(
+							Column::new()
+								.push(
+									Row::new()
+										.push(
+											text(format!(
+												"{} / {} Packages",
+												self.bar.current_step,
+												self.bar.steps.len()
+											))
+											.width(Length::Fill),
+										)
+										.push_maybe(
+											self.bar.steps.get(self.bar.current_step).map(text),
+										),
+								)
+								.push(
+									progress_bar(
+										0.0..=self.bar.steps.len() as f32,
+										self.progress_increment.animate(|step| step, now),
+									)
+									.height(Length::Fixed(16.))
+									.style(move |theme: &Theme| {
+										let palette = theme.extended_palette();
+										let animate_alpha = self.fade.animate_bool(0., 1., now);
+
+										let mut style = progress_bar::primary(theme);
+										style.background =
+											style.background.scale_alpha(animate_alpha);
+										style.bar = {
+											let primary = palette.primary.strong.color;
+											let success = palette.success.strong.color;
+											Color::from_rgba(
+												self.progress_completion
+													.animate_bool(primary.r, success.r, now),
+												self.progress_completion
+													.animate_bool(primary.g, success.g, now),
+												self.progress_completion
+													.animate_bool(primary.b, success.b, now),
+												animate_alpha,
+											)
+											.into()
+										};
+										style.border = Border::default().rounded(8);
+										style
+									}),
+								),
+						))
+				})
+				.push(
+					container(
+						button(
+							if self.bar.current_step == self.bar.steps.len()
+								&& self.bar.current_step != 0
+							{
+								"Close"
+							} else {
+								"Cancel"
+							},
+						)
+						.on_press(Message::Canceled)
+						.style(move |theme: &Theme, status| {
+							let palette = theme.extended_palette();
 							let animate_alpha = self.fade.animate_bool(0., 1., now);
-							let palette = &theme::palette::EXTENDED_CATPPUCCIN_FRAPPE;
 
-							let mut text = palette.background.base.color;
-							text.a = animate_alpha;
-
-							let primary_strong = palette.primary.strong.color;
-							let success_base = palette.success.base.color;
-							let btn_color = Color::from_rgba(
-								self.progress_completion.animate_bool(
-									primary_strong.r,
-									success_base.r,
-									now,
-								),
-								self.progress_completion.animate_bool(
-									primary_strong.g,
-									success_base.g,
-									now,
-								),
-								self.progress_completion.animate_bool(
-									primary_strong.b,
-									success_base.b,
-									now,
-								),
-								animate_alpha,
-							);
-
-							let primary_weak = palette.primary.weak.color;
-							let success_weak = palette.success.weak.color;
-							let btn_hover_color = Color::from_rgba(
-								self.progress_completion.animate_bool(
-									primary_weak.r,
-									success_weak.r,
-									now,
-								),
-								self.progress_completion.animate_bool(
-									primary_weak.g,
-									success_weak.g,
-									now,
-								),
-								self.progress_completion.animate_bool(
-									primary_weak.b,
-									success_weak.b,
-									now,
-								),
-								animate_alpha,
-							);
-
-							let mut style = button::Style {
-								background: Some(Background::Color(btn_color)),
-								text_color: Color::BLACK,
-								..Default::default()
-							};
-							match status {
-								button::Status::Active => (),
+							let mut style = theme::button(theme, status);
+							style.background = Some(match status {
 								button::Status::Hovered => {
-									// TODO: hovered is wrong color
-									style.background = Some(Background::Color(btn_hover_color))
+									let primary = palette.primary.weak.color;
+									let success = palette.success.weak.color;
+									Color::from_rgba(
+										self.progress_completion
+											.animate_bool(primary.r, success.r, now),
+										self.progress_completion
+											.animate_bool(primary.g, success.g, now),
+										self.progress_completion
+											.animate_bool(primary.b, success.b, now),
+										animate_alpha,
+									)
+									.into()
 								}
-								button::Status::Pressed => (),
-								button::Status::Disabled => (),
-							};
+								_ => {
+									let primary = palette.primary.strong.color;
+									let success = palette.success.strong.color;
+									Color::from_rgba(
+										self.progress_completion
+											.animate_bool(primary.r, success.r, now),
+										self.progress_completion
+											.animate_bool(primary.g, success.g, now),
+										self.progress_completion
+											.animate_bool(primary.b, success.b, now),
+										animate_alpha,
+									)
+									.into()
+								}
+							});
+							style.text_color = style.text_color.scale_alpha(animate_alpha);
 							style
-						}
-						_ => button::Style::default(),
-					}),
-				)
-				.padding(Padding::new(0.).top(12))
-				.width(Length::Fill)
-				.align_x(Alignment::Center),
-			),
+						}),
+					)
+					.padding(Padding::new(0.).top(12))
+					.width(Length::Fill)
+					.align_x(Alignment::Center),
+				),
 		)
 		.padding(12)
-		.style(move |_theme| {
+		.style(move |theme| {
+			let palette = theme.palette();
 			let animate_alpha = self.fade.animate_bool(0., 1., now);
-			let palette = theme::Palette::CATPPUCCIN_FRAPPE;
 
-			let mut text_color = palette.text;
-			let mut bg_color = palette.background;
-
-			text_color.a = animate_alpha;
-			bg_color.a = animate_alpha;
-
-			container::Style {
-				text_color: Some(text_color),
-				background: Some(Background::Color(bg_color)),
-				border: Border {
-					radius: 8.0.into(),
-					..Default::default()
-				},
-				..Default::default()
-			}
+			container::Style::default()
+				.color(palette.text.scale_alpha(animate_alpha))
+				.background(palette.background.scale_alpha(animate_alpha))
+				.border(Border::default().rounded(8))
 		});
 
 		if let Some(size) = self.size {

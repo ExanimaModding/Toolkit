@@ -12,11 +12,18 @@ use iced::{
 		button, container, horizontal_rule, horizontal_space, scrollable, svg, text, text_input,
 		Column, Row,
 	},
-	Alignment, Color, Element, Length, Task,
+	Alignment, Color, Element, Length, Task, Theme,
+};
+use nucleo::{
+	pattern::{CaseMatching, Normalization},
+	Nucleo,
 };
 use rfd::FileDialog;
 
-use crate::gui::constants::SQUARE_ARROW_OUT;
+use crate::gui::{
+	constants::{ARROW_LEFT, FOLDER, SQUARE_ARROW_OUT},
+	theme,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct Metadata {
@@ -30,8 +37,8 @@ impl Metadata {
 	}
 }
 
-#[derive(Debug, Default, Clone)]
 pub struct Explorer {
+	matcher: Nucleo<usize>,
 	metadata: Metadata,
 	rpk: Option<Rpk>,
 	rpk_paths: Vec<PathBuf>,
@@ -69,7 +76,17 @@ impl Explorer {
 			}
 			// TODO: implementing importing means modifying the vanilla rpk files
 			Message::EntryImported => (),
-			Message::Queried(query) => self.query = query,
+			Message::Queried(query) => {
+				self.matcher.pattern.reparse(
+					0,
+					query.as_str(),
+					CaseMatching::Ignore,
+					Normalization::Smart,
+					false,
+				);
+				self.matcher.tick(10);
+				self.query = query;
+			}
 			Message::RpkDialog => {
 				if let Some(path) = FileDialog::new()
 					.add_filter("Rayform Package", &["rpk"])
@@ -85,6 +102,15 @@ impl Explorer {
 					let mut reader = Reader::new(&mut buf_reader);
 					let format = Format::from_reader_with_ctx(&mut reader, ()).unwrap();
 					if let Format::Rpk(rpk) = format {
+						self.matcher =
+							Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
+						rpk.entries.iter().enumerate().for_each(|(index, entry)| {
+							self.matcher.injector().push(index, |_index, haystack| {
+								if let Some(haystack) = haystack.first_mut() {
+									*haystack = entry.name.as_str().into();
+								}
+							});
+						});
 						self.metadata = Metadata::new(
 							path.file_name().unwrap().to_str().unwrap().to_string(),
 							file.metadata().unwrap().len(),
@@ -103,18 +129,28 @@ impl Explorer {
 	}
 
 	pub fn view(&self) -> Element<Message> {
-		scrollable(
-			container(if let Some(rpk) = &self.rpk {
-				self.view_entries(rpk)
-			} else {
-				self.view_packages()
-			})
-			.padding(12),
-		)
+		container(if let Some(rpk) = &self.rpk {
+			self.view_entries(rpk)
+		} else {
+			self.view_packages()
+		})
+		.padding(12)
 		.into()
 	}
 
 	fn view_entries(&self, rpk: &Rpk) -> Element<Message> {
+		let search_results = self
+			.matcher
+			.snapshot()
+			.matched_items(..)
+			.map(|item| &rpk.entries[item.data.to_owned()])
+			.collect::<Vec<_>>();
+		let search_results = if search_results.is_empty() {
+			rpk.entries.iter().collect()
+		} else {
+			search_results
+		};
+
 		let spacing = 6;
 		Column::new()
 			.push(
@@ -130,88 +166,152 @@ impl Explorer {
 			)
 			.push(
 				Row::new()
-					.push(button("Back").on_press(Message::RpkSelected(None)))
+					.push(
+						button(
+							svg(svg::Handle::from_memory(ARROW_LEFT))
+								.width(Length::Fixed(16.))
+								.height(Length::Fixed(16.))
+								.style(|theme: &Theme, _status| svg::Style {
+									color: Some(theme.palette().text),
+								}),
+						)
+						.padding(6)
+						.width(Length::Fixed(31.))
+						.height(Length::Fixed(31.))
+						.on_press(Message::RpkSelected(None))
+						.style(|theme, status| {
+							button::primary(theme, status).with_background(match status {
+								button::Status::Hovered => {
+									theme.extended_palette().background.weak.color
+								}
+								_ => Color::TRANSPARENT,
+							})
+						}),
+					)
 					.push(
 						text_input("Search by entry name...", self.query.as_str())
 							.on_input(Message::Queried),
 					),
 			)
 			.push(
-				Column::with_children(rpk.entries.iter().enumerate().map(|(index, entry)| {
-					Row::new()
-						.push(text(entry.name.to_owned()))
-						.push(horizontal_space())
-						.push(text(human_bytes(entry.size)))
-						.push(
-							button(
-								Row::new()
-									.push(text("Import"))
-									.push(
-										container(
-											svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-												.width(Length::Fixed(16.))
-												.height(Length::Fixed(16.))
-												.style(|_theme, _status| svg::Style {
-													color: Some(Color::BLACK),
-												}),
-										)
-										.height(Length::Fixed(21.))
-										.align_y(Alignment::Center),
+				scrollable(
+					Column::with_children(search_results.iter().enumerate().map(
+						|(index, entry)| {
+							Row::new()
+								.push(text(index + 1).width(Length::Fixed(38.)))
+								.push(text(entry.name.to_owned()))
+								.push(horizontal_space())
+								.push(text(human_bytes(entry.size)))
+								.push(
+									button(
+										Row::new()
+											.push(text("Import"))
+											.push(
+												container(
+													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+														.width(Length::Fixed(16.))
+														.height(Length::Fixed(16.))
+														.style(|_theme, _status| svg::Style {
+															color: Some(Color::BLACK),
+														}),
+												)
+												.height(Length::Fixed(21.))
+												.align_y(Alignment::Center),
+											)
+											.spacing(2),
+									),
+									// .on_press(Message::EntryImported),
+								)
+								.push(
+									button(
+										Row::new()
+											.push(text("Export"))
+											.push(
+												container(
+													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+														.width(Length::Fixed(16.))
+														.height(Length::Fixed(16.))
+														.style(|_theme, _status| svg::Style {
+															color: Some(Color::BLACK),
+														}),
+												)
+												.height(Length::Fixed(21.))
+												.align_y(Alignment::Center),
+											)
+											.spacing(2),
 									)
-									.spacing(2),
-							),
-							// .on_press(Message::EntryImported),
-						)
-						.push(
-							button(
-								Row::new()
-									.push(text("Export"))
-									.push(
-										container(
-											svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-												.width(Length::Fixed(16.))
-												.height(Length::Fixed(16.))
-												.style(|_theme, _status| svg::Style {
-													color: Some(Color::BLACK),
-												}),
-										)
-										.height(Length::Fixed(21.))
-										.align_y(Alignment::Center),
-									)
-									.spacing(2),
-							)
-							.on_press(Message::EntryExported((index, entry.name.to_owned()))),
-						)
-						.spacing(6)
-						.into()
-				}))
-				.spacing(1),
+									.on_press(Message::EntryExported((
+										index,
+										entry.name.to_owned(),
+									))),
+								)
+								.align_y(Alignment::Center)
+								.spacing(6)
+								.into()
+						},
+					))
+					.spacing(1),
+				)
+				.spacing(spacing),
 			)
 			.spacing(spacing)
 			.into()
 	}
 
 	fn view_packages(&self) -> Element<Message> {
+		let spacing = 6;
 		Column::new()
-			.push(Column::with_children(self.rpk_paths.iter().map(|path| {
-				let file_size =
-					human_bytes(fs::File::open(path).unwrap().metadata().unwrap().len() as f64);
-				button(
-					Row::new()
-						.push(text(path.file_name().unwrap().to_str().unwrap()))
-						.push(horizontal_space())
-						.push(text(file_size)),
+			.push(
+				Column::with_children(self.rpk_paths.iter().map(|path| {
+					let file_size =
+						human_bytes(fs::File::open(path).unwrap().metadata().unwrap().len() as f64);
+					button(
+						Row::new()
+							.push(
+								container(
+									svg(svg::Handle::from_memory(FOLDER))
+										.width(Length::Fixed(16.))
+										.height(Length::Fixed(16.))
+										.style(|theme: &Theme, _status| svg::Style {
+											color: Some(theme.palette().text),
+										}),
+								)
+								.height(Length::Fixed(21.))
+								.align_y(Alignment::Center),
+							)
+							.push(text(path.file_name().unwrap().to_str().unwrap()))
+							.push(horizontal_space())
+							.push(text(file_size))
+							.spacing(12),
+					)
+					.on_press(Message::RpkSelected(Some(path.to_owned())))
+					.style(theme::transparent_button)
+					.into()
+				}))
+				.spacing(1),
+			)
+			.push(
+				container(
+					button("Choose other...")
+						.on_press(Message::RpkDialog)
+						.style(theme::button),
 				)
 				.width(Length::Fill)
-				.on_press(Message::RpkSelected(Some(path.to_owned())))
-				.into()
-			})))
-			.push(
-				container(button("Choose other...").on_press(Message::RpkDialog))
-					.width(Length::Fill)
-					.align_x(Alignment::Center),
+				.align_x(Alignment::Center),
 			)
-			.spacing(12)
+			.spacing(spacing)
 			.into()
+	}
+}
+
+impl Default for Explorer {
+	fn default() -> Self {
+		Self {
+			matcher: Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1),
+			metadata: Metadata::default(),
+			rpk: Option::default(),
+			rpk_paths: Vec::default(),
+			query: String::default(),
+		}
 	}
 }
