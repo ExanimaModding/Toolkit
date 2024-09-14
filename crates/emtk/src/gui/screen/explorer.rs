@@ -171,9 +171,7 @@ impl Explorer {
 							svg(svg::Handle::from_memory(ARROW_LEFT))
 								.width(Length::Fixed(16.))
 								.height(Length::Fixed(16.))
-								.style(|theme: &Theme, _status| svg::Style {
-									color: Some(theme.palette().text),
-								}),
+								.style(theme::svg),
 						)
 						.padding(6)
 						.width(Length::Fixed(31.))
@@ -195,6 +193,7 @@ impl Explorer {
 			)
 			.push(
 				scrollable(
+					// PERF: slow with thousands of results, use infinite list widget
 					Column::with_children(search_results.iter().enumerate().map(
 						|(index, entry)| {
 							Row::new()
@@ -211,9 +210,7 @@ impl Explorer {
 													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
 														.width(Length::Fixed(16.))
 														.height(Length::Fixed(16.))
-														.style(|_theme, _status| svg::Style {
-															color: Some(Color::BLACK),
-														}),
+														.style(theme::svg_button),
 												)
 												.height(Length::Fixed(21.))
 												.align_y(Alignment::Center),
@@ -231,9 +228,7 @@ impl Explorer {
 													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
 														.width(Length::Fixed(16.))
 														.height(Length::Fixed(16.))
-														.style(|_theme, _status| svg::Style {
-															color: Some(Color::BLACK),
-														}),
+														.style(theme::svg_button),
 												)
 												.height(Length::Fixed(21.))
 												.align_y(Alignment::Center),
@@ -272,9 +267,7 @@ impl Explorer {
 									svg(svg::Handle::from_memory(FOLDER))
 										.width(Length::Fixed(16.))
 										.height(Length::Fixed(16.))
-										.style(|theme: &Theme, _status| svg::Style {
-											color: Some(theme.palette().text),
-										}),
+										.style(theme::svg),
 								)
 								.height(Length::Fixed(21.))
 								.align_y(Alignment::Center),

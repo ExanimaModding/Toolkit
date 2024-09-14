@@ -8,7 +8,7 @@ use iced::{
 	Alignment, Color, Element, Length, Task, Theme,
 };
 
-use crate::gui::constants::SQUARE_ARROW_OUT;
+use crate::gui::{constants::SQUARE_ARROW_OUT, theme};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -164,9 +164,7 @@ impl Settings {
 												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
 													.width(Length::Fixed(16.))
 													.height(Length::Fixed(16.))
-													.style(|_theme, _status| svg::Style {
-														color: Some(Color::BLACK),
-													}),
+													.style(theme::svg_button),
 											)
 											.height(Length::Fixed(21.))
 											.align_y(Alignment::Center),

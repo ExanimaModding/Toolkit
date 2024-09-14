@@ -6,7 +6,7 @@ use iced::{
 };
 
 #[derive(Debug, Default, Clone)]
-pub struct Home {
+pub struct Mods {
 	settings: AppSettings,
 }
 
@@ -18,7 +18,7 @@ pub enum Message {
 	UrlOpened(String),
 }
 
-impl Home {
+impl Mods {
 	pub fn update(
 		&mut self,
 		message: Message,
@@ -44,7 +44,7 @@ impl Home {
 				.push(text("Exanima Modding Toolkit Launcher").size(36))
 				.push(horizontal_rule(1))
 				.push(self.mods_list())
-				.spacing(12),
+				.spacing(6),
 		)
 		.padding(12)
 		.width(Length::Fill)

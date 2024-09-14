@@ -1,12 +1,12 @@
 pub mod changelog;
 pub mod explorer;
-pub mod home;
+pub mod mods;
 pub mod progress;
 pub mod settings;
 
 use changelog::Changelog;
 use explorer::Explorer;
-use home::Home;
+use mods::Mods;
 use progress::Progress;
 use settings::Settings;
 
@@ -14,7 +14,7 @@ use settings::Settings;
 pub enum ScreenKind {
 	Changelog,
 	Explorer,
-	Home,
+	Mods,
 	Progress,
 	Settings,
 }
@@ -23,13 +23,13 @@ pub enum ScreenKind {
 pub enum Screen {
 	Changelog(Changelog),
 	Explorer(Explorer),
-	Home(Home),
+	Mods(Mods),
 	Progress(Progress),
 	Settings(Settings),
 }
 
 impl Default for Screen {
 	fn default() -> Self {
-		Self::Home(Home::default())
+		Self::Mods(Mods::default())
 	}
 }

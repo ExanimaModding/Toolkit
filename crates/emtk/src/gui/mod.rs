@@ -6,19 +6,20 @@ mod widget;
 
 use std::{path::PathBuf, time::Instant};
 
-use constants::FADE_DURATION;
+use constants::{FADE_DURATION, FOLDER, LAYERS, SETTINGS};
 use iced::{
 	event,
 	widget::{
-		button, container, horizontal_rule, markdown, scrollable, text, vertical_space, Column, Row,
+		button, container, horizontal_rule, markdown, scrollable, svg, text, vertical_space,
+		Column, Row,
 	},
-	window, Color, Element, Length, Size, Subscription, Task, Theme,
+	window, Alignment, Color, Element, Length, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
 use screen::{
 	changelog::{self, Changelog},
 	explorer::{self, Explorer},
-	home::{self, Home},
+	mods::{self, Mods},
 	progress::{self, Progress},
 	settings::{self, Settings},
 	Screen, ScreenKind,
@@ -79,7 +80,7 @@ pub enum Message {
 	ExanimaLaunched,
 	Explorer(explorer::Message),
 	GetLatestRelease(GetLatestReleaseState),
-	Home(home::Message),
+	Mods(mods::Message),
 	LinkClicked(String),
 	ModalChanged(ScreenKind),
 	ModalCleanup,
@@ -167,9 +168,9 @@ impl Emtk {
 					self.latest_release = GetLatestReleaseState::Error(error);
 				}
 			},
-			Message::Home(message) => {
-				if let Screen::Home(home) = &mut self.screen {
-					return home.update(message, &mut self.app_state).map(Message::Home);
+			Message::Mods(message) => {
+				if let Screen::Mods(home) = &mut self.screen {
+					return home.update(message, &mut self.app_state).map(Message::Mods);
 				}
 			}
 			Message::LinkClicked(url) => {
@@ -260,7 +261,7 @@ impl Emtk {
 
 					self.screen = Screen::Explorer(Explorer::new(exanima_rpks))
 				}
-				ScreenKind::Home => self.screen = Screen::Home(Home::default()),
+				ScreenKind::Mods => self.screen = Screen::Mods(Mods::default()),
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
 					let (settings, task) = Settings::new(
@@ -334,7 +335,7 @@ impl Emtk {
 
 	pub fn view(&self) -> Element<Message> {
 		let screen = match &self.screen {
-			Screen::Home(home) => home.view().map(Message::Home),
+			Screen::Mods(home) => home.view().map(Message::Mods),
 			Screen::Explorer(explorer) => explorer.view().map(Message::Explorer),
 			Screen::Settings(settings) => settings.view().map(Message::Settings),
 			_ => unreachable!("Unsupported screen"),
@@ -391,35 +392,77 @@ impl Emtk {
 			Column::new()
 				.push(
 					Column::new().push(
-						button(text("Home"))
-							.on_press_maybe(match self.screen {
-								Screen::Home(_) => None,
-								_ => Some(Message::ScreenChanged(ScreenKind::Home)),
-							})
-							.width(Length::Fill)
-							.style(theme::transparent_button),
+						button(
+							Row::new()
+								.push(
+									container(
+										svg(svg::Handle::from_memory(LAYERS))
+											.width(Length::Fixed(16.))
+											.height(Length::Fixed(16.))
+											.style(theme::svg_button),
+									)
+									.height(Length::Fixed(21.))
+									.align_y(Alignment::Center),
+								)
+								.push(text("Mods"))
+								.spacing(2),
+						)
+						.on_press_maybe(match self.screen {
+							Screen::Mods(_) => None,
+							_ => Some(Message::ScreenChanged(ScreenKind::Mods)),
+						})
+						.width(Length::Fill)
+						.style(theme::transparent_button),
 					),
 				)
 				.push(
 					Column::new().push(
-						button(text("Explorer"))
-							.on_press_maybe(match self.screen {
-								Screen::Explorer(_) => None,
-								_ => Some(Message::ScreenChanged(ScreenKind::Explorer)),
-							})
-							.width(Length::Fill)
-							.style(theme::transparent_button),
+						button(
+							Row::new()
+								.push(
+									container(
+										svg(svg::Handle::from_memory(FOLDER))
+											.width(Length::Fixed(16.))
+											.height(Length::Fixed(16.))
+											.style(theme::svg_button),
+									)
+									.height(Length::Fixed(21.))
+									.align_y(Alignment::Center),
+								)
+								.push(text("Explorer"))
+								.spacing(2),
+						)
+						.on_press_maybe(match self.screen {
+							Screen::Explorer(_) => None,
+							_ => Some(Message::ScreenChanged(ScreenKind::Explorer)),
+						})
+						.width(Length::Fill)
+						.style(theme::transparent_button),
 					),
 				)
 				.push(
 					Column::new().push(
-						button(text("Settings"))
-							.on_press_maybe(match self.screen {
-								Screen::Settings(_) => None,
-								_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
-							})
-							.width(Length::Fill)
-							.style(theme::transparent_button),
+						button(
+							Row::new()
+								.push(
+									container(
+										svg(svg::Handle::from_memory(SETTINGS))
+											.width(Length::Fixed(16.))
+											.height(Length::Fixed(16.))
+											.style(theme::svg_button),
+									)
+									.height(Length::Fixed(21.))
+									.align_y(Alignment::Center),
+								)
+								.push(text("Settings"))
+								.spacing(2),
+						)
+						.on_press_maybe(match self.screen {
+							Screen::Settings(_) => None,
+							_ => Some(Message::ScreenChanged(ScreenKind::Settings)),
+						})
+						.width(Length::Fill)
+						.style(theme::transparent_button),
 					),
 				)
 				.push(vertical_space())
