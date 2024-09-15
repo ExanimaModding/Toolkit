@@ -5,7 +5,11 @@ use std::{
 	sync::Arc,
 };
 
-use exparser::{deku::prelude::*, rpk::Rpk, Format};
+use exparser::{
+	deku::prelude::*,
+	rpk::{self, Rpk},
+	Context, Format,
+};
 use human_bytes::human_bytes;
 use iced::{
 	widget::{
@@ -28,12 +32,13 @@ use crate::gui::{
 #[derive(Debug, Default, Clone)]
 pub struct Metadata {
 	name: String,
+	path: PathBuf,
 	size: u64,
 }
 
 impl Metadata {
-	pub fn new(name: String, size: u64) -> Self {
-		Self { name, size }
+	pub fn new(name: String, path: PathBuf, size: u64) -> Self {
+		Self { name, path, size }
 	}
 }
 
@@ -47,7 +52,7 @@ pub struct Explorer {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-	EntryExported((usize, String)),
+	EntryExported(rpk::Entry),
 	EntryImported,
 	EntryRestored,
 	Queried(String),
@@ -65,13 +70,18 @@ impl Explorer {
 
 	pub fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
-			Message::EntryExported((index, entry_name)) => {
-				if let Some(rpk) = &mut self.rpk {
-					let entry_data = rpk.data.get(index).unwrap();
+			Message::EntryExported(entry) => {
+				let mut buf_reader =
+					io::BufReader::new(fs::File::open(&self.metadata.path).unwrap());
+				let mut reader = Reader::new(&mut buf_reader);
+				let mut ctx = Context::default();
+				ctx.rpk.entries = Some(vec![entry.to_owned()]);
+				let format = Format::from_reader_with_ctx(&mut reader, ctx).unwrap();
+				if let Format::Rpk(rpk) = format {
 					// TODO: add_filter and detect file type of entry
-					if let Some(path) = FileDialog::new().set_file_name(entry_name).save_file() {
+					if let Some(path) = FileDialog::new().set_file_name(entry.name).save_file() {
 						let mut writer = io::BufWriter::new(fs::File::create_new(path).unwrap());
-						writer.write_all(entry_data.as_slice()).unwrap();
+						writer.write_all(rpk.data[0].as_slice()).unwrap();
 					}
 				}
 			}
@@ -102,7 +112,9 @@ impl Explorer {
 					let file = fs::File::open(&path).unwrap();
 					let mut buf_reader = io::BufReader::new(&file);
 					let mut reader = Reader::new(&mut buf_reader);
-					let format = Format::from_reader_with_ctx(&mut reader, ()).unwrap();
+					let mut ctx = Context::default();
+					ctx.rpk.entries_only = true;
+					let format = Format::from_reader_with_ctx(&mut reader, ctx).unwrap();
 					if let Format::Rpk(rpk) = format {
 						self.matcher =
 							Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
@@ -115,6 +127,7 @@ impl Explorer {
 						});
 						self.metadata = Metadata::new(
 							path.file_name().unwrap().to_str().unwrap().to_string(),
+							path,
 							file.metadata().unwrap().len(),
 						);
 						self.rpk = Some(rpk);
@@ -189,7 +202,7 @@ impl Explorer {
 				scrollable(
 					// PERF: slow with thousands of results, use infinite list widget
 					Column::with_children(search_results.iter().enumerate().map(
-						|(index, entry)| {
+						|(index, &entry)| {
 							Row::new()
 								.push(text(index + 1).width(Length::Fixed(38.)))
 								.push(text(entry.name.to_owned()))
@@ -234,10 +247,7 @@ impl Explorer {
 											)
 											.spacing(2),
 									)
-									.on_press(Message::EntryExported((
-										index,
-										entry.name.to_owned(),
-									))),
+									.on_press(Message::EntryExported(entry.to_owned())),
 								)
 								.align_y(Alignment::Center)
 								.spacing(6)

@@ -1212,7 +1212,7 @@ dependencies = [
 
 [[package]]
 name = "demo-plugin"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "emf-rs",
  "log",
@@ -1252,7 +1252,7 @@ checksum = "21d8ad60dd5b13a4ee6bd8fa2d5d88965c597c67bce32b5fc49c94f55cb50810"
 
 [[package]]
 name = "detours-sys"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "bindgen",
  "cc",
@@ -1401,7 +1401,7 @@ checksum = "60b1af1c220855b6ceac025d3f6ecdd2b7c4894bfe9cd9bda4fbb4bc7c0d4cf0"
 
 [[package]]
 name = "emf"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "anyhow",
  "detours-sys",
@@ -1424,7 +1424,7 @@ dependencies = [
 
 [[package]]
 name = "emf-rs"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "anyhow",
  "emf-rs-macros",
@@ -1436,7 +1436,7 @@ dependencies = [
 
 [[package]]
 name = "emf-rs-macros"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1445,7 +1445,7 @@ dependencies = [
 
 [[package]]
 name = "emf-sys"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "emf-types",
  "safer-ffi",
@@ -1457,7 +1457,7 @@ dependencies = [
 
 [[package]]
 name = "emf-types"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "safer-ffi",
  "serde",
@@ -1465,7 +1465,7 @@ dependencies = [
 
 [[package]]
 name = "emtk"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -1496,7 +1496,7 @@ dependencies = [
 
 [[package]]
 name = "emtk-py"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "exparser",
  "pyo3-log",
@@ -1615,7 +1615,7 @@ dependencies = [
 
 [[package]]
 name = "exparser"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "deku",
  "log",
@@ -2043,7 +2043,7 @@ dependencies = [
 
 [[package]]
 name = "godhand"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "emf-types",
  "log",
@@ -2053,7 +2053,7 @@ dependencies = [
 
 [[package]]
 name = "godmode"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 dependencies = [
  "emf-types",
  "log",
@@ -6760,7 +6760,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.0.1-beta.1"
+version = "0.1.0-beta.1"
 
 [[package]]
 name = "yazi"
