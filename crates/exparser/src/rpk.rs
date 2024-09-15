@@ -11,11 +11,27 @@ use crate::VecReader;
 
 pub const MAGIC: u32 = 0xAFBF0C01;
 
+#[derive(Debug, Clone, Default)]
+pub struct Context {
+	/// Whether to skip the `Rpk` data field or not.
+	///
+	/// By default, the data field will be read by the reader. If performance is required and the
+	/// data field is not needed such as when simply viewing a list of entries, setting this to
+	/// `true` may be desired.
+	pub entries_only: bool,
+	/// Filter the `Rpk` data field with a desired `Vec<Entry>`.
+	///
+	/// By default, no filter is applied thus all of the data is read by the reader. If only data
+	/// from certain entries is desired, provide this field with your desired entries.
+	pub entries: Option<Vec<Entry>>,
+}
+
 #[cfg(feature = "python")]
 /// Rayform Package
 #[pyclass]
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[deku(ctx = "ctx: Context", ctx_default = "Context::default()")]
 pub struct Rpk {
 	#[deku(temp, temp_value = "(entries.len() * 32) as u32")]
 	pub size_of_entries: u32,
@@ -24,7 +40,8 @@ pub struct Rpk {
 	pub entries: Vec<Entry>,
 	#[pyo3(get)]
 	#[deku(
-		reader = "Rpk::read(deku::reader, entries)",
+		cond = "!ctx.entries_only",
+		reader = "Rpk::read(ctx, deku::reader, entries)",
 		writer = "VecReader::write_nested(deku::writer, &self.data)"
 	)]
 	pub data: Vec<Vec<u8>>,
@@ -34,13 +51,15 @@ pub struct Rpk {
 /// Rayform Package
 #[deku_derive(DekuRead, DekuWrite)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
+#[deku(ctx = "ctx: Context", ctx_default = "Context::default()")]
 pub struct Rpk {
 	#[deku(temp, temp_value = "(entries.len() * 32) as u32")]
 	pub size_of_entries: u32,
 	#[deku(count = "size_of_entries / 32")]
 	pub entries: Vec<Entry>,
 	#[deku(
-		reader = "Rpk::read(deku::reader, entries)",
+		cond = "!ctx.entries_only",
+		reader = "Rpk::read(ctx, deku::reader, entries)",
 		writer = "VecReader::write_nested(deku::writer, &self.data)"
 	)]
 	pub data: Vec<Vec<u8>>,
@@ -48,11 +67,15 @@ pub struct Rpk {
 
 impl Rpk {
 	fn read<R: io::Read + io::Seek>(
+		ctx: Context,
 		reader: &mut Reader<R>,
 		entries: &[Entry],
 	) -> Result<Vec<Vec<u8>>, DekuError> {
 		// Sort the entries by offset so we can read them in order.
-		let mut entries = entries.to_vec();
+		let mut entries = match ctx.entries {
+			Some(entries) => entries,
+			None => entries.to_vec(),
+		};
 		entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
 		let mut formats: Vec<Vec<u8>> = Vec::with_capacity(entries.len());
