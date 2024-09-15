@@ -22,12 +22,28 @@ use rfi::Rfi;
 use rpk::Rpk;
 use wav::Wav;
 
+// TODO: add contexts for the rest of the file formats
+#[derive(Debug, Clone, Default)]
+pub struct Context {
+	pub rpk: rpk::Context,
+	pub size: usize,
+}
+
+impl Context {
+	pub fn size(self, size: usize) -> Self {
+		Self {
+			rpk: self.rpk,
+			size,
+		}
+	}
+}
+
 #[cfg_attr(feature = "python", pyclass(get_all))]
 #[derive(Clone, Debug, DekuRead, DekuWrite, Deserialize, Serialize)]
-#[deku(ctx = "size: usize", ctx_default = "0")]
+#[deku(ctx = "ctx: Context", ctx_default = "Context::default()")]
 pub struct Unknown {
 	#[deku(
-		reader = "VecReader::read(deku::reader, size)",
+		reader = "VecReader::read(deku::reader, ctx.size)",
 		writer = "VecReader::write(deku::writer, &self.data)"
 	)]
 	pub data: Vec<u8>,
@@ -36,25 +52,29 @@ pub struct Unknown {
 #[cfg_attr(feature = "python", pyclass)]
 // Remove 4 from `size` to account for the magic number
 #[derive(Clone, Debug, DekuRead, DekuWrite, Deserialize, Serialize)]
-#[deku(id_type = "u32", ctx = "size: usize", ctx_default = "4")]
+#[deku(
+	id_type = "u32",
+	ctx = "ctx: Context",
+	ctx_default = "Context::default().size(4)"
+)]
 pub enum Format {
 	#[deku(id_pat = "&fty::MAGIC_V1 | &fty::MAGIC_V2")]
-	Fty(#[deku(ctx = "size - 4 ")] Fty),
+	Fty(#[deku(ctx = "ctx.size - 4 ")] Fty),
 
 	#[deku(id = "rfc::MAGIC")]
-	Rfc(#[deku(ctx = "size - 4")] Rfc),
+	Rfc(#[deku(ctx = "ctx.size - 4")] Rfc),
 
 	#[deku(id = "rfi::MAGIC")]
-	Rfi(#[deku(ctx = "size - 4")] Rfi),
+	Rfi(#[deku(ctx = "ctx.size - 4")] Rfi),
 
 	#[deku(id = "rpk::MAGIC")]
-	Rpk(Rpk),
+	Rpk(#[deku(ctx = "ctx.rpk")] Rpk),
 
 	#[deku(id = "wav::MAGIC")]
-	Wav(#[deku(ctx = "size - 4")] Wav),
+	Wav(#[deku(ctx = "ctx.size - 4")] Wav),
 
 	#[deku(id_pat = "_")]
-	Unknown(#[deku(ctx = "size - 4")] Unknown),
+	Unknown(#[deku(ctx = "ctx")] Unknown),
 }
 
 #[cfg(feature = "python")]
