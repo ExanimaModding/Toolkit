@@ -16,7 +16,7 @@ use iced::{
 		button, container, horizontal_rule, horizontal_space, scrollable, svg, text, text_input,
 		Column, Row,
 	},
-	Alignment, Color, Element, Length, Task,
+	Alignment, Element, Length, Task,
 };
 use nucleo::{
 	pattern::{CaseMatching, Normalization},
@@ -27,6 +27,7 @@ use rfd::FileDialog;
 use crate::gui::{
 	constants::{ARROW_LEFT, FOLDER, SQUARE_ARROW_OUT},
 	theme,
+	widget::list::{self, List},
 };
 
 #[derive(Debug, Default, Clone)]
@@ -43,6 +44,7 @@ impl Metadata {
 }
 
 pub struct Explorer {
+	content: list::Content<rpk::Entry>,
 	matcher: Nucleo<usize>,
 	metadata: Metadata,
 	rpk: Option<Rpk>,
@@ -98,6 +100,24 @@ impl Explorer {
 				);
 				self.matcher.tick(10);
 				self.query = query;
+
+				if let Some(rpk) = &self.rpk {
+					let search_results = self
+						.matcher
+						.snapshot()
+						.matched_items(..)
+						.map(|item| &rpk.entries[item.data.to_owned()])
+						.collect::<Vec<_>>();
+					let search_results = if search_results.is_empty() {
+						rpk.entries.iter().collect()
+					} else {
+						search_results
+					};
+					self.content = list::Content::from_iter(
+						// PERF: potentially thousands of entries are getting cloned here
+						search_results.iter().map(|&entry| entry.to_owned()),
+					)
+				}
 			}
 			Message::RpkDialog => {
 				if let Some(path) = FileDialog::new()
@@ -116,6 +136,8 @@ impl Explorer {
 					ctx.rpk.entries_only = true;
 					let format = Format::from_reader_with_ctx(&mut reader, ctx).unwrap();
 					if let Format::Rpk(rpk) = format {
+						// PERF: potentially thousands of entries are getting cloned here
+						self.content = list::Content::from_iter(rpk.entries.to_owned());
 						self.matcher =
 							Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
 						rpk.entries.iter().enumerate().for_each(|(index, entry)| {
@@ -144,8 +166,8 @@ impl Explorer {
 	}
 
 	pub fn view(&self) -> Element<Message> {
-		container(if let Some(rpk) = &self.rpk {
-			self.view_entries(rpk)
+		container(if let Some(_rpk) = &self.rpk {
+			self.view_entries()
 		} else {
 			self.view_packages()
 		})
@@ -153,19 +175,7 @@ impl Explorer {
 		.into()
 	}
 
-	fn view_entries(&self, rpk: &Rpk) -> Element<Message> {
-		let search_results = self
-			.matcher
-			.snapshot()
-			.matched_items(..)
-			.map(|item| &rpk.entries[item.data.to_owned()])
-			.collect::<Vec<_>>();
-		let search_results = if search_results.is_empty() {
-			rpk.entries.iter().collect()
-		} else {
-			search_results
-		};
-
+	fn view_entries(&self) -> Element<Message> {
 		let spacing = 6;
 		Column::new()
 			.push(
@@ -200,61 +210,58 @@ impl Explorer {
 			)
 			.push(
 				scrollable(
-					// PERF: slow with thousands of results, use infinite list widget
-					Column::with_children(search_results.iter().enumerate().map(
-						|(index, &entry)| {
-							Row::new()
-								.push(text(index + 1).width(Length::Fixed(38.)))
-								.push(text(entry.name.to_owned()))
-								.push(horizontal_space())
-								.push(text(human_bytes(entry.size)))
-								.push(
-									button(text("Restore")).style(button::danger),
-									// .on_press(Message::EntryRestored),
-								)
-								.push(
-									button(
-										Row::new()
-											.push(text("Import"))
-											.push(
-												container(
-													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-														.width(Length::Shrink)
-														.height(Length::Fixed(16.))
-														.style(theme::svg_button),
-												)
-												.height(Length::Fixed(21.))
-												.align_y(Alignment::Center),
+					// FIX: add spacing(1) to list but fix scrollbar appearing while loading
+					List::new(&self.content, |index, entry| {
+						Row::new()
+							.push(text(index + 1).width(Length::Fixed(38.)))
+							.push(text(entry.name.to_owned()))
+							.push(horizontal_space())
+							.push(text(human_bytes(entry.size)))
+							.push(
+								button(text("Restore")).style(button::danger),
+								// .on_press(Message::EntryRestored),
+							)
+							.push(
+								button(
+									Row::new()
+										.push(text("Import"))
+										.push(
+											container(
+												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+													.width(Length::Shrink)
+													.height(Length::Fixed(16.))
+													.style(theme::svg_button),
 											)
-											.spacing(2),
-									)
-									.style(button::danger),
-									// .on_press(Message::EntryImported),
+											.height(Length::Fixed(21.))
+											.align_y(Alignment::Center),
+										)
+										.spacing(2),
 								)
-								.push(
-									button(
-										Row::new()
-											.push(text("Export"))
-											.push(
-												container(
-													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-														.width(Length::Shrink)
-														.height(Length::Fixed(16.))
-														.style(theme::svg_button),
-												)
-												.height(Length::Fixed(21.))
-												.align_y(Alignment::Center),
+								.style(button::danger),
+								// .on_press(Message::EntryImported),
+							)
+							.push(
+								button(
+									Row::new()
+										.push(text("Export"))
+										.push(
+											container(
+												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+													.width(Length::Shrink)
+													.height(Length::Fixed(16.))
+													.style(theme::svg_button),
 											)
-											.spacing(2),
-									)
-									.on_press(Message::EntryExported(entry.to_owned())),
+											.height(Length::Fixed(21.))
+											.align_y(Alignment::Center),
+										)
+										.spacing(2),
 								)
-								.align_y(Alignment::Center)
-								.spacing(6)
-								.into()
-						},
-					))
-					.spacing(1),
+								.on_press(Message::EntryExported(entry.to_owned())),
+							)
+							.align_y(Alignment::Center)
+							.spacing(6)
+							.into()
+					}),
 				)
 				.spacing(spacing),
 			)
@@ -319,6 +326,7 @@ impl Explorer {
 impl Default for Explorer {
 	fn default() -> Self {
 		Self {
+			content: list::Content::default(),
 			matcher: Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1),
 			metadata: Metadata::default(),
 			rpk: Option::default(),

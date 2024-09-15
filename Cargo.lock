@@ -1478,6 +1478,7 @@ dependencies = [
  "human_bytes",
  "iced",
  "iced_aw",
+ "iced_core",
  "image",
  "lilt",
  "log",
