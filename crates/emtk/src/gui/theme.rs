@@ -1,4 +1,10 @@
-use iced::{widget, Border, Color, Theme};
+use std::time::Instant;
+
+use iced::{
+	widget::{self, container},
+	Border, Color, Shadow, Theme, Vector,
+};
+use lilt::Animated;
 
 pub fn button(theme: &Theme, status: widget::button::Status) -> widget::button::Style {
 	let mut style = widget::button::primary(theme, status);
@@ -20,6 +26,25 @@ pub fn svg_button(theme: &Theme, _status: widget::svg::Status) -> widget::svg::S
 			Color::WHITE
 		}),
 	}
+}
+
+pub fn tooltip(theme: &Theme, fade: &Animated<bool, Instant>, now: Instant) -> container::Style {
+	let palette = theme.extended_palette();
+	let animate_alpha = fade.animate_bool(0., 1., now);
+
+	container::Style::default()
+		.background(palette.background.base.color.scale_alpha(animate_alpha))
+		.border(
+			Border::default()
+				.color(palette.background.weak.color.scale_alpha(animate_alpha))
+				.width(1.)
+				.rounded(12),
+		)
+		.shadow(Shadow {
+			color: Color::BLACK.scale_alpha(animate_alpha),
+			offset: Vector::new(2., 2.),
+			blur_radius: 8.,
+		})
 }
 
 pub fn transparent_button(theme: &Theme, status: widget::button::Status) -> widget::button::Style {

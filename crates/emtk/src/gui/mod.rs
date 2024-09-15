@@ -570,22 +570,23 @@ impl Emtk {
 			}
 		});
 
+		let explorer = match &self.screen {
+			Screen::Explorer(explorer) => explorer.subscription().map(Message::Explorer),
+			_ => Subscription::none(),
+		};
+
 		let modal_fade = if self.fade.in_progress(now) {
 			window::frames().map(|_| Message::Tick)
 		} else {
 			Subscription::none()
 		};
 
-		let modal = if let Some(screen) = &self.modal {
-			match screen {
-				Screen::Progress(progress) => progress.subscription().map(Message::Progress),
-				_ => Subscription::none(),
-			}
-		} else {
-			Subscription::none()
+		let modal = match &self.modal {
+			Some(Screen::Progress(progress)) => progress.subscription().map(Message::Progress),
+			_ => Subscription::none(),
 		};
 
-		Subscription::batch([events, modal_fade, modal])
+		Subscription::batch([events, explorer, modal_fade, modal])
 	}
 }
 

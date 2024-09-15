@@ -3,6 +3,7 @@ use std::{
 	io::{self, Write},
 	path::PathBuf,
 	sync::Arc,
+	time::Instant,
 };
 
 use exparser::{
@@ -13,11 +14,12 @@ use exparser::{
 use human_bytes::human_bytes;
 use iced::{
 	widget::{
-		button, container, horizontal_rule, horizontal_space, scrollable, svg, text, text_input,
-		Column, Row,
+		button, container, horizontal_rule, horizontal_space, mouse_area, scrollable, svg, text,
+		text_input, tooltip, Column, Row,
 	},
-	Alignment, Element, Length, Task,
+	window, Alignment, Element, Length, Subscription, Task,
 };
+use lilt::{Animated, Easing};
 use nucleo::{
 	pattern::{CaseMatching, Normalization},
 	Nucleo,
@@ -25,7 +27,7 @@ use nucleo::{
 use rfd::FileDialog;
 
 use crate::gui::{
-	constants::{ARROW_LEFT, FOLDER, SQUARE_ARROW_OUT},
+	constants::{ARROW_LEFT, FADE_DURATION, FOLDER, SQUARE_ARROW_OUT},
 	theme,
 	widget::list::{self, List},
 };
@@ -50,6 +52,7 @@ pub struct Explorer {
 	rpk: Option<Rpk>,
 	rpk_paths: Vec<PathBuf>,
 	query: String,
+	fade: Animated<bool, Instant>,
 }
 
 #[derive(Debug, Clone)]
@@ -60,6 +63,9 @@ pub enum Message {
 	Queried(String),
 	RpkDialog,
 	RpkSelected(Option<PathBuf>),
+	Tick,
+	TooltipHide,
+	TooltipShow,
 }
 
 impl Explorer {
@@ -71,6 +77,8 @@ impl Explorer {
 	}
 
 	pub fn update(&mut self, message: Message) -> Task<Message> {
+		let now = Instant::now();
+
 		match message {
 			Message::EntryExported(entry) => {
 				let mut buf_reader =
@@ -160,6 +168,17 @@ impl Explorer {
 					self.rpk = None;
 				}
 			},
+			Message::Tick => (),
+			Message::TooltipHide => {
+				if !self.fade.in_progress(now) {
+					self.fade.transition_instantaneous(false, now);
+				}
+			}
+			Message::TooltipShow => {
+				if !self.fade.in_progress(now) {
+					self.fade.transition(true, now);
+				}
+			}
 		};
 
 		Task::none()
@@ -176,6 +195,8 @@ impl Explorer {
 	}
 
 	fn view_entries(&self) -> Element<Message> {
+		let now = Instant::now();
+
 		let spacing = 6;
 		Column::new()
 			.push(
@@ -211,7 +232,7 @@ impl Explorer {
 			.push(
 				scrollable(
 					// FIX: add spacing(1) to list but fix scrollbar appearing while loading
-					List::new(&self.content, |index, entry| {
+					List::new(&self.content, move |index, entry| {
 						Row::new()
 							.push(text(index + 1).width(Length::Fixed(38.)))
 							.push(text(entry.name.to_owned()))
@@ -241,22 +262,42 @@ impl Explorer {
 								// .on_press(Message::EntryImported),
 							)
 							.push(
-								button(
-									Row::new()
-										.push(text("Export"))
-										.push(
-											container(
-												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-													.width(Length::Shrink)
-													.height(Length::Fixed(16.))
-													.style(theme::svg_button),
-											)
-											.height(Length::Fixed(21.))
-											.align_y(Alignment::Center),
+								mouse_area(
+									tooltip(
+										button(
+											Row::new()
+												.push(text("Export"))
+												.push(
+													container(
+														svg(svg::Handle::from_memory(
+															SQUARE_ARROW_OUT,
+														))
+														.width(Length::Shrink)
+														.height(Length::Fixed(16.))
+														.style(theme::svg_button),
+													)
+													.height(Length::Fixed(21.))
+													.align_y(Alignment::Center),
+												)
+												.spacing(2),
 										)
-										.spacing(2),
+										.on_press(Message::EntryExported(entry.to_owned())),
+										text("Save to file").size(14).style(move |theme| {
+											let mut style = text::default(theme);
+											style.color =
+												Some(theme.palette().text.scale_alpha(
+													self.fade.animate_bool(0., 1., now),
+												));
+											style
+										}),
+										tooltip::Position::Top,
+									)
+									.padding(8)
+									.style(move |theme| theme::tooltip(theme, &self.fade, now)),
 								)
-								.on_press(Message::EntryExported(entry.to_owned())),
+								.on_enter(Message::TooltipShow)
+								.on_move(|_| Message::TooltipShow)
+								.on_exit(Message::TooltipHide),
 							)
 							.align_y(Alignment::Center)
 							.spacing(6)
@@ -321,6 +362,16 @@ impl Explorer {
 			.spacing(spacing)
 			.into()
 	}
+
+	pub fn subscription(&self) -> Subscription<Message> {
+		let now = Instant::now();
+
+		if self.fade.in_progress(now) {
+			window::frames().map(|_| Message::Tick)
+		} else {
+			Subscription::none()
+		}
+	}
 }
 
 impl Default for Explorer {
@@ -332,6 +383,10 @@ impl Default for Explorer {
 			rpk: Option::default(),
 			rpk_paths: Vec::default(),
 			query: String::default(),
+			fade: Animated::new(false)
+				.duration(FADE_DURATION as f32)
+				.easing(Easing::EaseOut)
+				.delay(500.),
 		}
 	}
 }
