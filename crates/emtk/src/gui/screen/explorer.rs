@@ -282,7 +282,7 @@ impl Explorer {
 				container(
 					button(
 						Row::new()
-							.push(text("Choose other..."))
+							.push(text("Load a Package"))
 							.push(
 								container(
 									svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
