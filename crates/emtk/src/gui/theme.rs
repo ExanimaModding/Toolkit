@@ -41,6 +41,5 @@ pub fn transparent_button(theme: &Theme, status: widget::button::Status) -> widg
 
 	let mut style = widget::button::primary(theme, status).with_background(background);
 	style.text_color = text;
-	style.border = Border::default().rounded(8);
 	style
 }

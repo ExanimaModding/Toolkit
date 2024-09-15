@@ -12,7 +12,7 @@ use iced::{
 		button, container, horizontal_rule, horizontal_space, scrollable, svg, text, text_input,
 		Column, Row,
 	},
-	Alignment, Color, Element, Length, Task, Theme,
+	Alignment, Color, Element, Length, Task,
 };
 use nucleo::{
 	pattern::{CaseMatching, Normalization},
@@ -49,6 +49,7 @@ pub struct Explorer {
 pub enum Message {
 	EntryExported((usize, String)),
 	EntryImported,
+	EntryRestored,
 	Queried(String),
 	RpkDialog,
 	RpkSelected(Option<PathBuf>),
@@ -76,6 +77,7 @@ impl Explorer {
 			}
 			// TODO: implementing importing means modifying the vanilla rpk files
 			Message::EntryImported => (),
+			Message::EntryRestored => (),
 			Message::Queried(query) => {
 				self.matcher.pattern.reparse(
 					0,
@@ -169,22 +171,14 @@ impl Explorer {
 					.push(
 						button(
 							svg(svg::Handle::from_memory(ARROW_LEFT))
-								.width(Length::Fixed(16.))
+								.width(Length::Shrink)
 								.height(Length::Fixed(16.))
 								.style(theme::svg),
 						)
 						.padding(6)
-						.width(Length::Fixed(31.))
 						.height(Length::Fixed(31.))
 						.on_press(Message::RpkSelected(None))
-						.style(|theme, status| {
-							button::primary(theme, status).with_background(match status {
-								button::Status::Hovered => {
-									theme.extended_palette().background.weak.color
-								}
-								_ => Color::TRANSPARENT,
-							})
-						}),
+						.style(theme::transparent_button),
 					)
 					.push(
 						text_input("Search by entry name...", self.query.as_str())
@@ -202,13 +196,17 @@ impl Explorer {
 								.push(horizontal_space())
 								.push(text(human_bytes(entry.size)))
 								.push(
+									button(text("Restore")).style(button::danger),
+									// .on_press(Message::EntryRestored),
+								)
+								.push(
 									button(
 										Row::new()
 											.push(text("Import"))
 											.push(
 												container(
 													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-														.width(Length::Fixed(16.))
+														.width(Length::Shrink)
 														.height(Length::Fixed(16.))
 														.style(theme::svg_button),
 												)
@@ -216,7 +214,8 @@ impl Explorer {
 												.align_y(Alignment::Center),
 											)
 											.spacing(2),
-									),
+									)
+									.style(button::danger),
 									// .on_press(Message::EntryImported),
 								)
 								.push(
@@ -226,7 +225,7 @@ impl Explorer {
 											.push(
 												container(
 													svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-														.width(Length::Fixed(16.))
+														.width(Length::Shrink)
 														.height(Length::Fixed(16.))
 														.style(theme::svg_button),
 												)
@@ -263,14 +262,10 @@ impl Explorer {
 					button(
 						Row::new()
 							.push(
-								container(
-									svg(svg::Handle::from_memory(FOLDER))
-										.width(Length::Fixed(16.))
-										.height(Length::Fixed(16.))
-										.style(theme::svg),
-								)
-								.height(Length::Fixed(21.))
-								.align_y(Alignment::Center),
+								svg(svg::Handle::from_memory(FOLDER))
+									.width(Length::Shrink)
+									.height(Length::Fixed(20.))
+									.style(theme::svg),
 							)
 							.push(text(path.file_name().unwrap().to_str().unwrap()))
 							.push(horizontal_space())
@@ -285,9 +280,23 @@ impl Explorer {
 			)
 			.push(
 				container(
-					button("Choose other...")
-						.on_press(Message::RpkDialog)
-						.style(theme::button),
+					button(
+						Row::new()
+							.push(text("Choose other..."))
+							.push(
+								container(
+									svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+										.width(Length::Shrink)
+										.height(Length::Fixed(16.))
+										.style(theme::svg_button),
+								)
+								.height(Length::Fixed(21.))
+								.align_y(Alignment::Center),
+							)
+							.spacing(2),
+					)
+					.on_press(Message::RpkDialog)
+					.style(button::primary),
 				)
 				.width(Length::Fill)
 				.align_x(Alignment::Center),

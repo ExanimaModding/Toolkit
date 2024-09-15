@@ -6,7 +6,7 @@ mod widget;
 
 use std::{path::PathBuf, time::Instant};
 
-use constants::{FADE_DURATION, FOLDER, LAYERS, SETTINGS};
+use constants::{FADE_DURATION, FOLDER, LAYERS, PLAY, SETTINGS};
 use iced::{
 	event,
 	widget::{
@@ -61,6 +61,7 @@ pub struct Release {
 	pub published_at: chrono::DateTime<chrono::Utc>,
 }
 
+// TODO: persist developer_enabled, explain_enabled, theme
 pub struct Emtk {
 	app_state: state::AppState,
 	changelog: Vec<markdown::Item>,
@@ -97,7 +98,6 @@ pub enum Message {
 impl Emtk {
 	pub fn new() -> (Self, Task<Message>) {
 		let emtk = Self::default();
-		let settings = emtk.app_state.settings.clone();
 		(
 			emtk,
 			// TODO: refactor
@@ -170,7 +170,7 @@ impl Emtk {
 			},
 			Message::Mods(message) => {
 				if let Screen::Mods(home) = &mut self.screen {
-					return home.update(message, &mut self.app_state).map(Message::Mods);
+					home.update(message)
 				}
 			}
 			Message::LinkClicked(url) => {
@@ -346,7 +346,7 @@ impl Emtk {
 				.push(
 					Column::new()
 						.push(self.sidebar())
-						.width(Length::Fixed(256.)),
+						.width(Length::Fixed(216.)),
 				)
 				.push(Column::new().push(screen).width(Length::Fill)),
 		)
@@ -395,17 +395,18 @@ impl Emtk {
 						button(
 							Row::new()
 								.push(
-									container(
-										svg(svg::Handle::from_memory(LAYERS))
-											.width(Length::Fixed(16.))
-											.height(Length::Fixed(16.))
-											.style(theme::svg_button),
-									)
-									.height(Length::Fixed(21.))
-									.align_y(Alignment::Center),
+									svg(svg::Handle::from_memory(LAYERS))
+										.width(Length::Shrink)
+										.style({
+											if let Screen::Mods(_mods) = &self.screen {
+												theme::svg_button
+											} else {
+												theme::svg
+											}
+										}),
 								)
-								.push(text("Mods"))
-								.spacing(2),
+								.push(text("Mods").size(18))
+								.spacing(12),
 						)
 						.on_press_maybe(match self.screen {
 							Screen::Mods(_) => None,
@@ -420,17 +421,18 @@ impl Emtk {
 						button(
 							Row::new()
 								.push(
-									container(
-										svg(svg::Handle::from_memory(FOLDER))
-											.width(Length::Fixed(16.))
-											.height(Length::Fixed(16.))
-											.style(theme::svg_button),
-									)
-									.height(Length::Fixed(21.))
-									.align_y(Alignment::Center),
+									svg(svg::Handle::from_memory(FOLDER))
+										.width(Length::Shrink)
+										.style({
+											if let Screen::Explorer(_explorer) = &self.screen {
+												theme::svg_button
+											} else {
+												theme::svg
+											}
+										}),
 								)
-								.push(text("Explorer"))
-								.spacing(2),
+								.push(text("Explorer").size(18))
+								.spacing(12),
 						)
 						.on_press_maybe(match self.screen {
 							Screen::Explorer(_) => None,
@@ -445,17 +447,18 @@ impl Emtk {
 						button(
 							Row::new()
 								.push(
-									container(
-										svg(svg::Handle::from_memory(SETTINGS))
-											.width(Length::Fixed(16.))
-											.height(Length::Fixed(16.))
-											.style(theme::svg_button),
-									)
-									.height(Length::Fixed(21.))
-									.align_y(Alignment::Center),
+									svg(svg::Handle::from_memory(SETTINGS))
+										.width(Length::Shrink)
+										.style({
+											if let Screen::Settings(_settings) = &self.screen {
+												theme::svg_button
+											} else {
+												theme::svg
+											}
+										}),
 								)
-								.push(text("Settings"))
-								.spacing(2),
+								.push(text("Settings").size(18))
+								.spacing(12),
 						)
 						.on_press_maybe(match self.screen {
 							Screen::Settings(_) => None,
@@ -467,12 +470,23 @@ impl Emtk {
 				)
 				.push(vertical_space())
 				.push(
-					Column::new().push(
-						button(text("Play").size(20))
-							.on_press(Message::StartGame)
-							.width(Length::Fill)
-							.style(theme::button),
-					),
+					button(
+						container(
+							Row::new()
+								.push(
+									svg(svg::Handle::from_memory(PLAY))
+										.width(Length::Shrink)
+										.height(Length::Fixed(36.))
+										.style(theme::svg_button),
+								)
+								.push(text("Play").size(28))
+								.spacing(6),
+						)
+						.width(Length::Fill)
+						.align_x(Alignment::Center),
+					)
+					.on_press(Message::StartGame)
+					.style(button::primary),
 				)
 				.spacing(1),
 		)

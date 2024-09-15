@@ -138,24 +138,6 @@ impl Settings {
 						Column::new()
 							.push(text("Cache").size(category_size))
 							.push(
-								Row::new()
-									.push(button("Clear Cache").on_press_maybe(
-										if self.cache_size == 0 {
-											None
-										} else {
-											Some(Message::CacheCleared)
-										},
-									))
-									.push(
-										container(text(format!(
-											"Size: {}",
-											human_bytes(self.cache_size as f64)
-										)))
-										.padding(5),
-									)
-									.align_y(Alignment::Center),
-							)
-							.push(
 								button(
 									Row::new()
 										.push(text("Open Cache"))
@@ -172,6 +154,26 @@ impl Settings {
 										.spacing(2),
 								)
 								.on_press(Message::CacheOpened),
+							)
+							.push(
+								Row::new()
+									.push(
+										button("Clear Cache")
+											.on_press_maybe(if self.cache_size == 0 {
+												None
+											} else {
+												Some(Message::CacheCleared)
+											})
+											.style(button::danger),
+									)
+									.push(
+										container(text(format!(
+											"Size: {}",
+											human_bytes(self.cache_size as f64)
+										)))
+										.padding(5),
+									)
+									.align_y(Alignment::Center),
 							)
 							.push(horizontal_rule(1))
 							.spacing(spacing),
