@@ -4,7 +4,10 @@ members = ["crates/*", "bindings/python/*", "bindings/rust/*", "examples/*"]
 default-members = ["crates/emtk"]
 
 [workspace.package]
-version = "0.0.1-beta.1"
+# Update the version in the following files when changing the version number:
+# - ./bindings/python/emtk-py/emtk/blender/blender_manifest.toml
+# - ./crates/xtask/src/main.rs
+version = "0.1.0-beta.1"
 authors = ["Megumin <megumin@megu.dev>", "ProffDea <deatea@riseup.net>"]
 edition = "2021"
 documentation = "https://exanimamodding.codeberg.page/Book"

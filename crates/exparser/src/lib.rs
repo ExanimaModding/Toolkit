@@ -39,13 +39,13 @@ pub struct Unknown {
 #[deku(id_type = "u32", ctx = "size: usize", ctx_default = "4")]
 pub enum Format {
 	#[deku(id_pat = "&fty::MAGIC_V1 | &fty::MAGIC_V2")]
-	Fty(#[deku(ctx = "size -4 ")] Fty),
+	Fty(#[deku(ctx = "size - 4 ")] Fty),
 
 	#[deku(id = "rfc::MAGIC")]
 	Rfc(#[deku(ctx = "size - 4")] Rfc),
 
 	#[deku(id = "rfi::MAGIC")]
-	Rfi(#[deku(ctx = "size- 4")] Rfi),
+	Rfi(#[deku(ctx = "size - 4")] Rfi),
 
 	#[deku(id = "rpk::MAGIC")]
 	Rpk(Rpk),
@@ -54,7 +54,7 @@ pub enum Format {
 	Wav(#[deku(ctx = "size - 4")] Wav),
 
 	#[deku(id_pat = "_")]
-	Unknown(#[deku(ctx = "size- 4")] Unknown),
+	Unknown(#[deku(ctx = "size - 4")] Unknown),
 }
 
 #[cfg(feature = "python")]
