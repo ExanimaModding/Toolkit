@@ -15,7 +15,7 @@ use human_bytes::human_bytes;
 use iced::{
 	widget::{
 		button, container, horizontal_rule, horizontal_space, mouse_area, scrollable, svg, text,
-		text_input, tooltip, Column, Row,
+		text_input, Column, Row,
 	},
 	window, Alignment, Element, Length, Subscription, Task,
 };
@@ -29,7 +29,10 @@ use rfd::FileDialog;
 use crate::gui::{
 	constants::{ARROW_LEFT, FADE_DURATION, FOLDER, SQUARE_ARROW_OUT},
 	theme,
-	widget::list::{self, List},
+	widget::{
+		list::{self, List},
+		tooltip,
+	},
 };
 
 #[derive(Debug, Default, Clone)]
@@ -127,6 +130,7 @@ impl Explorer {
 					)
 				}
 			}
+			// TODO: support multiple selections
 			Message::RpkDialog => {
 				if let Some(path) = FileDialog::new()
 					.add_filter("Rayform Package", &["rpk"])
@@ -239,27 +243,47 @@ impl Explorer {
 							.push(horizontal_space())
 							.push(text(human_bytes(entry.size)))
 							.push(
-								button(text("Restore")).style(button::danger),
-								// .on_press(Message::EntryRestored),
+								mouse_area(
+									tooltip(
+										button(text("Restore")).style(button::danger),
+										// .on_press(Message::EntryRestored),
+										"Restore to original",
+									)
+									.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+								)
+								.on_enter(Message::TooltipShow)
+								.on_move(|_| Message::TooltipShow)
+								.on_exit(Message::TooltipHide),
 							)
 							.push(
-								button(
-									Row::new()
-										.push(text("Import"))
-										.push(
-											container(
-												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-													.width(Length::Shrink)
-													.height(Length::Fixed(16.))
-													.style(theme::svg_button),
-											)
-											.height(Length::Fixed(21.))
-											.align_y(Alignment::Center),
+								mouse_area(
+									tooltip(
+										button(
+											Row::new()
+												.push(text("Import"))
+												.push(
+													container(
+														svg(svg::Handle::from_memory(
+															SQUARE_ARROW_OUT,
+														))
+														.width(Length::Shrink)
+														.height(Length::Fixed(16.))
+														.style(theme::svg_button),
+													)
+													.height(Length::Fixed(21.))
+													.align_y(Alignment::Center),
+												)
+												.spacing(2),
 										)
-										.spacing(2),
+										.style(button::danger),
+										// .on_press(Message::EntryImported),
+										"Replace with file",
+									)
+									.style(move |theme| theme::tooltip(theme, &self.fade, now)),
 								)
-								.style(button::danger),
-								// .on_press(Message::EntryImported),
+								.on_enter(Message::TooltipShow)
+								.on_move(|_| Message::TooltipShow)
+								.on_exit(Message::TooltipHide),
 							)
 							.push(
 								mouse_area(
@@ -282,15 +306,7 @@ impl Explorer {
 												.spacing(2),
 										)
 										.on_press(Message::EntryExported(entry.to_owned())),
-										text("Save to file").size(14).style(move |theme| {
-											let mut style = text::default(theme);
-											style.color =
-												Some(theme.palette().text.scale_alpha(
-													self.fade.animate_bool(0., 1., now),
-												));
-											style
-										}),
-										tooltip::Position::Top,
+										"Save to file",
 									)
 									.padding(8)
 									.style(move |theme| theme::tooltip(theme, &self.fade, now)),
@@ -311,6 +327,8 @@ impl Explorer {
 	}
 
 	fn view_packages(&self) -> Element<Message> {
+		let now = Instant::now();
+
 		let spacing = 6;
 		Column::new()
 			.push(
@@ -338,23 +356,32 @@ impl Explorer {
 			)
 			.push(
 				container(
-					button(
-						Row::new()
-							.push(text("Load a Package"))
-							.push(
-								container(
-									svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-										.width(Length::Shrink)
-										.height(Length::Fixed(16.))
-										.style(theme::svg_button),
-								)
-								.height(Length::Fixed(21.))
-								.align_y(Alignment::Center),
+					mouse_area(
+						tooltip(
+							button(
+								Row::new()
+									.push(text("Load a Package"))
+									.push(
+										container(
+											svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+												.width(Length::Shrink)
+												.height(Length::Fixed(16.))
+												.style(theme::svg_button),
+										)
+										.height(Length::Fixed(21.))
+										.align_y(Alignment::Center),
+									)
+									.spacing(2),
 							)
-							.spacing(2),
+							.on_press(Message::RpkDialog)
+							.style(button::primary),
+							"Custom Rayform Package",
+						)
+						.style(move |theme| theme::tooltip(theme, &self.fade, now)),
 					)
-					.on_press(Message::RpkDialog)
-					.style(button::primary),
+					.on_enter(Message::TooltipShow)
+					.on_move(|_| Message::TooltipShow)
+					.on_exit(Message::TooltipHide),
 				)
 				.width(Length::Fill)
 				.align_x(Alignment::Center),

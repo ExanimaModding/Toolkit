@@ -33,6 +33,7 @@ pub fn tooltip(theme: &Theme, fade: &Animated<bool, Instant>, now: Instant) -> c
 	let animate_alpha = fade.animate_bool(0., 1., now);
 
 	container::Style::default()
+		.color(theme.palette().text.scale_alpha(animate_alpha))
 		.background(palette.background.base.color.scale_alpha(animate_alpha))
 		.border(
 			Border::default()
