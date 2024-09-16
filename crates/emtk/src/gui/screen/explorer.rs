@@ -189,205 +189,193 @@ impl Explorer {
 	}
 
 	pub fn view(&self) -> Element<Message> {
+		let now = Instant::now();
+		let spacing = 6;
+
 		container(if let Some(_rpk) = &self.rpk {
-			self.view_entries()
+			Column::new()
+				.push(
+					Column::new()
+						.push(
+							Row::new()
+								.push(text(&self.metadata.name).size(36))
+								.push(horizontal_space())
+								.push(text(human_bytes(self.metadata.size as f64)).size(36)),
+						)
+						.push(horizontal_rule(1))
+						.spacing(spacing),
+				)
+				.push(
+					Row::new()
+						.push(
+							button(
+								svg(svg::Handle::from_memory(ARROW_LEFT))
+									.width(Length::Shrink)
+									.height(Length::Fixed(16.))
+									.style(theme::svg),
+							)
+							.padding(6)
+							.height(Length::Fixed(31.))
+							.on_press(Message::RpkSelected(None))
+							.style(theme::transparent_button),
+						)
+						.push(
+							text_input("Search by entry name...", self.query.as_str())
+								.on_input(Message::Queried),
+						),
+				)
+				.push(
+					scrollable(
+						// FIX: add spacing(1) to list but fix scrollbar appearing while loading
+						List::new(&self.content, move |index, entry| {
+							Row::new()
+								.push(text(index + 1).width(Length::Fixed(38.)))
+								.push(text(entry.name.to_owned()))
+								.push(horizontal_space())
+								.push(text(human_bytes(entry.size)))
+								.push(
+									mouse_area(
+										tooltip(
+											button(text("Restore")).style(button::danger),
+											// .on_press(Message::EntryRestored),
+											"Restore to original",
+										)
+										.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+									)
+									.on_enter(Message::TooltipShow)
+									.on_move(|_| Message::TooltipShow)
+									.on_exit(Message::TooltipHide),
+								)
+								.push(
+									mouse_area(
+										tooltip(
+											button(
+												Row::new()
+													.push(text("Import"))
+													.push(
+														container(
+															svg(svg::Handle::from_memory(
+																SQUARE_ARROW_OUT,
+															))
+															.width(Length::Shrink)
+															.height(Length::Fixed(16.))
+															.style(theme::svg_button),
+														)
+														.height(Length::Fixed(21.))
+														.align_y(Alignment::Center),
+													)
+													.spacing(2),
+											)
+											.style(button::danger),
+											// .on_press(Message::EntryImported),
+											"Replace with file",
+										)
+										.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+									)
+									.on_enter(Message::TooltipShow)
+									.on_move(|_| Message::TooltipShow)
+									.on_exit(Message::TooltipHide),
+								)
+								.push(
+									mouse_area(
+										tooltip(
+											button(
+												Row::new()
+													.push(text("Export"))
+													.push(
+														container(
+															svg(svg::Handle::from_memory(
+																SQUARE_ARROW_OUT,
+															))
+															.width(Length::Shrink)
+															.height(Length::Fixed(16.))
+															.style(theme::svg_button),
+														)
+														.height(Length::Fixed(21.))
+														.align_y(Alignment::Center),
+													)
+													.spacing(2),
+											)
+											.on_press(Message::EntryExported(entry.to_owned())),
+											"Save to file",
+										)
+										.padding(8)
+										.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+									)
+									.on_enter(Message::TooltipShow)
+									.on_move(|_| Message::TooltipShow)
+									.on_exit(Message::TooltipHide),
+								)
+								.align_y(Alignment::Center)
+								.spacing(6)
+								.into()
+						}),
+					)
+					.spacing(spacing),
+				)
+				.spacing(spacing)
 		} else {
-			self.view_packages()
+			Column::new()
+				.push(
+					Column::with_children(self.rpk_paths.iter().map(|path| {
+						let file_size = human_bytes(
+							fs::File::open(path).unwrap().metadata().unwrap().len() as f64,
+						);
+						button(
+							Row::new()
+								.push(
+									svg(svg::Handle::from_memory(FOLDER))
+										.width(Length::Shrink)
+										.height(Length::Fixed(20.))
+										.style(theme::svg),
+								)
+								.push(text(path.file_name().unwrap().to_str().unwrap()))
+								.push(horizontal_space())
+								.push(text(file_size))
+								.spacing(12),
+						)
+						.on_press(Message::RpkSelected(Some(path.to_owned())))
+						.style(theme::transparent_button)
+						.into()
+					}))
+					.spacing(1),
+				)
+				.push(
+					container(
+						mouse_area(
+							tooltip(
+								button(
+									Row::new()
+										.push(text("Load a Package"))
+										.push(
+											container(
+												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
+													.width(Length::Shrink)
+													.height(Length::Fixed(16.))
+													.style(theme::svg_button),
+											)
+											.height(Length::Fixed(21.))
+											.align_y(Alignment::Center),
+										)
+										.spacing(2),
+								)
+								.on_press(Message::RpkDialog)
+								.style(button::primary),
+								"Custom Rayform Package",
+							)
+							.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+						)
+						.on_enter(Message::TooltipShow)
+						.on_move(|_| Message::TooltipShow)
+						.on_exit(Message::TooltipHide),
+					)
+					.width(Length::Fill)
+					.align_x(Alignment::Center),
+				)
+				.spacing(spacing)
 		})
 		.padding(12)
 		.into()
-	}
-
-	fn view_entries(&self) -> Element<Message> {
-		let now = Instant::now();
-
-		let spacing = 6;
-		Column::new()
-			.push(
-				Column::new()
-					.push(
-						Row::new()
-							.push(text(&self.metadata.name).size(36))
-							.push(horizontal_space())
-							.push(text(human_bytes(self.metadata.size as f64)).size(36)),
-					)
-					.push(horizontal_rule(1))
-					.spacing(spacing),
-			)
-			.push(
-				Row::new()
-					.push(
-						button(
-							svg(svg::Handle::from_memory(ARROW_LEFT))
-								.width(Length::Shrink)
-								.height(Length::Fixed(16.))
-								.style(theme::svg),
-						)
-						.padding(6)
-						.height(Length::Fixed(31.))
-						.on_press(Message::RpkSelected(None))
-						.style(theme::transparent_button),
-					)
-					.push(
-						text_input("Search by entry name...", self.query.as_str())
-							.on_input(Message::Queried),
-					),
-			)
-			.push(
-				scrollable(
-					// FIX: add spacing(1) to list but fix scrollbar appearing while loading
-					List::new(&self.content, move |index, entry| {
-						Row::new()
-							.push(text(index + 1).width(Length::Fixed(38.)))
-							.push(text(entry.name.to_owned()))
-							.push(horizontal_space())
-							.push(text(human_bytes(entry.size)))
-							.push(
-								mouse_area(
-									tooltip(
-										button(text("Restore")).style(button::danger),
-										// .on_press(Message::EntryRestored),
-										"Restore to original",
-									)
-									.style(move |theme| theme::tooltip(theme, &self.fade, now)),
-								)
-								.on_enter(Message::TooltipShow)
-								.on_move(|_| Message::TooltipShow)
-								.on_exit(Message::TooltipHide),
-							)
-							.push(
-								mouse_area(
-									tooltip(
-										button(
-											Row::new()
-												.push(text("Import"))
-												.push(
-													container(
-														svg(svg::Handle::from_memory(
-															SQUARE_ARROW_OUT,
-														))
-														.width(Length::Shrink)
-														.height(Length::Fixed(16.))
-														.style(theme::svg_button),
-													)
-													.height(Length::Fixed(21.))
-													.align_y(Alignment::Center),
-												)
-												.spacing(2),
-										)
-										.style(button::danger),
-										// .on_press(Message::EntryImported),
-										"Replace with file",
-									)
-									.style(move |theme| theme::tooltip(theme, &self.fade, now)),
-								)
-								.on_enter(Message::TooltipShow)
-								.on_move(|_| Message::TooltipShow)
-								.on_exit(Message::TooltipHide),
-							)
-							.push(
-								mouse_area(
-									tooltip(
-										button(
-											Row::new()
-												.push(text("Export"))
-												.push(
-													container(
-														svg(svg::Handle::from_memory(
-															SQUARE_ARROW_OUT,
-														))
-														.width(Length::Shrink)
-														.height(Length::Fixed(16.))
-														.style(theme::svg_button),
-													)
-													.height(Length::Fixed(21.))
-													.align_y(Alignment::Center),
-												)
-												.spacing(2),
-										)
-										.on_press(Message::EntryExported(entry.to_owned())),
-										"Save to file",
-									)
-									.padding(8)
-									.style(move |theme| theme::tooltip(theme, &self.fade, now)),
-								)
-								.on_enter(Message::TooltipShow)
-								.on_move(|_| Message::TooltipShow)
-								.on_exit(Message::TooltipHide),
-							)
-							.align_y(Alignment::Center)
-							.spacing(6)
-							.into()
-					}),
-				)
-				.spacing(spacing),
-			)
-			.spacing(spacing)
-			.into()
-	}
-
-	fn view_packages(&self) -> Element<Message> {
-		let now = Instant::now();
-
-		let spacing = 6;
-		Column::new()
-			.push(
-				Column::with_children(self.rpk_paths.iter().map(|path| {
-					let file_size =
-						human_bytes(fs::File::open(path).unwrap().metadata().unwrap().len() as f64);
-					button(
-						Row::new()
-							.push(
-								svg(svg::Handle::from_memory(FOLDER))
-									.width(Length::Shrink)
-									.height(Length::Fixed(20.))
-									.style(theme::svg),
-							)
-							.push(text(path.file_name().unwrap().to_str().unwrap()))
-							.push(horizontal_space())
-							.push(text(file_size))
-							.spacing(12),
-					)
-					.on_press(Message::RpkSelected(Some(path.to_owned())))
-					.style(theme::transparent_button)
-					.into()
-				}))
-				.spacing(1),
-			)
-			.push(
-				container(
-					mouse_area(
-						tooltip(
-							button(
-								Row::new()
-									.push(text("Load a Package"))
-									.push(
-										container(
-											svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-												.width(Length::Shrink)
-												.height(Length::Fixed(16.))
-												.style(theme::svg_button),
-										)
-										.height(Length::Fixed(21.))
-										.align_y(Alignment::Center),
-									)
-									.spacing(2),
-							)
-							.on_press(Message::RpkDialog)
-							.style(button::primary),
-							"Custom Rayform Package",
-						)
-						.style(move |theme| theme::tooltip(theme, &self.fade, now)),
-					)
-					.on_enter(Message::TooltipShow)
-					.on_move(|_| Message::TooltipShow)
-					.on_exit(Message::TooltipHide),
-				)
-				.width(Length::Fill)
-				.align_x(Alignment::Center),
-			)
-			.spacing(spacing)
-			.into()
 	}
 
 	pub fn subscription(&self) -> Subscription<Message> {
