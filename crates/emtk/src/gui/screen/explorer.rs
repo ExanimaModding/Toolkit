@@ -141,39 +141,42 @@ impl Explorer {
 					return Task::done(Message::RpkSelected(Some(path)));
 				}
 			}
-			Message::RpkSelected(path) => match path {
-				Some(path) => {
-					let file = fs::File::open(&path).unwrap();
-					let mut buf_reader = io::BufReader::new(&file);
-					let mut reader = Reader::new(&mut buf_reader);
-					let mut ctx = Context::default();
-					ctx.rpk.entries_only = true;
-					let format = Format::from_reader_with_ctx(&mut reader, ctx).unwrap();
-					if let Format::Rpk(rpk) = format {
-						// PERF: potentially thousands of entries are getting cloned here
-						self.content = list::Content::from_iter(rpk.entries.to_owned());
-						self.matcher =
-							Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
-						rpk.entries.iter().enumerate().for_each(|(index, entry)| {
-							self.matcher.injector().push(index, |_index, haystack| {
-								if let Some(haystack) = haystack.first_mut() {
-									*haystack = entry.name.as_str().into();
-								}
+			Message::RpkSelected(path) => {
+				self.query = String::new();
+				match path {
+					Some(path) => {
+						let file = fs::File::open(&path).unwrap();
+						let mut buf_reader = io::BufReader::new(&file);
+						let mut reader = Reader::new(&mut buf_reader);
+						let mut ctx = Context::default();
+						ctx.rpk.entries_only = true;
+						let format = Format::from_reader_with_ctx(&mut reader, ctx).unwrap();
+						if let Format::Rpk(rpk) = format {
+							// PERF: potentially thousands of entries are getting cloned here
+							self.content = list::Content::from_iter(rpk.entries.to_owned());
+							self.matcher =
+								Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
+							rpk.entries.iter().enumerate().for_each(|(index, entry)| {
+								self.matcher.injector().push(index, |_index, haystack| {
+									if let Some(haystack) = haystack.first_mut() {
+										*haystack = entry.name.as_str().into();
+									}
+								});
 							});
-						});
-						self.metadata = Metadata::new(
-							path.file_name().unwrap().to_str().unwrap().to_string(),
-							path,
-							file.metadata().unwrap().len(),
-						);
-						self.rpk = Some(rpk);
-					};
+							self.metadata = Metadata::new(
+								path.file_name().unwrap().to_str().unwrap().to_string(),
+								path,
+								file.metadata().unwrap().len(),
+							);
+							self.rpk = Some(rpk);
+						};
+					}
+					None => {
+						self.metadata = Metadata::default();
+						self.rpk = None;
+					}
 				}
-				None => {
-					self.metadata = Metadata::default();
-					self.rpk = None;
-				}
-			},
+			}
 			Message::Tick => (),
 			Message::TooltipHide => {
 				if !self.fade.in_progress(now) {
