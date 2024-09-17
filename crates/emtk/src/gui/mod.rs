@@ -4,9 +4,9 @@ mod state;
 mod theme;
 mod widget;
 
-use std::{path::PathBuf, time::Instant};
+use std::{collections::HashMap, path::PathBuf, time::Instant};
 
-use constants::{FADE_DURATION, FOLDER, LAYERS, PLAY, SETTINGS};
+use constants::FADE_DURATION;
 use iced::{
 	event,
 	widget::{
@@ -24,10 +24,36 @@ use screen::{
 	settings::{self, Settings},
 	Screen, ScreenKind,
 };
+use strum::{EnumIter, IntoEnumIterator};
 use widget::modal::modal;
 
 // TODO: animate scrolling in scrollbars
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
+
+#[derive(Debug, Hash, PartialEq, Eq, EnumIter)]
+pub enum Icon {
+	ArrowLeft,
+	Folder,
+	Layers,
+	Play,
+	Settings,
+	SquareArrowOutUpRight,
+}
+
+impl Icon {
+	fn bytes(&self) -> &'static [u8] {
+		match self {
+			Icon::ArrowLeft => include_bytes!("../../../../assets/images/arrow-left.svg"),
+			Icon::Folder => include_bytes!("../../../../assets/images/folder.svg"),
+			Icon::Layers => include_bytes!("../../../../assets/images/layers-3.svg"),
+			Icon::Play => include_bytes!("../../../../assets/images/play.svg"),
+			Icon::Settings => include_bytes!("../../../../assets/images/settings.svg"),
+			Icon::SquareArrowOutUpRight => {
+				include_bytes!("../../../../assets/images/square-arrow-out-up-right.svg")
+			}
+		}
+	}
+}
 
 pub(crate) async fn start_gui() -> iced::Result {
 	let image = image::load_from_memory(ICON).unwrap();
@@ -68,6 +94,7 @@ pub struct Emtk {
 	developer_enabled: bool,
 	explain_enabled: bool,
 	fade: Animated<bool, Instant>,
+	icons: HashMap<Icon, svg::Handle>,
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
 	screen: Screen,
@@ -97,7 +124,15 @@ pub enum Message {
 
 impl Emtk {
 	pub fn new() -> (Self, Task<Message>) {
-		let emtk = Self::default();
+		let mut icons = HashMap::new();
+		for icon in Icon::iter() {
+			let bytes = icon.bytes();
+			icons.insert(icon, svg::Handle::from_memory(bytes));
+		}
+		let emtk = Self {
+			icons,
+			..Default::default()
+		};
 		(
 			emtk,
 			// TODO: refactor
@@ -336,8 +371,8 @@ impl Emtk {
 	pub fn view(&self) -> Element<Message> {
 		let screen = match &self.screen {
 			Screen::Mods(home) => home.view().map(Message::Mods),
-			Screen::Explorer(explorer) => explorer.view().map(Message::Explorer),
-			Screen::Settings(settings) => settings.view().map(Message::Settings),
+			Screen::Explorer(explorer) => explorer.view(&self.icons).map(Message::Explorer),
+			Screen::Settings(settings) => settings.view(&self.icons).map(Message::Settings),
 			_ => unreachable!("Unsupported screen"),
 		};
 
@@ -395,7 +430,7 @@ impl Emtk {
 						button(
 							Row::new()
 								.push(
-									svg(svg::Handle::from_memory(LAYERS))
+									svg(self.icons.get(&Icon::Layers).unwrap().clone())
 										.width(Length::Shrink)
 										.style({
 											if let Screen::Mods(_mods) = &self.screen {
@@ -421,7 +456,7 @@ impl Emtk {
 						button(
 							Row::new()
 								.push(
-									svg(svg::Handle::from_memory(FOLDER))
+									svg(self.icons.get(&Icon::Folder).unwrap().clone())
 										.width(Length::Shrink)
 										.style({
 											if let Screen::Explorer(_explorer) = &self.screen {
@@ -447,7 +482,7 @@ impl Emtk {
 						button(
 							Row::new()
 								.push(
-									svg(svg::Handle::from_memory(SETTINGS))
+									svg(self.icons.get(&Icon::Settings).unwrap().clone())
 										.width(Length::Shrink)
 										.style({
 											if let Screen::Settings(_settings) = &self.screen {
@@ -474,7 +509,7 @@ impl Emtk {
 						container(
 							Row::new()
 								.push(
-									svg(svg::Handle::from_memory(PLAY))
+									svg(self.icons.get(&Icon::Play).unwrap().clone())
 										.width(Length::Shrink)
 										.height(Length::Fixed(36.))
 										.style(theme::svg_button),
@@ -601,6 +636,7 @@ impl Default for Emtk {
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
 				.delay(0.),
+			icons: HashMap::default(),
 			latest_release: GetLatestReleaseState::default(),
 			modal: Option::default(),
 			screen: Screen::default(),

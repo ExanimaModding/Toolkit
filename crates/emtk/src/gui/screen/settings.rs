@@ -1,14 +1,14 @@
-use std::{fs, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use human_bytes::human_bytes;
 use iced::{
 	widget::{
 		button, checkbox, container, horizontal_rule, pick_list, scrollable, svg, text, Column, Row,
 	},
-	Alignment, Color, Element, Length, Task, Theme,
+	Alignment, Element, Length, Task, Theme,
 };
 
-use crate::gui::{constants::SQUARE_ARROW_OUT, theme};
+use crate::gui::{theme, Icon};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -102,7 +102,7 @@ impl Settings {
 		(Task::none(), Action::None)
 	}
 
-	pub fn view(&self) -> Element<Message> {
+	pub fn view(&self, icons: &HashMap<Icon, svg::Handle>) -> Element<Message> {
 		// let col = Column::new().push(self.version());
 
 		let spacing = 6;
@@ -143,10 +143,13 @@ impl Settings {
 										.push(text("Open Cache"))
 										.push(
 											container(
-												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-													.width(Length::Fixed(16.))
-													.height(Length::Fixed(16.))
-													.style(theme::svg_button),
+												svg(icons
+													.get(&Icon::SquareArrowOutUpRight)
+													.unwrap()
+													.clone())
+												.width(Length::Fixed(16.))
+												.height(Length::Fixed(16.))
+												.style(theme::svg_button),
 											)
 											.height(Length::Fixed(21.))
 											.align_y(Alignment::Center),

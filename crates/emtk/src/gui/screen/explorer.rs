@@ -1,4 +1,5 @@
 use std::{
+	collections::HashMap,
 	fs,
 	io::{self, Write},
 	path::PathBuf,
@@ -27,12 +28,13 @@ use nucleo::{
 use rfd::FileDialog;
 
 use crate::gui::{
-	constants::{ARROW_LEFT, FADE_DURATION, FOLDER, SQUARE_ARROW_OUT},
+	constants::FADE_DURATION,
 	theme,
 	widget::{
 		list::{self, List},
 		tooltip,
 	},
+	Icon,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -50,12 +52,12 @@ impl Metadata {
 
 pub struct Explorer {
 	content: list::Content<rpk::Entry>,
+	fade: Animated<bool, Instant>,
 	matcher: Nucleo<usize>,
 	metadata: Metadata,
 	rpk: Option<Rpk>,
 	rpk_paths: Vec<PathBuf>,
 	query: String,
-	fade: Animated<bool, Instant>,
 }
 
 #[derive(Debug, Clone)]
@@ -188,9 +190,10 @@ impl Explorer {
 		Task::none()
 	}
 
-	pub fn view(&self) -> Element<Message> {
+	pub fn view(&self, icons: &HashMap<Icon, svg::Handle>) -> Element<Message> {
 		let now = Instant::now();
 		let spacing = 6;
+		let square_arrow_out_up_right = icons.get(&Icon::SquareArrowOutUpRight).unwrap().clone();
 
 		container(if let Some(_rpk) = &self.rpk {
 			Column::new()
@@ -209,7 +212,7 @@ impl Explorer {
 					Row::new()
 						.push(
 							button(
-								svg(svg::Handle::from_memory(ARROW_LEFT))
+								svg(icons.get(&Icon::ArrowLeft).unwrap().clone())
 									.width(Length::Shrink)
 									.height(Length::Fixed(16.))
 									.style(theme::svg),
@@ -254,12 +257,10 @@ impl Explorer {
 													.push(text("Import"))
 													.push(
 														container(
-															svg(svg::Handle::from_memory(
-																SQUARE_ARROW_OUT,
-															))
-															.width(Length::Shrink)
-															.height(Length::Fixed(16.))
-															.style(theme::svg_button),
+															svg(square_arrow_out_up_right.clone())
+																.width(Length::Shrink)
+																.height(Length::Fixed(16.))
+																.style(theme::svg_button),
 														)
 														.height(Length::Fixed(21.))
 														.align_y(Alignment::Center),
@@ -284,12 +285,10 @@ impl Explorer {
 													.push(text("Export"))
 													.push(
 														container(
-															svg(svg::Handle::from_memory(
-																SQUARE_ARROW_OUT,
-															))
-															.width(Length::Shrink)
-															.height(Length::Fixed(16.))
-															.style(theme::svg_button),
+															svg(square_arrow_out_up_right.clone())
+																.width(Length::Shrink)
+																.height(Length::Fixed(16.))
+																.style(theme::svg_button),
 														)
 														.height(Length::Fixed(21.))
 														.align_y(Alignment::Center),
@@ -324,7 +323,7 @@ impl Explorer {
 						button(
 							Row::new()
 								.push(
-									svg(svg::Handle::from_memory(FOLDER))
+									svg(icons.get(&Icon::Folder).unwrap().clone())
 										.width(Length::Shrink)
 										.height(Length::Fixed(20.))
 										.style(theme::svg),
@@ -349,10 +348,13 @@ impl Explorer {
 										.push(text("Load a Package"))
 										.push(
 											container(
-												svg(svg::Handle::from_memory(SQUARE_ARROW_OUT))
-													.width(Length::Shrink)
-													.height(Length::Fixed(16.))
-													.style(theme::svg_button),
+												svg(icons
+													.get(&Icon::SquareArrowOutUpRight)
+													.unwrap()
+													.clone())
+												.width(Length::Shrink)
+												.height(Length::Fixed(16.))
+												.style(theme::svg_button),
 											)
 											.height(Length::Fixed(21.))
 											.align_y(Alignment::Center),
