@@ -18,15 +18,13 @@ emf = { path = "../emf" }
 emf-types = { workspace = true }
 exparser = { path = "../exparser" }
 human_bytes = "0.4.3"
-iced = { git = "https://github.com/iced-rs/iced", version = "0.13.0-dev", features = [
+iced = { version = "0.13.0", features = [
+	"advanced",
 	"markdown",
 	"svg",
 	"tokio",
 ] }
-iced_aw = { git = "https://github.com/iced-rs/iced_aw", rev = "0f616fe3a74b1587b94e9fb49a29c52bb93ef01c", features = [
-	"drop_down",
-] }
-iced_core = { git = "https://github.com/iced-rs/iced", version = "0.13.0-dev" }
+iced_core = "0.13.0"
 image = { version = "0.25.2", features = ["ico"] }
 lilt = "0.7.0"
 log.workspace = true
