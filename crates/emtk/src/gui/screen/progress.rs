@@ -8,11 +8,9 @@ use iced::{
 	window, Alignment, Border, Color, Element, Length, Padding, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
+use tokio::time::Duration;
 
-use crate::{
-	config::AppSettings,
-	gui::{constants::FADE_DURATION, theme},
-};
+use crate::{config::AppSettings, gui::constants::FADE_DURATION};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -197,7 +195,7 @@ impl Progress {
 							let palette = theme.extended_palette();
 							let animate_alpha = self.fade.animate_bool(0., 1., now);
 
-							let mut style = theme::button(theme, status);
+							let mut style = button::primary(theme, status);
 							style.background = Some(match status {
 								button::Status::Hovered => {
 									let primary = palette.primary.weak.color;
@@ -268,6 +266,7 @@ impl Progress {
 
 fn load_mods(settings: AppSettings) -> impl Stream<Item = Event> {
 	stream::channel(0, |mut tx: Sender<Event>| async move {
+		tokio::time::sleep(Duration::from_millis(FADE_DURATION)).await;
 		let mut bar = Bar::default();
 
 		let exanima_exe = PathBuf::from(

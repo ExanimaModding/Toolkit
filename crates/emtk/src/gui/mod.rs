@@ -4,9 +4,16 @@ mod state;
 mod theme;
 mod widget;
 
-use std::{collections::HashMap, fs, io::Read, path::PathBuf, time::Instant};
+use std::{
+	collections::HashMap,
+	fs,
+	io::Read,
+	path::{Path, PathBuf},
+	time::Instant,
+};
 
 use constants::FADE_DURATION;
+use emf_types::config::PluginConfig;
 use iced::{
 	event,
 	widget::{
@@ -130,18 +137,24 @@ impl Emtk {
 			fs::create_dir_all(&config_path).unwrap();
 		}
 		let settings_path = config_path.join("settings.ron");
+		let default_settings = config::Settings {
+			exanima_exe: Option::default(),
+			launcher: Some(config::Launcher::default()),
+			load_order: Vec::new(),
+		};
 		let settings = if settings_path.is_file() {
 			let mut contents = String::new();
 			fs::File::open(&settings_path)
 				.unwrap()
 				.read_to_string(&mut contents)
 				.unwrap();
-			ron::from_str::<config::Settings>(&contents).unwrap()
-		} else {
-			config::Settings {
-				exanima_exe: Option::default(),
-				launcher: Some(config::Launcher::default()),
+			// TODO: migrate old settings on error result
+			match ron::from_str::<config::Settings>(&contents) {
+				Ok(settings) => settings,
+				Err(_) => default_settings,
 			}
+		} else {
+			default_settings
 		};
 		let task_configure = if settings.exanima_exe.is_none() {
 			Task::done(Message::ModalChanged(ScreenKind::Settings))
@@ -154,9 +167,10 @@ impl Emtk {
 			let bytes = icon.bytes();
 			icons.insert(icon, svg::Handle::from_memory(bytes));
 		}
+
 		let emtk = Self {
-			settings,
 			icons,
+			settings,
 			..Default::default()
 		};
 		(
@@ -170,6 +184,7 @@ impl Emtk {
 			Task::batch([
 				task_configure,
 				Task::done(Message::GetLatestRelease(GetLatestReleaseState::NotStarted)),
+				Task::done(Message::ScreenChanged(ScreenKind::Mods)),
 			]),
 		)
 	}
@@ -233,8 +248,15 @@ impl Emtk {
 				}
 			},
 			Message::Mods(message) => {
-				if let Screen::Mods(home) = &mut self.screen {
-					home.update(message)
+				if let Screen::Mods(mods) = &mut self.screen {
+					let (task, action) = mods.update(message);
+					let action_task = match action {
+						mods::Action::SettingsChanged(settings) => {
+							Task::done(Message::SettingsChanged(settings))
+						}
+						mods::Action::None => Task::none(),
+					};
+					return Task::batch([task.map(Message::Mods), action_task]);
 				}
 			}
 			Message::LinkClicked(url) => {
@@ -345,7 +367,17 @@ impl Emtk {
 
 					self.screen = Screen::Explorer(Explorer::new(exanima_rpks))
 				}
-				ScreenKind::Mods => self.screen = Screen::Mods(Mods::default()),
+				ScreenKind::Mods => {
+					let (mods, action) = Mods::new(self.settings.clone());
+					let action_task = match action {
+						mods::Action::SettingsChanged(settings) => {
+							Task::done(Message::SettingsChanged(settings))
+						}
+						mods::Action::None => Task::none(),
+					};
+					self.screen = Screen::Mods(mods);
+					return action_task;
+				}
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
 					let (settings, task) = Settings::new(self.settings.clone(), self.theme(), None);
@@ -393,6 +425,9 @@ impl Emtk {
 				fs::write(settings_path, content).unwrap();
 				self.settings = settings;
 				match &mut self.screen {
+					Screen::Mods(mods) => {
+						mods.update(mods::Message::SettingsRefetched(self.settings.clone()));
+					}
 					Screen::Settings(settings) => {
 						let (_task, _action) = settings.update(
 							settings::Message::SettingsRefetched(self.settings.clone()),
@@ -664,7 +699,7 @@ impl Emtk {
 						button(text("Download"))
 							.on_press(Message::LinkClicked(release.html_url.clone()))
 							.width(100.)
-							.style(theme::button),
+							.style(button::primary),
 					)
 			}
 			.into(),
@@ -763,4 +798,67 @@ async fn get_latest_release() -> anyhow::Result<Release> {
 	let release: Release = ureq::get(url).call()?.into_json()?;
 
 	Ok(release)
+}
+
+/// `path` argument must be the path to Exanima.exe
+pub fn load_order(path: &Path) -> Vec<(String, bool)> {
+	let mods_path = path.parent().unwrap().join("mods");
+	if !mods_path.is_dir() {
+		fs::create_dir_all(&mods_path).unwrap();
+	}
+	let mut load_order = Vec::new();
+	for entry in mods_path.read_dir().unwrap().flatten() {
+		let entry_path = entry.path();
+
+		for entry in entry_path.read_dir().unwrap().flatten() {
+			let entry_path = entry.path();
+
+			if entry.file_name().to_str().unwrap() != "config.toml" {
+				continue;
+			}
+			let mut contents = String::new();
+			fs::File::open(&entry_path)
+				.unwrap()
+				.read_to_string(&mut contents)
+				.unwrap();
+			let config: PluginConfig = match toml::from_str(&contents) {
+				Ok(plugin_config) => plugin_config,
+				Err(_) => continue,
+			};
+			load_order.push((config.plugin.id, false));
+		}
+	}
+	load_order
+}
+
+pub fn config_by_id(path: &Path, mod_id: &str) -> Option<PluginConfig> {
+	let mods_path = path.parent().unwrap().join("mods");
+	if !mods_path.is_dir() {
+		return None;
+	}
+	for entry in mods_path.read_dir().unwrap().flatten() {
+		let entry_path = entry.path();
+
+		for entry in entry_path.read_dir().unwrap().flatten() {
+			let entry_path = entry.path();
+
+			if entry.file_name().to_str().unwrap() != "config.toml" {
+				continue;
+			}
+			let mut contents = String::new();
+			fs::File::open(&entry_path)
+				.unwrap()
+				.read_to_string(&mut contents)
+				.unwrap();
+			let config: PluginConfig = match toml::from_str(&contents) {
+				Ok(plugin_config) => plugin_config,
+				Err(_) => continue,
+			};
+			if config.plugin.id == mod_id {
+				return Some(config);
+			}
+		}
+	}
+
+	None
 }

@@ -3,12 +3,6 @@ use iced::{
 	Border, Color, Shadow, Theme, Vector,
 };
 
-pub fn button(theme: &Theme, status: widget::button::Status) -> widget::button::Style {
-	let mut style = widget::button::primary(theme, status);
-	style.border = Border::default().rounded(8);
-	style
-}
-
 pub fn checkbox(
 	theme: &Theme,
 	status: widget::checkbox::Status,

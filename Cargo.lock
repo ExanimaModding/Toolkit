@@ -1489,6 +1489,7 @@ dependencies = [
  "human_bytes",
  "iced",
  "iced_core",
+ "iced_drop",
  "image",
  "lilt",
  "log",
@@ -2405,6 +2406,14 @@ dependencies = [
  "smol_str",
  "thiserror",
  "web-time",
+]
+
+[[package]]
+name = "iced_drop"
+version = "0.1.0"
+source = "git+https://github.com/ProffDea/iced_drop.git?rev=0b1544cf50a8000dc17a93e2de62ff9411cd0884#0b1544cf50a8000dc17a93e2de62ff9411cd0884"
+dependencies = [
+ "iced",
 ]
 
 [[package]]

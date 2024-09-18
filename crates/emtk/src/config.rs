@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Settings {
 	pub exanima_exe: Option<String>,
 	pub launcher: Option<Launcher>,
+	pub load_order: Vec<(String, bool)>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

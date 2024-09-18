@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, path::PathBuf, time::Instant};
+use std::{collections::HashMap, fs, io::Read, path::PathBuf, time::Instant};
 
 use human_bytes::human_bytes;
 use iced::{
@@ -13,7 +13,7 @@ use rfd::FileDialog;
 
 use crate::{
 	config,
-	gui::{constants::FADE_DURATION, theme, widget::tooltip, Icon},
+	gui::{constants::FADE_DURATION, load_order, theme, widget::tooltip, Icon},
 };
 
 #[derive(Debug, Clone)]
@@ -114,6 +114,7 @@ impl Settings {
 			}
 			Message::ExanimaExe(path) => {
 				self.settings.exanima_exe = Some(path.to_str().unwrap().to_string());
+				self.settings.load_order = load_order(&path);
 				return (Task::none(), Action::SettingsChanged(self.settings.clone()));
 			}
 			Message::ExanimaExeDialog => {
@@ -429,6 +430,7 @@ impl Settings {
 						Some(
 							Row::new().push(horizontal_space()).push(
 								mouse_area(
+									// FIX: tooltip not showing
 									tooltip(
 										button("Confirm")
 											.on_press_maybe(
