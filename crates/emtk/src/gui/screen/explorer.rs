@@ -246,7 +246,12 @@ impl Explorer {
 											// .on_press(Message::EntryRestored),
 											"Restore to original",
 										)
-										.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+										.style(move |theme| {
+											theme::tooltip(
+												theme,
+												self.fade.animate_bool(0., 1., now),
+											)
+										}),
 									)
 									.on_enter(Message::TooltipShow)
 									.on_move(|_| Message::TooltipShow)
@@ -274,7 +279,12 @@ impl Explorer {
 											// .on_press(Message::EntryImported),
 											"Replace with file",
 										)
-										.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+										.style(move |theme| {
+											theme::tooltip(
+												theme,
+												self.fade.animate_bool(0., 1., now),
+											)
+										}),
 									)
 									.on_enter(Message::TooltipShow)
 									.on_move(|_| Message::TooltipShow)
@@ -302,7 +312,12 @@ impl Explorer {
 											"Save to file",
 										)
 										.padding(8)
-										.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+										.style(move |theme| {
+											theme::tooltip(
+												theme,
+												self.fade.animate_bool(0., 1., now),
+											)
+										}),
 									)
 									.on_enter(Message::TooltipShow)
 									.on_move(|_| Message::TooltipShow)
@@ -368,7 +383,9 @@ impl Explorer {
 								.style(button::primary),
 								"Custom Rayform Package",
 							)
-							.style(move |theme| theme::tooltip(theme, &self.fade, now)),
+							.style(move |theme| {
+								theme::tooltip(theme, self.fade.animate_bool(0., 1., now))
+							}),
 						)
 						.on_enter(Message::TooltipShow)
 						.on_move(|_| Message::TooltipShow)

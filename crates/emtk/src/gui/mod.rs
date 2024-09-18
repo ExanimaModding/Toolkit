@@ -4,7 +4,7 @@ mod state;
 mod theme;
 mod widget;
 
-use std::{collections::HashMap, path::PathBuf, time::Instant};
+use std::{collections::HashMap, fs, io::Read, path::PathBuf, time::Instant};
 
 use constants::FADE_DURATION;
 use iced::{
@@ -26,6 +26,8 @@ use screen::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 use widget::modal::modal;
+
+use crate::config;
 
 // TODO: animate scrolling in scrollbars
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
@@ -91,14 +93,12 @@ pub struct Release {
 pub struct Emtk {
 	app_state: state::AppState,
 	changelog: Vec<markdown::Item>,
-	developer_enabled: bool,
-	explain_enabled: bool,
 	fade: Animated<bool, Instant>,
 	icons: HashMap<Icon, svg::Handle>,
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
 	screen: Screen,
-	theme: Theme,
+	settings: config::Settings,
 	window_size: Size,
 }
 
@@ -117,6 +117,7 @@ pub enum Message {
 	Progress(progress::Message),
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
+	SettingsChanged(config::Settings),
 	SizeChanged(Size),
 	StartGame,
 	Tick,
@@ -124,12 +125,37 @@ pub enum Message {
 
 impl Emtk {
 	pub fn new() -> (Self, Task<Message>) {
+		let config_path = dirs::config_dir().unwrap().join("Exanima Modding Toolkit");
+		if !config_path.is_dir() {
+			fs::create_dir_all(&config_path).unwrap();
+		}
+		let settings_path = config_path.join("settings.ron");
+		let settings = if settings_path.is_file() {
+			let mut contents = String::new();
+			fs::File::open(&settings_path)
+				.unwrap()
+				.read_to_string(&mut contents)
+				.unwrap();
+			ron::from_str::<config::Settings>(&contents).unwrap()
+		} else {
+			config::Settings {
+				exanima_exe: Option::default(),
+				launcher: Some(config::Launcher::default()),
+			}
+		};
+		let task_configure = if settings.exanima_exe.is_none() {
+			Task::done(Message::ModalChanged(ScreenKind::Settings))
+		} else {
+			Task::none()
+		};
+
 		let mut icons = HashMap::new();
 		for icon in Icon::iter() {
 			let bytes = icon.bytes();
 			icons.insert(icon, svg::Handle::from_memory(bytes));
 		}
 		let emtk = Self {
+			settings,
 			icons,
 			..Default::default()
 		};
@@ -141,7 +167,10 @@ impl Emtk {
 			// 	Task::done(screen::home::Message::LoadSettings(settings.clone()))
 			// 		.map(Message::Home),
 			// ]),
-			Task::done(Message::GetLatestRelease(GetLatestReleaseState::NotStarted)),
+			Task::batch([
+				task_configure,
+				Task::done(Message::GetLatestRelease(GetLatestReleaseState::NotStarted)),
+			]),
 		)
 	}
 
@@ -212,22 +241,42 @@ impl Emtk {
 				log::info!("Opening URL: {}", url);
 				open::that(url).unwrap();
 			}
-			Message::ModalChanged(kind) => {
-				if let ScreenKind::Changelog = kind {
+			Message::ModalChanged(kind) => match kind {
+				ScreenKind::Changelog => {
 					self.fade.transition(true, now);
 					self.modal = Some(Screen::Changelog(Changelog::new(
 						self.changelog.clone(),
 						self.latest_release.clone(),
 						Some(self.window_size * 0.8),
-						self.theme.to_owned(),
-					)));
+						self.theme(),
+					)))
 				}
-			}
+				ScreenKind::Settings => {
+					self.fade.transition(true, now);
+					let (settings, task) = Settings::new(
+						self.settings.clone(),
+						self.theme(),
+						Some(self.window_size * 0.8),
+					);
+					self.modal = Some(Screen::Settings(settings));
+					return task.map(Message::Settings);
+				}
+				_ => (),
+			},
 			Message::ModalCleanup => self.modal = None,
 			Message::ModalClosed => {
+				let Some(screen) = &mut self.modal else {
+					return Task::none();
+				};
 				self.fade.transition(false, now);
-				if let Some(Screen::Changelog(changelog)) = &mut self.modal {
-					let (_task, _action) = changelog.update(changelog::Message::FadeOut);
+				match screen {
+					Screen::Changelog(changelog) => {
+						let (_task, _action) = changelog.update(changelog::Message::FadeOut);
+					}
+					Screen::Settings(settings) => {
+						settings.update(settings::Message::FadeOut, &mut self.app_state);
+					}
+					_ => (),
 				}
 				return Task::perform(
 					tokio::time::sleep(tokio::time::Duration::from_millis(FADE_DURATION)),
@@ -299,38 +348,60 @@ impl Emtk {
 				ScreenKind::Mods => self.screen = Screen::Mods(Mods::default()),
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
-					let (settings, task) = Settings::new(
-						self.developer_enabled,
-						self.explain_enabled,
-						self.theme.to_owned(),
-					);
+					let (settings, task) = Settings::new(self.settings.clone(), self.theme(), None);
 					self.screen = Screen::Settings(settings);
 					return task.map(Message::Settings);
 				}
 			},
 			Message::Settings(message) => {
-				if let Screen::Settings(settings) = &mut self.screen {
-					let (task, action) = settings.update(message, &mut self.app_state);
-					let action = match action {
-						settings::Action::DeveloperToggled(developer_enabled) => {
-							self.developer_enabled = developer_enabled;
+				let settings = if let Some(Screen::Settings(settings)) = &mut self.modal {
+					settings
+				} else if let Screen::Settings(settings) = &mut self.screen {
+					settings
+				} else {
+					return Task::none();
+				};
+
+				let (task, action) = settings.update(message, &mut self.app_state);
+				let action = match action {
+					settings::Action::CloseModal => {
+						if let Some(Screen::Settings(_settings)) = &mut self.modal {
+							Task::done(Message::ModalClosed)
+						} else {
 							Task::none()
 						}
-						settings::Action::ExplainToggled(explain_enabled) => {
-							self.explain_enabled = explain_enabled;
-							Task::none()
-						}
-						settings::Action::ThemeChanged(theme) => {
-							self.theme = theme;
-							Task::none()
-						}
-						settings::Action::ViewChangelog => {
-							Task::done(Message::ModalChanged(ScreenKind::Changelog))
-						}
-						settings::Action::None => Task::none(),
-					};
-					return Task::batch([task.map(Message::Settings), action]);
+					}
+					settings::Action::SettingsChanged(settings) => {
+						Task::done(Message::SettingsChanged(settings))
+					}
+					settings::Action::ViewChangelog => {
+						Task::done(Message::ModalChanged(ScreenKind::Changelog))
+					}
+					settings::Action::None => Task::none(),
+				};
+				return Task::batch([task.map(Message::Settings), action]);
+			}
+			Message::SettingsChanged(settings) => {
+				let config_path = dirs::config_dir().unwrap().join("Exanima Modding Toolkit");
+				if !config_path.is_dir() {
+					fs::create_dir_all(&config_path).unwrap();
 				}
+				let settings_path = config_path.join("settings.ron");
+				let content =
+					ron::ser::to_string_pretty(&settings, ron::ser::PrettyConfig::default())
+						.unwrap();
+				fs::write(settings_path, content).unwrap();
+				self.settings = settings;
+				match &mut self.screen {
+					Screen::Settings(settings) => {
+						let (_task, _action) = settings.update(
+							settings::Message::SettingsRefetched(self.settings.clone()),
+							&mut self.app_state,
+						);
+					}
+					_ => (),
+				}
+				// NOTE: send SettingsChanged messages to screens here
 			}
 			Message::SizeChanged(size) => {
 				self.window_size = size;
@@ -350,6 +421,12 @@ impl Emtk {
 						let width = size.width * 0.8;
 						let size = Size::new(width, 0.);
 						let _action = progress.update(progress::Message::SizeChanged(size));
+					}
+					Screen::Settings(settings) => {
+						let width = size.width * 0.8;
+						let height = size.height * 0.8;
+						let size = Size::new(width, height);
+						settings.update(settings::Message::SizeChanged(size), &mut self.app_state);
 					}
 					_ => (),
 				}
@@ -391,7 +468,7 @@ impl Emtk {
 			match screen {
 				Screen::Changelog(changelog) => {
 					let changelog_view = changelog.view().map(Message::Changelog);
-					let changelog_view = if self.explain_enabled {
+					let changelog_view = if self.settings.launcher.as_ref().unwrap().explain {
 						changelog_view.explain(Color::BLACK)
 					} else {
 						changelog_view
@@ -402,12 +479,21 @@ impl Emtk {
 				}
 				Screen::Progress(progress) => {
 					let progress_view = progress.view().map(Message::Progress);
-					let progress_view = if self.explain_enabled {
+					let progress_view = if self.settings.launcher.as_ref().unwrap().explain {
 						progress_view.explain(Color::BLACK)
 					} else {
 						progress_view
 					};
 					modal(self.fade.clone(), con, progress_view, || Message::Nothing)
+				}
+				Screen::Settings(settings) => {
+					let settings_view = settings.view(&self.icons).map(Message::Settings);
+					let settings_view = if self.settings.launcher.as_ref().unwrap().explain {
+						settings_view.explain(Color::BLACK)
+					} else {
+						settings_view
+					};
+					modal(self.fade.clone(), con, settings_view, || Message::Nothing)
 				}
 				_ => con.into(),
 			}
@@ -415,7 +501,7 @@ impl Emtk {
 			con.into()
 		};
 
-		if self.explain_enabled {
+		if self.settings.launcher.as_ref().unwrap().explain {
 			con.explain(Color::BLACK)
 		} else {
 			con
@@ -560,7 +646,7 @@ impl Emtk {
 							markdown(
 								&self.changelog,
 								markdown::Settings::default(),
-								markdown::Style::from_palette(self.theme.palette()),
+								markdown::Style::from_palette(self.theme().palette()),
 							)
 							.map(|url| Message::LinkClicked(url.to_string())),
 						))
@@ -587,7 +673,32 @@ impl Emtk {
 	}
 
 	pub fn theme(&self) -> Theme {
-		self.theme.to_owned()
+		match self.settings.launcher.as_ref().unwrap().theme.as_str() {
+			"light" => Theme::Light,
+			"dark" => Theme::Dark,
+			"dracula" => Theme::Dracula,
+			"nord" => Theme::Nord,
+			"solarized_light" => Theme::SolarizedLight,
+			"solarized_dark" => Theme::SolarizedDark,
+			"gruvbox_light" => Theme::GruvboxLight,
+			"gruvbox_dark" => Theme::GruvboxDark,
+			"catppuccin_latte" => Theme::CatppuccinLatte,
+			"catppuccin_frappe" => Theme::CatppuccinFrappe,
+			"catppuccin_macchiato" => Theme::CatppuccinMacchiato,
+			"catppuccin_mocha" => Theme::CatppuccinMocha,
+			"tokyo_night" => Theme::TokyoNight,
+			"tokyo_night_storm" => Theme::TokyoNightStorm,
+			"tokyo_night_light" => Theme::TokyoNightLight,
+			"kanagawa_wave" => Theme::KanagawaWave,
+			"kanagawa_dragon" => Theme::KanagawaDragon,
+			"kanagawa_lotus" => Theme::KanagawaLotus,
+			"moonfly" => Theme::Moonfly,
+			"nightfly" => Theme::Nightfly,
+			"oxocarbon" => Theme::Oxocarbon,
+			"ferra" => Theme::Ferra,
+			// TODO: handle Theme::Custom()
+			_ => Theme::Light,
+		}
 	}
 
 	pub fn title(&self) -> String {
@@ -605,8 +716,9 @@ impl Emtk {
 			}
 		});
 
-		let explorer = match &self.screen {
+		let screen = match &self.screen {
 			Screen::Explorer(explorer) => explorer.subscription().map(Message::Explorer),
+			Screen::Settings(settings) => settings.subscription().map(Message::Settings),
 			_ => Subscription::none(),
 		};
 
@@ -618,10 +730,11 @@ impl Emtk {
 
 		let modal = match &self.modal {
 			Some(Screen::Progress(progress)) => progress.subscription().map(Message::Progress),
+			Some(Screen::Settings(settings)) => settings.subscription().map(Message::Settings),
 			_ => Subscription::none(),
 		};
 
-		Subscription::batch([events, explorer, modal_fade, modal])
+		Subscription::batch([events, screen, modal_fade, modal])
 	}
 }
 
@@ -630,8 +743,6 @@ impl Default for Emtk {
 		Self {
 			app_state: state::AppState::default(),
 			changelog: Vec::default(),
-			developer_enabled: bool::default(),
-			explain_enabled: bool::default(),
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
@@ -640,7 +751,7 @@ impl Default for Emtk {
 			latest_release: GetLatestReleaseState::default(),
 			modal: Option::default(),
 			screen: Screen::default(),
-			theme: Theme::CatppuccinFrappe,
+			settings: config::Settings::default(),
 			window_size: Size::default(),
 		}
 	}

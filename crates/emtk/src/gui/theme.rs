@@ -1,15 +1,55 @@
-use std::time::Instant;
-
 use iced::{
 	widget::{self, container},
 	Border, Color, Shadow, Theme, Vector,
 };
-use lilt::Animated;
 
 pub fn button(theme: &Theme, status: widget::button::Status) -> widget::button::Style {
 	let mut style = widget::button::primary(theme, status);
 	style.border = Border::default().rounded(8);
 	style
+}
+
+pub fn checkbox(
+	theme: &Theme,
+	status: widget::checkbox::Status,
+	scale_alpha: f32,
+) -> widget::checkbox::Style {
+	let style = widget::checkbox::primary(theme, status);
+	widget::checkbox::Style {
+		background: style.background.scale_alpha(scale_alpha),
+		icon_color: style.icon_color.scale_alpha(scale_alpha),
+		border: Border {
+			color: style.border.color.scale_alpha(scale_alpha),
+			width: style.border.width,
+			radius: style.border.radius,
+		},
+		text_color: style.text_color.map(|color| color.scale_alpha(scale_alpha)),
+	}
+}
+
+pub fn rule(theme: &Theme, scale_alpha: f32) -> widget::rule::Style {
+	let mut style = widget::rule::default(theme);
+	style.color = style.color.scale_alpha(scale_alpha);
+	style
+}
+
+pub fn pick_list(
+	theme: &Theme,
+	status: widget::pick_list::Status,
+	scale_alpha: f32,
+) -> widget::pick_list::Style {
+	let style = widget::pick_list::default(theme, status);
+	widget::pick_list::Style {
+		text_color: style.text_color.scale_alpha(scale_alpha),
+		placeholder_color: style.placeholder_color.scale_alpha(scale_alpha),
+		handle_color: style.handle_color.scale_alpha(scale_alpha),
+		background: style.background.scale_alpha(scale_alpha),
+		border: Border {
+			color: style.border.color.scale_alpha(scale_alpha),
+			width: style.border.width,
+			radius: style.border.radius,
+		},
+	}
 }
 
 pub fn svg(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
@@ -28,21 +68,20 @@ pub fn svg_button(theme: &Theme, _status: widget::svg::Status) -> widget::svg::S
 	}
 }
 
-pub fn tooltip(theme: &Theme, fade: &Animated<bool, Instant>, now: Instant) -> container::Style {
+pub fn tooltip(theme: &Theme, scale_alpha: f32) -> container::Style {
 	let palette = theme.extended_palette();
-	let animate_alpha = fade.animate_bool(0., 1., now);
 
 	container::Style::default()
-		.color(theme.palette().text.scale_alpha(animate_alpha))
-		.background(palette.background.base.color.scale_alpha(animate_alpha))
+		.color(theme.palette().text.scale_alpha(scale_alpha))
+		.background(palette.background.base.color.scale_alpha(scale_alpha))
 		.border(
 			Border::default()
-				.color(palette.background.weak.color.scale_alpha(animate_alpha))
+				.color(palette.background.weak.color.scale_alpha(scale_alpha))
 				.width(1.)
 				.rounded(12),
 		)
 		.shadow(Shadow {
-			color: Color::BLACK.scale_alpha(animate_alpha),
+			color: Color::BLACK.scale_alpha(scale_alpha),
 			offset: Vector::new(2., 2.),
 			blur_radius: 8.,
 		})
