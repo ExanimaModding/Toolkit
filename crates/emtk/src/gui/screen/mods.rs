@@ -1,17 +1,17 @@
-use std::path::PathBuf;
-
-use crate::{
-	config,
-	gui::{config_by_id, load_order},
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use emf_types::config::PluginConfig;
 use iced::{
-	advanced::widget::Id,
-	widget::{checkbox, container, horizontal_rule, scrollable, text, Column, Row},
-	Border, Element, Length, Point, Rectangle, Task, Theme,
+	advanced::widget,
+	widget::{checkbox, container, horizontal_space, scrollable, svg, text, Column, Row},
+	Alignment, Border, Element, Length, Point, Rectangle, Task, Theme,
 };
 use iced_drop::{droppable, find_zones};
+
+use crate::{
+	config,
+	gui::{config_by_id, load_order, theme, Icon},
+};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -21,19 +21,22 @@ pub enum Action {
 
 // TODO: implement notify-rs to watch for new/deleted mods and changes to config.toml
 // https://github.com/notify-rs/notify
+// TODO: implement mod conflict detection
+// TODO: support dragging multiple mods via multi-select
 #[derive(Debug, Default, Clone)]
 pub struct Mods {
-	hovered_mod: Option<Id>,
-	load_order: Vec<(Id, container::Id, PluginConfig)>,
+	hovered_mod: Option<widget::Id>,
+	load_order: Vec<(widget::Id, container::Id, PluginConfig)>,
 	settings: config::Settings,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
+	ModDragCanceled,
 	ModDragged(usize, Point, Rectangle),
 	ModDropped(usize, Point, Rectangle),
 	ModToggled(usize, bool),
-	ModZonesFound(Vec<(Id, Rectangle)>),
+	ModZonesFound(Vec<(widget::Id, Rectangle)>),
 	SettingsRefetched(config::Settings),
 }
 
@@ -51,7 +54,7 @@ impl Mods {
 							.map(|(mod_id, _enabled)| {
 								let container_id = container::Id::new(mod_id.clone());
 								(
-									Id::from(container_id.clone()),
+									widget::Id::from(container_id.clone()),
 									container_id,
 									config_by_id(&path, mod_id).unwrap(),
 								)
@@ -75,6 +78,7 @@ impl Mods {
 
 	pub fn update(&mut self, message: Message) -> (Task<Message>, Action) {
 		match message {
+			Message::ModDragCanceled => self.hovered_mod = None,
 			Message::ModDragged(_index, _point, rectangle) => {
 				return (
 					find_zones(
@@ -130,11 +134,11 @@ impl Mods {
 					.map(|(mod_id, _enabled)| {
 						let container_id = container::Id::new(mod_id.clone());
 						(
-							Id::from(container_id.clone()),
+							widget::Id::from(container_id.clone()),
 							container_id,
 							config_by_id(
 								&PathBuf::from(self.settings.exanima_exe.as_ref().unwrap()),
-								&mod_id,
+								mod_id,
 							)
 							.unwrap(),
 						)
@@ -147,60 +151,97 @@ impl Mods {
 		(Task::none(), Action::None)
 	}
 
-	pub fn view(&self) -> Element<Message> {
+	pub fn view(&self, icons: &HashMap<Icon, svg::Handle>) -> Element<Message> {
+		let name_column = Length::FillPortion(12);
+		let version_column = Length::FillPortion(1);
 		container(
-			Column::new()
-				.push(
-					Column::new()
-						.push(text("Mods").size(36))
-						.push(horizontal_rule(1))
-						.spacing(6),
-				)
-				.push(scrollable(Column::with_children(
-					self.load_order.iter().enumerate().map(
-						|(index, (_widget_id, container_id, config))| {
-							container(
-								Row::new()
-									.push(
-										checkbox("", self.settings.load_order[index].1).on_toggle(
-											move |enabled| Message::ModToggled(index, enabled),
-										),
-									)
-									.push(
-										droppable(
-											container(
-												text(config.plugin.name.clone())
-													.width(Length::Fill),
-											)
-											.id(container_id.clone()),
+			container(
+				Column::new()
+					.push(
+						container(
+							Row::new()
+								.push(horizontal_space().width(Length::Fixed(23.)))
+								.push(text("Name").center().width(name_column))
+								.push(text("Version").center().width(version_column)),
+						)
+						.padding(6)
+						.width(Length::Fill),
+					)
+					.push(
+						container(scrollable(Column::with_children(
+							self.load_order.iter().enumerate().map(
+								|(index, (widget_id, container_id, config))| {
+									droppable(
+										container(
+											Row::new()
+												.push(
+													svg(icons.get(&Icon::Menu).unwrap().clone())
+														.width(Length::Shrink)
+														.style(theme::svg),
+												)
+												.push(
+													container(
+														checkbox(
+															// "",
+															config.plugin.name.clone(),
+															self.settings.load_order[index].1,
+														)
+														.on_toggle(move |enabled| {
+															Message::ModToggled(index, enabled)
+														}),
+													)
+													.width(name_column),
+												)
+												.push(
+													container(text(config.plugin.version.clone()))
+														.align_x(Alignment::Center)
+														.width(version_column),
+												)
+												.align_y(Alignment::Center)
+												.spacing(3),
 										)
-										.on_drag(move |point, rectangle| {
-											Message::ModDragged(index, point, rectangle)
-										})
-										.on_drop(move |point, rectangle| {
-											Message::ModDropped(index, point, rectangle)
-										})
-										.drag_hide(true),
+										.id(container_id.clone())
+										.padding(4)
+										.style(move |theme: &Theme| {
+											let palette = theme.extended_palette();
+											let style = container::Style::default();
+											if let Some(to_id) = &self.hovered_mod
+												&& widget_id == to_id
+											{
+												style.background(palette.primary.weak.color)
+											} else if index % 2 == 0 {
+												style.background(palette.background.weak.color)
+											} else {
+												style
+											}
+										}),
 									)
-									.padding(4),
-							)
-							.style(|theme: &Theme| {
-								container::Style::default().border(
-									Border::default()
-										.color(theme.extended_palette().background.strong.color)
-										.width(2.)
-										// .rounded(3.),
-								)
-							})
-							.into()
-						},
+									.on_drag(move |point, rectangle| {
+										Message::ModDragged(index, point, rectangle)
+									})
+									.on_drop(move |point, rectangle| {
+										Message::ModDropped(index, point, rectangle)
+									})
+									.on_cancel(Message::ModDragCanceled)
+									.drag_hide(true)
+									.into()
+								},
+							),
+						)))
+						.width(Length::Fill)
+						.height(Length::Fill)
+						.padding(2),
 					),
-				)))
-				.spacing(12),
+			)
+			.style(|theme| {
+				container::Style::default().border(
+					Border::default()
+						.color(theme.extended_palette().background.strong.color)
+						.width(2),
+				)
+			}),
 		)
 		.padding(12)
-		.width(Length::Fill)
-		.height(Length::Fill)
 		.into()
 	}
 }

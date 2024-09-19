@@ -44,6 +44,7 @@ pub enum Icon {
 	ArrowLeft,
 	Folder,
 	Layers,
+	Menu,
 	Play,
 	Settings,
 	SquareArrowOutUpRight,
@@ -55,6 +56,7 @@ impl Icon {
 			Icon::ArrowLeft => include_bytes!("../../../../assets/images/arrow-left.svg"),
 			Icon::Folder => include_bytes!("../../../../assets/images/folder.svg"),
 			Icon::Layers => include_bytes!("../../../../assets/images/layers-3.svg"),
+			Icon::Menu => include_bytes!("../../../../assets/images/menu.svg"),
 			Icon::Play => include_bytes!("../../../../assets/images/play.svg"),
 			Icon::Settings => include_bytes!("../../../../assets/images/settings.svg"),
 			Icon::SquareArrowOutUpRight => {
@@ -148,7 +150,7 @@ impl Emtk {
 				.unwrap()
 				.read_to_string(&mut contents)
 				.unwrap();
-			// TODO: migrate old settings on error result
+			// TODO: attempt to migrate old settings on error result
 			match ron::from_str::<config::Settings>(&contents) {
 				Ok(settings) => settings,
 				Err(_) => default_settings,
@@ -157,6 +159,7 @@ impl Emtk {
 			default_settings
 		};
 		let task_configure = if settings.exanima_exe.is_none() {
+			// TODO: attempt to find Exanima.exe via Steam
 			Task::done(Message::ModalChanged(ScreenKind::Settings))
 		} else {
 			Task::none()
@@ -482,7 +485,7 @@ impl Emtk {
 
 	pub fn view(&self) -> Element<Message> {
 		let screen = match &self.screen {
-			Screen::Mods(home) => home.view().map(Message::Mods),
+			Screen::Mods(home) => home.view(&self.icons).map(Message::Mods),
 			Screen::Explorer(explorer) => explorer.view(&self.icons).map(Message::Explorer),
 			Screen::Settings(settings) => settings.view(&self.icons).map(Message::Settings),
 			_ => unreachable!("Unsupported screen"),
