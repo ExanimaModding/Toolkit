@@ -1,6 +1,5 @@
 mod constants;
 mod screen;
-mod state;
 mod theme;
 mod widget;
 
@@ -100,7 +99,6 @@ pub struct Release {
 
 // TODO: persist developer_enabled, explain_enabled, theme
 pub struct Emtk {
-	app_state: state::AppState,
 	changelog: Vec<markdown::Item>,
 	fade: Animated<bool, Instant>,
 	icons: HashMap<Icon, svg::Handle>,
@@ -173,6 +171,7 @@ impl Emtk {
 
 		let emtk = Self {
 			icons,
+			screen: Screen::Mods(Mods::new(settings.clone())),
 			settings,
 			..Default::default()
 		};
@@ -299,7 +298,7 @@ impl Emtk {
 						let (_task, _action) = changelog.update(changelog::Message::FadeOut);
 					}
 					Screen::Settings(settings) => {
-						settings.update(settings::Message::FadeOut, &mut self.app_state);
+						settings.update(settings::Message::FadeOut);
 					}
 					_ => (),
 				}
@@ -326,8 +325,9 @@ impl Emtk {
 						}
 						progress::Action::ExanimaLaunched => {
 							let (task, _action) = match &mut self.screen {
-								Screen::Settings(settings) => settings
-									.update(settings::Message::CacheChecked, &mut self.app_state),
+								Screen::Settings(settings) => {
+									settings.update(settings::Message::CacheChecked)
+								}
 								_ => (Task::none(), settings::Action::None),
 							};
 							return Task::batch([
@@ -342,8 +342,7 @@ impl Emtk {
 			Message::ScreenChanged(kind) => match kind {
 				ScreenKind::Changelog => (),
 				ScreenKind::Explorer => {
-					let exanima_exe =
-						PathBuf::from(self.app_state.settings.exanima_exe.clone().unwrap());
+					let exanima_exe = PathBuf::from(self.settings.exanima_exe.clone().unwrap());
 					// TODO: redundant code taken from crate::gui::screen::progress::load_mods()
 					let exanima_path = exanima_exe
 						.parent()
@@ -371,15 +370,7 @@ impl Emtk {
 					self.screen = Screen::Explorer(Explorer::new(exanima_rpks))
 				}
 				ScreenKind::Mods => {
-					let (mods, action) = Mods::new(self.settings.clone());
-					let action_task = match action {
-						mods::Action::SettingsChanged(settings) => {
-							Task::done(Message::SettingsChanged(settings))
-						}
-						mods::Action::None => Task::none(),
-					};
-					self.screen = Screen::Mods(mods);
-					return action_task;
+					self.screen = Screen::Mods(Mods::new(self.settings.clone()));
 				}
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
@@ -397,7 +388,7 @@ impl Emtk {
 					return Task::none();
 				};
 
-				let (task, action) = settings.update(message, &mut self.app_state);
+				let (task, action) = settings.update(message);
 				let action = match action {
 					settings::Action::CloseModal => {
 						if let Some(Screen::Settings(_settings)) = &mut self.modal {
@@ -432,14 +423,11 @@ impl Emtk {
 						mods.update(mods::Message::SettingsRefetched(self.settings.clone()));
 					}
 					Screen::Settings(settings) => {
-						let (_task, _action) = settings.update(
-							settings::Message::SettingsRefetched(self.settings.clone()),
-							&mut self.app_state,
-						);
+						let (_task, _action) = settings
+							.update(settings::Message::SettingsRefetched(self.settings.clone()));
 					}
 					_ => (),
 				}
-				// NOTE: send SettingsChanged messages to screens here
 			}
 			Message::SizeChanged(size) => {
 				self.window_size = size;
@@ -464,15 +452,14 @@ impl Emtk {
 						let width = size.width * 0.8;
 						let height = size.height * 0.8;
 						let size = Size::new(width, height);
-						settings.update(settings::Message::SizeChanged(size), &mut self.app_state);
+						settings.update(settings::Message::SizeChanged(size));
 					}
 					_ => (),
 				}
 			}
 			Message::StartGame => {
 				log::info!("Starting Exanima...");
-				let (progress, task) =
-					Progress::new(self.app_state.settings.clone(), self.window_size * 0.8);
+				let (progress, task) = Progress::new(self.settings.clone(), self.window_size * 0.8);
 				self.fade.transition(true, now);
 				self.modal = Some(Screen::Progress(progress));
 				return task.map(Message::Progress);
@@ -779,7 +766,6 @@ impl Emtk {
 impl Default for Emtk {
 	fn default() -> Self {
 		Self {
-			app_state: state::AppState::default(),
 			changelog: Vec::default(),
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
@@ -859,6 +845,38 @@ pub fn config_by_id(path: &Path, mod_id: &str) -> Option<PluginConfig> {
 			};
 			if config.plugin.id == mod_id {
 				return Some(config);
+			}
+		}
+	}
+
+	None
+}
+
+pub fn path_by_id(path: &Path, mod_id: &str) -> Option<PathBuf> {
+	let mods_path = path.parent().unwrap().join("mods");
+	if !mods_path.is_dir() {
+		return None;
+	}
+	for entry in mods_path.read_dir().unwrap().flatten() {
+		let mod_path = entry.path();
+
+		for entry in mod_path.read_dir().unwrap().flatten() {
+			let entry_path = entry.path();
+
+			if entry.file_name().to_str().unwrap() != "config.toml" {
+				continue;
+			}
+			let mut contents = String::new();
+			fs::File::open(&entry_path)
+				.unwrap()
+				.read_to_string(&mut contents)
+				.unwrap();
+			let config: PluginConfig = match toml::from_str(&contents) {
+				Ok(plugin_config) => plugin_config,
+				Err(_) => continue,
+			};
+			if config.plugin.id == mod_id {
+				return Some(mod_path);
 			}
 		}
 	}

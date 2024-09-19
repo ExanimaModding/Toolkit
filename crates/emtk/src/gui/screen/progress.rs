@@ -10,7 +10,10 @@ use iced::{
 use lilt::{Animated, Easing};
 use tokio::time::Duration;
 
-use crate::{config::AppSettings, gui::constants::FADE_DURATION};
+use crate::{
+	config,
+	gui::{constants::FADE_DURATION, path_by_id},
+};
 
 #[derive(Debug, Clone)]
 pub enum Action {
@@ -52,7 +55,7 @@ pub enum Message {
 }
 
 impl Progress {
-	pub fn new(settings: AppSettings, size: Size) -> (Self, Task<Message>) {
+	pub fn new(settings: config::Settings, size: Size) -> (Self, Task<Message>) {
 		let now = Instant::now();
 
 		let (task, handle) = Task::stream(load_mods(settings).map(Message::Event)).abortable();
@@ -264,7 +267,7 @@ impl Progress {
 	}
 }
 
-fn load_mods(settings: AppSettings) -> impl Stream<Item = Event> {
+fn load_mods(settings: config::Settings) -> impl Stream<Item = Event> {
 	stream::channel(0, |mut tx: Sender<Event>| async move {
 		tokio::time::sleep(Duration::from_millis(FADE_DURATION)).await;
 		let mut bar = Bar::default();
@@ -326,26 +329,17 @@ fn load_mods(settings: AppSettings) -> impl Stream<Item = Event> {
 				let mut exanima_sorted_entries = exanima_rpk.entries.to_vec();
 				exanima_sorted_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
-				// TODO: design how mods should be considered enabled/disabled and how the mod load
-				// order should be like
-				// let enabled_plugins = settings.mods.iter().filter(|&plugin| {
-				// 	plugin.info.config.plugin.id
-				// });
-				//
-				// settings.mods;
-				// mod_load_order is a vec of mod ids where the order matters that includes all mods in settings.mods
-				// settings.mod_load_order;
-				// enabled_mods will be a vec of mod ids where the order doesn't matter that will be used to filter mod_load_order
-				// settings.enabled_mods;
-				for (j, plugin) in settings
-					.mods
-					.iter()
-					.filter(|&m| settings.mod_load_order.contains(&m.info.config.plugin.id))
-					.enumerate()
-				{
-					let mod_path = PathBuf::from(&plugin.info.path)
-						.join("assets")
-						.join(file_name);
+				for (mod_id, enabled) in &settings.load_order {
+					if !enabled {
+						continue;
+					}
+					let mod_path = if let Some(mod_path) = path_by_id(&exanima_exe, mod_id) {
+						mod_path
+					} else {
+						continue;
+					}
+					.join("assets")
+					.join(file_name);
 					if mod_path.exists() {
 						let mut buf_reader = io::BufReader::new(
 							fs::File::open(mod_path).expect("error while opening mod file"),
@@ -406,24 +400,24 @@ fn load_mods(settings: AppSettings) -> impl Stream<Item = Event> {
 			};
 
 			// NOTE: code block writes to disk and is commented out for testing
-			// let emtk_data_path = exanima_exe.parent().unwrap().join(".emtk");
-			// // TODO: replace cache_path variable to use a cache_path function
-			// let cache_path = emtk_data_path.join("cache").join(file_name);
-			// if !cache_path.is_dir() {
-			// 	fs::create_dir_all(
-			// 		cache_path
-			// 			.parent()
-			// 			.expect("error while getting parent of cache path"),
-			// 	)
-			// 	.expect("error while creating cache directory");
-			// }
-			// let mut cache_buf_writer = io::BufWriter::new(
-			// 	fs::File::create(cache_path).expect("error while creating cache file"),
-			// );
-			// let mut cache_writer = Writer::new(&mut cache_buf_writer);
-			// exanima_format
-			// 	.to_writer(&mut cache_writer, ())
-			// 	.expect("error while serializing to cache file");
+			let emtk_data_path = exanima_exe.parent().unwrap().join(".emtk");
+			// TODO: replace cache_path variable to use a cache_path function
+			let cache_path = emtk_data_path.join("cache").join(file_name);
+			if !cache_path.is_dir() {
+				fs::create_dir_all(
+					cache_path
+						.parent()
+						.expect("error while getting parent of cache path"),
+				)
+				.expect("error while creating cache directory");
+			}
+			let mut cache_buf_writer = io::BufWriter::new(
+				fs::File::create(cache_path).expect("error while creating cache file"),
+			);
+			let mut cache_writer = Writer::new(&mut cache_buf_writer);
+			exanima_format
+				.to_writer(&mut cache_writer, ())
+				.expect("error while serializing to cache file");
 
 			bar.current_step = i + 1;
 			tx.send(Event::ProgressUpdated(bar.clone()))

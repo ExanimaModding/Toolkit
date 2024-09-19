@@ -41,38 +41,31 @@ pub enum Message {
 }
 
 impl Mods {
-	pub fn new(mut settings: config::Settings) -> (Self, Action) {
+	pub fn new(settings: config::Settings) -> Self {
 		match &settings.exanima_exe {
 			Some(path) => {
 				let path = PathBuf::from(path);
-				settings.load_order = load_order(&path);
-				(
-					Self {
-						load_order: settings
-							.load_order
-							.iter()
-							.map(|(mod_id, _enabled)| {
-								let container_id = container::Id::new(mod_id.clone());
-								(
-									widget::Id::from(container_id.clone()),
-									container_id,
-									config_by_id(&path, mod_id).unwrap(),
-								)
-							})
-							.collect(),
-						settings: settings.clone(),
-						..Default::default()
-					},
-					Action::SettingsChanged(settings),
-				)
-			}
-			None => (
 				Self {
-					settings,
+					load_order: settings
+						.load_order
+						.iter()
+						.map(|(mod_id, _enabled)| {
+							let container_id = container::Id::new(mod_id.clone());
+							(
+								widget::Id::from(container_id.clone()),
+								container_id,
+								config_by_id(&path, mod_id).unwrap(),
+							)
+						})
+						.collect(),
+					settings: settings.clone(),
 					..Default::default()
-				},
-				Action::None,
-			),
+				}
+			}
+			None => Self {
+				settings,
+				..Default::default()
+			},
 		}
 	}
 
@@ -137,7 +130,7 @@ impl Mods {
 							widget::Id::from(container_id.clone()),
 							container_id,
 							config_by_id(
-								&PathBuf::from(self.settings.exanima_exe.as_ref().unwrap()),
+								&PathBuf::from(settings.exanima_exe.as_ref().unwrap()),
 								mod_id,
 							)
 							.unwrap(),

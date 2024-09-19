@@ -72,35 +72,30 @@ impl Settings {
 		)
 	}
 
-	pub fn update(
-		&mut self,
-		message: Message,
-		app_state: &mut crate::gui::state::AppState,
-	) -> (Task<Message>, Action) {
+	pub fn update(&mut self, message: Message) -> (Task<Message>, Action) {
 		let now = Instant::now();
 
 		match message {
 			Message::CacheChecked => {
-				return (
-					Task::perform(
-						cache_size(cache_path(app_state.settings.exanima_exe.clone().unwrap())),
-						Message::CacheSize,
-					),
-					Action::None,
-				)
+				if let Some(exanima_exe) = self.settings.exanima_exe.clone() {
+					return (
+						Task::perform(cache_size(cache_path(exanima_exe)), Message::CacheSize),
+						Action::None,
+					);
+				}
 			}
 			Message::CacheCleared => {
 				return (
 					Task::perform(
-						clear_cache(cache_path(app_state.settings.exanima_exe.clone().unwrap())),
+						clear_cache(cache_path(self.settings.exanima_exe.clone().unwrap())),
 						|_| Message::CacheChecked,
 					),
 					Action::None,
-				)
+				);
 			}
 			Message::CacheSize(cache_size) => self.cache_size = cache_size,
 			Message::CacheOpened => {
-				open::that(cache_path(app_state.settings.exanima_exe.clone().unwrap())).unwrap()
+				open::that(cache_path(self.settings.exanima_exe.clone().unwrap())).unwrap()
 			}
 			Message::Changelog => return (Task::none(), Action::ViewChangelog),
 			Message::Confirm => {
