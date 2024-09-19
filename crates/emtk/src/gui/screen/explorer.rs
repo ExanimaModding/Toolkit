@@ -94,8 +94,9 @@ impl Explorer {
 				let format = Format::from_reader_with_ctx(&mut reader, ctx).unwrap();
 				if let Format::Rpk(rpk) = format {
 					// TODO: add_filter and detect file type of entry
+					// BUG: saving to file that already exists freezes app until a windows dialog appears
 					if let Some(path) = FileDialog::new().set_file_name(entry.name).save_file() {
-						let mut writer = io::BufWriter::new(fs::File::create_new(path).unwrap());
+						let mut writer = io::BufWriter::new(fs::File::create(path).unwrap());
 						writer.write_all(rpk.data[0].as_slice()).unwrap();
 					}
 				}
