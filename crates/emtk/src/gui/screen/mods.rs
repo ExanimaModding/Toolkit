@@ -10,7 +10,7 @@ use iced_drop::{droppable, find_zones};
 
 use crate::{
 	config::Config,
-	gui::{config_by_id, theme, Icon},
+	gui::{config_by_id, load_order, theme, Icon},
 };
 
 #[derive(Debug, Clone)]
@@ -62,32 +62,62 @@ pub enum Message {
 }
 
 impl Mods {
-	pub fn new(config: Config) -> Self {
+	pub fn new(mut config: Config) -> (Self, Action) {
 		match &config.exanima_exe {
 			Some(path) => {
 				let path = PathBuf::from(path);
 
-				Self {
-					config: config.clone(),
-					load_order: config
-						.load_order
-						.iter()
-						.map(|(mod_id, _enabled)| {
-							let container_id = container::Id::new(mod_id.clone());
-							ModView::new(
-								widget::Id::from(container_id.clone()),
-								container_id,
-								config_by_id(&path, mod_id),
-							)
-						})
-						.collect(),
-					..Default::default()
-				}
+				let load_order = load_order(&path);
+				let mut new_mods: Vec<_> = load_order
+					.iter()
+					.filter_map(|(maybe_mod_id, enabled)| {
+						if config
+							.load_order
+							.iter()
+							.any(|(mod_id, _enabled)| mod_id == maybe_mod_id)
+						{
+							None
+						} else {
+							Some((maybe_mod_id.clone(), *enabled))
+						}
+					})
+					.collect::<Vec<_>>();
+
+				let action = if new_mods.is_empty() {
+					Action::None
+				} else {
+					// append any new mods not found in config
+					config.load_order.append(&mut new_mods);
+					Action::ConfigChanged(config.clone())
+				};
+
+				(
+					Self {
+						config: config.clone(),
+						load_order: config
+							.load_order
+							.iter()
+							.map(|(mod_id, _enabled)| {
+								let container_id = container::Id::new(mod_id.clone());
+								ModView::new(
+									widget::Id::from(container_id.clone()),
+									container_id,
+									config_by_id(&path, mod_id),
+								)
+							})
+							.collect(),
+						..Default::default()
+					},
+					action,
+				)
 			}
-			None => Self {
-				config,
-				..Default::default()
-			},
+			None => (
+				Self {
+					config,
+					..Default::default()
+				},
+				Action::None,
+			),
 		}
 	}
 

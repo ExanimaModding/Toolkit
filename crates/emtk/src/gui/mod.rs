@@ -171,10 +171,16 @@ impl Emtk {
 			icons.insert(icon, svg::Handle::from_memory(bytes));
 		}
 
+		let (mods, mods_action) = Mods::new(config.clone());
+		let mods_task = match mods_action {
+			mods::Action::ConfigChanged(config) => Task::done(Message::ConfigChanged(config)),
+			mods::Action::None => Task::none(),
+		};
+
 		let emtk = Self {
-			config: config.clone(),
+			config,
 			icons,
-			screen: Screen::Mods(Mods::new(config)),
+			screen: Screen::Mods(mods),
 			..Default::default()
 		};
 		(
@@ -186,6 +192,7 @@ impl Emtk {
 			// 		.map(Message::Home),
 			// ]),
 			Task::batch([
+				mods_task,
 				task_configure,
 				Task::done(Message::GetLatestRelease(GetLatestReleaseState::NotStarted)),
 				Task::done(Message::ScreenChanged(ScreenKind::Mods)),
@@ -372,7 +379,14 @@ impl Emtk {
 					self.screen = Screen::Explorer(Explorer::new(exanima_rpks))
 				}
 				ScreenKind::Mods => {
-					self.screen = Screen::Mods(Mods::new(self.config.clone()));
+					let (mods, mods_action) = Mods::new(self.config.clone());
+					self.screen = Screen::Mods(mods);
+					return match mods_action {
+						mods::Action::ConfigChanged(config) => {
+							Task::done(Message::ConfigChanged(config))
+						}
+						mods::Action::None => Task::none(),
+					};
 				}
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
