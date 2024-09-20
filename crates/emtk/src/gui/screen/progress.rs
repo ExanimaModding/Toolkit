@@ -11,7 +11,7 @@ use lilt::{Animated, Easing};
 use tokio::time::Duration;
 
 use crate::{
-	config,
+	config::Config,
 	gui::{constants::FADE_DURATION, missing_mods, path_by_id},
 };
 
@@ -54,10 +54,10 @@ pub enum Message {
 }
 
 impl Progress {
-	pub fn new(settings: config::Settings, size: Size) -> (Self, Task<Message>) {
+	pub fn new(config: Config, size: Size) -> (Self, Task<Message>) {
 		let now = Instant::now();
 
-		let (task, handle) = Task::stream(load_mods(settings).map(Message::Event)).abortable();
+		let (task, handle) = Task::stream(load_mods(config).map(Message::Event)).abortable();
 		(
 			Self {
 				bar: Bar::default(),
@@ -251,18 +251,18 @@ impl Progress {
 	}
 }
 
-fn load_mods(settings: config::Settings) -> impl Stream<Item = Event> {
+fn load_mods(config: Config) -> impl Stream<Item = Event> {
 	stream::channel(0, |mut tx: Sender<Event>| async move {
 		tokio::time::sleep(Duration::from_millis(FADE_DURATION)).await;
 		let mut bar = Bar::default();
 
 		let exanima_exe = PathBuf::from(
-			settings
+			config
 				.exanima_exe
 				.expect("error while getting exanima exe path"),
 		);
 
-		let missing_mods = missing_mods(&settings.load_order, &exanima_exe);
+		let missing_mods = missing_mods(&config.load_order, &exanima_exe);
 
 		let exanima_path = exanima_exe
 			.parent()
@@ -316,7 +316,7 @@ fn load_mods(settings: config::Settings) -> impl Stream<Item = Event> {
 				let mut exanima_sorted_entries = exanima_rpk.entries.to_vec();
 				exanima_sorted_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
-				for (mod_id, enabled) in &settings.load_order {
+				for (mod_id, enabled) in &config.load_order {
 					if !enabled || missing_mods.contains(&(mod_id.clone(), *enabled)) {
 						continue;
 					}

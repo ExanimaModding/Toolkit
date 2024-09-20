@@ -33,7 +33,7 @@ use screen::{
 use strum::{EnumIter, IntoEnumIterator};
 use widget::modal::modal;
 
-use crate::config;
+use crate::config::{self, Config};
 
 // TODO: animate scrolling in scrollbars
 static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
@@ -107,7 +107,7 @@ pub struct Emtk {
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
 	screen: Screen,
-	settings: config::Settings,
+	config: Config,
 	window_size: Size,
 }
 
@@ -126,7 +126,7 @@ pub enum Message {
 	Progress(progress::Message),
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
-	SettingsChanged(config::Settings),
+	ConfigChanged(Config),
 	SizeChanged(Size),
 	StartGame,
 	Tick,
@@ -138,27 +138,27 @@ impl Emtk {
 		if !config_path.is_dir() {
 			fs::create_dir_all(&config_path).unwrap();
 		}
-		let settings_path = config_path.join("settings.ron");
-		let default_settings = config::Settings {
+		let config_path = config_path.join("config.ron");
+		let default_config = Config {
 			exanima_exe: Option::default(),
 			launcher: Some(config::Launcher::default()),
 			load_order: Vec::new(),
 		};
-		let settings = if settings_path.is_file() {
+		let config = if config_path.is_file() {
 			let mut contents = String::new();
-			fs::File::open(&settings_path)
+			fs::File::open(&config_path)
 				.unwrap()
 				.read_to_string(&mut contents)
 				.unwrap();
 			// TODO: attempt to migrate old settings on error result
-			match ron::from_str::<config::Settings>(&contents) {
-				Ok(settings) => settings,
-				Err(_) => default_settings,
+			match ron::from_str::<Config>(&contents) {
+				Ok(config) => config,
+				Err(_) => default_config,
 			}
 		} else {
-			default_settings
+			default_config
 		};
-		let task_configure = if settings.exanima_exe.is_none() {
+		let task_configure = if config.exanima_exe.is_none() {
 			// TODO: attempt to find Exanima.exe via Steam
 			Task::done(Message::ModalChanged(ScreenKind::Settings))
 		} else {
@@ -172,9 +172,9 @@ impl Emtk {
 		}
 
 		let emtk = Self {
+			config: config.clone(),
 			icons,
-			screen: Screen::Mods(Mods::new(settings.clone())),
-			settings,
+			screen: Screen::Mods(Mods::new(config)),
 			..Default::default()
 		};
 		(
@@ -255,8 +255,8 @@ impl Emtk {
 				if let Screen::Mods(mods) = &mut self.screen {
 					let (task, action) = mods.update(message);
 					let action_task = match action {
-						mods::Action::SettingsChanged(settings) => {
-							Task::done(Message::SettingsChanged(settings))
+						mods::Action::ConfigChanged(config) => {
+							Task::done(Message::ConfigChanged(config))
 						}
 						mods::Action::None => Task::none(),
 					};
@@ -280,7 +280,7 @@ impl Emtk {
 				ScreenKind::Settings => {
 					self.fade.transition(true, now);
 					let (settings, task) = Settings::new(
-						self.settings.clone(),
+						self.config.clone(),
 						self.theme(),
 						Some(self.window_size * 0.8),
 					);
@@ -344,7 +344,7 @@ impl Emtk {
 			Message::ScreenChanged(kind) => match kind {
 				ScreenKind::Changelog => (),
 				ScreenKind::Explorer => {
-					let exanima_exe = PathBuf::from(self.settings.exanima_exe.clone().unwrap());
+					let exanima_exe = PathBuf::from(self.config.exanima_exe.clone().unwrap());
 					// TODO: redundant code taken from crate::gui::screen::progress::load_mods()
 					let exanima_path = exanima_exe
 						.parent()
@@ -372,11 +372,11 @@ impl Emtk {
 					self.screen = Screen::Explorer(Explorer::new(exanima_rpks))
 				}
 				ScreenKind::Mods => {
-					self.screen = Screen::Mods(Mods::new(self.settings.clone()));
+					self.screen = Screen::Mods(Mods::new(self.config.clone()));
 				}
 				ScreenKind::Progress => (),
 				ScreenKind::Settings => {
-					let (settings, task) = Settings::new(self.settings.clone(), self.theme(), None);
+					let (settings, task) = Settings::new(self.config.clone(), self.theme(), None);
 					self.screen = Screen::Settings(settings);
 					return task.map(Message::Settings);
 				}
@@ -399,8 +399,8 @@ impl Emtk {
 							Task::none()
 						}
 					}
-					settings::Action::SettingsChanged(settings) => {
-						Task::done(Message::SettingsChanged(settings))
+					settings::Action::ConfigChanged(settings) => {
+						Task::done(Message::ConfigChanged(settings))
 					}
 					settings::Action::ViewChangelog => {
 						Task::done(Message::ModalChanged(ScreenKind::Changelog))
@@ -409,24 +409,23 @@ impl Emtk {
 				};
 				return Task::batch([task.map(Message::Settings), action]);
 			}
-			Message::SettingsChanged(settings) => {
+			Message::ConfigChanged(config) => {
 				let config_path = dirs::config_dir().unwrap().join("Exanima Modding Toolkit");
 				if !config_path.is_dir() {
 					fs::create_dir_all(&config_path).unwrap();
 				}
-				let settings_path = config_path.join("settings.ron");
+				let config_path = config_path.join("config.ron");
 				let content =
-					ron::ser::to_string_pretty(&settings, ron::ser::PrettyConfig::default())
-						.unwrap();
-				fs::write(settings_path, content).unwrap();
-				self.settings = settings;
+					ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap();
+				fs::write(config_path, content).unwrap();
+				self.config = config;
 				match &mut self.screen {
 					Screen::Mods(mods) => {
-						mods.update(mods::Message::SettingsRefetched(self.settings.clone()));
+						mods.update(mods::Message::ConfigRefetched(self.config.clone()));
 					}
 					Screen::Settings(settings) => {
 						let (_task, _action) = settings
-							.update(settings::Message::SettingsRefetched(self.settings.clone()));
+							.update(settings::Message::ConfigRefetched(self.config.clone()));
 					}
 					_ => (),
 				}
@@ -461,7 +460,7 @@ impl Emtk {
 			}
 			Message::StartGame => {
 				log::info!("Starting Exanima...");
-				let (progress, task) = Progress::new(self.settings.clone(), self.window_size * 0.8);
+				let (progress, task) = Progress::new(self.config.clone(), self.window_size * 0.8);
 				self.fade.transition(true, now);
 				self.modal = Some(Screen::Progress(progress));
 				return task.map(Message::Progress);
@@ -501,7 +500,7 @@ impl Emtk {
 			match screen {
 				Screen::Changelog(changelog) => {
 					let changelog_view = changelog.view().map(Message::Changelog);
-					let changelog_view = if self.settings.launcher.as_ref().unwrap().explain {
+					let changelog_view = if self.config.launcher.as_ref().unwrap().explain {
 						changelog_view.explain(explain_color)
 					} else {
 						changelog_view
@@ -512,7 +511,7 @@ impl Emtk {
 				}
 				Screen::Progress(progress) => {
 					let progress_view = progress.view().map(Message::Progress);
-					let progress_view = if self.settings.launcher.as_ref().unwrap().explain {
+					let progress_view = if self.config.launcher.as_ref().unwrap().explain {
 						progress_view.explain(explain_color)
 					} else {
 						progress_view
@@ -521,7 +520,7 @@ impl Emtk {
 				}
 				Screen::Settings(settings) => {
 					let settings_view = settings.view(&self.icons).map(Message::Settings);
-					let settings_view = if self.settings.launcher.as_ref().unwrap().explain {
+					let settings_view = if self.config.launcher.as_ref().unwrap().explain {
 						settings_view.explain(explain_color)
 					} else {
 						settings_view
@@ -534,7 +533,7 @@ impl Emtk {
 			con.into()
 		};
 
-		if self.settings.launcher.as_ref().unwrap().explain {
+		if self.config.launcher.as_ref().unwrap().explain {
 			con.explain(explain_color)
 		} else {
 			con
@@ -706,7 +705,7 @@ impl Emtk {
 	}
 
 	pub fn theme(&self) -> Theme {
-		match self.settings.launcher.as_ref().unwrap().theme.as_str() {
+		match self.config.launcher.as_ref().unwrap().theme.as_str() {
 			"light" => Theme::Light,
 			"dark" => Theme::Dark,
 			"dracula" => Theme::Dracula,
@@ -775,6 +774,7 @@ impl Default for Emtk {
 	fn default() -> Self {
 		Self {
 			changelog: Vec::default(),
+			config: Config::default(),
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
@@ -783,7 +783,6 @@ impl Default for Emtk {
 			latest_release: GetLatestReleaseState::default(),
 			modal: Option::default(),
 			screen: Screen::default(),
-			settings: config::Settings::default(),
 			window_size: Size::default(),
 		}
 	}
@@ -818,11 +817,11 @@ pub fn load_order(path: &Path) -> Vec<(String, bool)> {
 				.unwrap()
 				.read_to_string(&mut contents)
 				.unwrap();
-			let config: PluginConfig = match toml::from_str(&contents) {
+			let mod_config: PluginConfig = match toml::from_str(&contents) {
 				Ok(plugin_config) => plugin_config,
 				Err(_) => continue,
 			};
-			load_order.push((config.plugin.id, false));
+			load_order.push((mod_config.plugin.id, false));
 		}
 	}
 	load_order
@@ -847,12 +846,12 @@ pub fn config_by_id(path: &Path, mod_id: &str) -> Option<PluginConfig> {
 				.unwrap()
 				.read_to_string(&mut contents)
 				.unwrap();
-			let config: PluginConfig = match toml::from_str(&contents) {
+			let mod_config: PluginConfig = match toml::from_str(&contents) {
 				Ok(plugin_config) => plugin_config,
 				Err(_) => continue,
 			};
-			if config.plugin.id == mod_id {
-				return Some(config);
+			if mod_config.plugin.id == mod_id {
+				return Some(mod_config);
 			}
 		}
 	}
@@ -879,11 +878,11 @@ pub fn path_by_id(path: &Path, mod_id: &str) -> Option<PathBuf> {
 				.unwrap()
 				.read_to_string(&mut contents)
 				.unwrap();
-			let config: PluginConfig = match toml::from_str(&contents) {
+			let mod_config: PluginConfig = match toml::from_str(&contents) {
 				Ok(plugin_config) => plugin_config,
 				Err(_) => continue,
 			};
-			if config.plugin.id == mod_id {
+			if mod_config.plugin.id == mod_id {
 				return Some(mod_path);
 			}
 		}

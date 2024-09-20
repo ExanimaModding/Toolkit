@@ -9,13 +9,13 @@ use iced::{
 use iced_drop::{droppable, find_zones};
 
 use crate::{
-	config,
+	config::Config,
 	gui::{config_by_id, theme, Icon},
 };
 
 #[derive(Debug, Clone)]
 pub enum Action {
-	SettingsChanged(config::Settings),
+	ConfigChanged(Config),
 	None,
 }
 
@@ -23,19 +23,19 @@ pub enum Action {
 pub struct ModView {
 	widget_id: widget::Id,
 	container_id: container::Id,
-	config: Option<PluginConfig>,
+	mod_config: Option<PluginConfig>,
 }
 
 impl ModView {
 	pub fn new(
 		widget_id: widget::Id,
 		container_id: container::Id,
-		config: Option<PluginConfig>,
+		mod_config: Option<PluginConfig>,
 	) -> Self {
 		Self {
 			widget_id,
 			container_id,
-			config,
+			mod_config,
 		}
 	}
 }
@@ -46,29 +46,30 @@ impl ModView {
 // TODO: support dragging multiple mods via multi-select
 #[derive(Debug, Default, Clone)]
 pub struct Mods {
+	config: Config,
 	hovered_mod: Option<widget::Id>,
 	load_order: Vec<ModView>,
-	settings: config::Settings,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
+	ConfigRefetched(Config),
 	ModDragCanceled,
 	ModDragged(usize, Point, Rectangle),
 	ModDropped(usize, Point, Rectangle),
 	ModToggled(usize, bool),
 	ModZonesFound(Vec<(widget::Id, Rectangle)>),
-	SettingsRefetched(config::Settings),
 }
 
 impl Mods {
-	pub fn new(settings: config::Settings) -> Self {
-		match &settings.exanima_exe {
+	pub fn new(config: Config) -> Self {
+		match &config.exanima_exe {
 			Some(path) => {
 				let path = PathBuf::from(path);
 
 				Self {
-					load_order: settings
+					config: config.clone(),
+					load_order: config
 						.load_order
 						.iter()
 						.map(|(mod_id, _enabled)| {
@@ -80,12 +81,11 @@ impl Mods {
 							)
 						})
 						.collect(),
-					settings: settings.clone(),
 					..Default::default()
 				}
 			}
 			None => Self {
-				settings,
+				config,
 				..Default::default()
 			},
 		}
@@ -93,6 +93,25 @@ impl Mods {
 
 	pub fn update(&mut self, message: Message) -> (Task<Message>, Action) {
 		match message {
+			Message::ConfigRefetched(config) => {
+				if let Some(exanima_exe) = &config.exanima_exe {
+					self.load_order = config
+						.load_order
+						.iter()
+						.map(|(mod_id, _enabled)| {
+							let path = PathBuf::from(exanima_exe);
+							let container_id = container::Id::new(mod_id.clone());
+
+							ModView::new(
+								widget::Id::from(container_id.clone()),
+								container_id,
+								config_by_id(&path, mod_id),
+							)
+						})
+						.collect();
+				}
+				self.config = config;
+			}
 			Message::ModDragCanceled => self.hovered_mod = None,
 			Message::ModDragged(_index, _point, rectangle) => {
 				return (
@@ -126,41 +145,22 @@ impl Mods {
 					let mod_view = self.load_order[from_index].clone();
 					self.load_order.remove(from_index);
 					self.load_order.insert(to_index, mod_view);
-					let (mod_id, enabled) = self.settings.load_order[from_index].clone();
-					self.settings.load_order.remove(from_index);
-					self.settings.load_order.insert(to_index, (mod_id, enabled));
+					let (mod_id, enabled) = self.config.load_order[from_index].clone();
+					self.config.load_order.remove(from_index);
+					self.config.load_order.insert(to_index, (mod_id, enabled));
 
 					self.hovered_mod = None;
-					return (Task::none(), Action::SettingsChanged(self.settings.clone()));
+					return (Task::none(), Action::ConfigChanged(self.config.clone()));
 				}
 			}
 			Message::ModToggled(index, enabled) => {
-				self.settings.load_order[index].1 = enabled;
-				return (Task::none(), Action::SettingsChanged(self.settings.clone()));
+				self.config.load_order[index].1 = enabled;
+				return (Task::none(), Action::ConfigChanged(self.config.clone()));
 			}
 			Message::ModZonesFound(zones) => {
 				if let Some(zone) = zones.first() {
 					self.hovered_mod = Some(zone.0.clone())
 				}
-			}
-			Message::SettingsRefetched(settings) => {
-				if let Some(exanima_exe) = &settings.exanima_exe {
-					self.load_order = settings
-						.load_order
-						.iter()
-						.map(|(mod_id, _enabled)| {
-							let path = PathBuf::from(exanima_exe);
-							let container_id = container::Id::new(mod_id.clone());
-
-							ModView::new(
-								widget::Id::from(container_id.clone()),
-								container_id,
-								config_by_id(&path, mod_id),
-							)
-						})
-						.collect();
-				}
-				self.settings = settings;
 			}
 		}
 
@@ -190,7 +190,7 @@ impl Mods {
 								droppable(
 									container(
 										Row::new()
-											.push(if mod_view.config.is_some() {
+											.push(if mod_view.mod_config.is_some() {
 												svg(icons.get(&Icon::Menu).unwrap().clone())
 													.width(Length::Shrink)
 													.style(theme::svg)
@@ -203,20 +203,18 @@ impl Mods {
 											.push(
 												container(
 													checkbox(
-														if let Some(config) = &mod_view.config {
+														if let Some(config) = &mod_view.mod_config {
 															config.plugin.name.clone()
 														} else {
-															self.settings.load_order[index]
-																.0
-																.clone()
+															self.config.load_order[index].0.clone()
 														},
-														self.settings.load_order[index].1,
+														self.config.load_order[index].1,
 													)
 													.on_toggle(move |enabled| {
 														Message::ModToggled(index, enabled)
 													})
 													.style(move |theme, status| {
-														if mod_view.config.is_some() {
+														if mod_view.mod_config.is_some() {
 															checkbox::primary(theme, status)
 														} else {
 															let mut style =
@@ -242,13 +240,15 @@ impl Mods {
 											)
 											.push(
 												container(
-													text(if let Some(config) = &mod_view.config {
-														config.plugin.version.clone()
-													} else {
-														"?".to_string()
-													})
+													text(
+														if let Some(config) = &mod_view.mod_config {
+															config.plugin.version.clone()
+														} else {
+															"?".to_string()
+														},
+													)
 													.style(|theme: &Theme| {
-														if mod_view.config.is_some() {
+														if mod_view.mod_config.is_some() {
 															text::Style::default()
 														} else {
 															text::Style {

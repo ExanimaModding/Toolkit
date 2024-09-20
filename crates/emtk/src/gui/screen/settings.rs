@@ -12,14 +12,14 @@ use lilt::{Animated, Easing};
 use rfd::FileDialog;
 
 use crate::{
-	config,
+	config::Config,
 	gui::{constants::FADE_DURATION, load_order, theme, widget::tooltip, Icon},
 };
 
 #[derive(Debug, Clone)]
 pub enum Action {
 	CloseModal,
-	SettingsChanged(config::Settings),
+	ConfigChanged(Config),
 	ViewChangelog,
 	None,
 }
@@ -27,9 +27,9 @@ pub enum Action {
 #[derive(Debug, Clone)]
 pub struct Settings {
 	cache_size: u64,
+	config: Config,
 	exanima_exe: String,
 	fade: Animated<bool, Instant>,
-	settings: config::Settings,
 	size: Option<Size>,
 	theme: Theme,
 	tooltip_fade: Animated<bool, Instant>,
@@ -42,13 +42,13 @@ pub enum Message {
 	CacheSize(u64),
 	CacheOpened,
 	Changelog,
+	ConfigRefetched(Config),
 	Confirm,
 	DeveloperToggled(bool),
 	ExanimaExe(PathBuf),
 	ExanimaExeDialog,
 	ExplainToggled(bool),
 	FadeOut,
-	SettingsRefetched(config::Settings),
 	SizeChanged(Size),
 	ThemeChanged(Theme),
 	Tick,
@@ -57,18 +57,15 @@ pub enum Message {
 }
 
 impl Settings {
-	pub fn new(
-		settings: config::Settings,
-		theme: Theme,
-		size: Option<Size>,
-	) -> (Self, Task<Message>) {
+	pub fn new(config: Config, theme: Theme, size: Option<Size>) -> (Self, Task<Message>) {
+		let exanima_exe = match &config.exanima_exe {
+			Some(exanima_exe) => exanima_exe.clone(),
+			None => String::new(),
+		};
 		(
 			Self {
-				exanima_exe: match &settings.exanima_exe {
-					Some(exanima_exe) => exanima_exe.clone(),
-					None => String::new(),
-				},
-				settings,
+				config,
+				exanima_exe,
 				size,
 				theme,
 				..Default::default()
@@ -82,7 +79,7 @@ impl Settings {
 
 		match message {
 			Message::CacheChecked => {
-				if let Some(exanima_exe) = self.settings.exanima_exe.clone() {
+				if let Some(exanima_exe) = self.config.exanima_exe.clone() {
 					return (
 						Task::perform(cache_size(cache_path(exanima_exe)), Message::CacheSize),
 						Action::None,
@@ -92,7 +89,7 @@ impl Settings {
 			Message::CacheCleared => {
 				return (
 					Task::perform(
-						clear_cache(cache_path(self.settings.exanima_exe.clone().unwrap())),
+						clear_cache(cache_path(self.config.exanima_exe.clone().unwrap())),
 						|_| Message::CacheChecked,
 					),
 					Action::None,
@@ -100,16 +97,17 @@ impl Settings {
 			}
 			Message::CacheSize(cache_size) => self.cache_size = cache_size,
 			Message::CacheOpened => {
-				open::that(cache_path(self.settings.exanima_exe.clone().unwrap())).unwrap()
+				open::that(cache_path(self.config.exanima_exe.clone().unwrap())).unwrap()
 			}
 			Message::Changelog => return (Task::none(), Action::ViewChangelog),
+			Message::ConfigRefetched(config) => self.config = config,
 			Message::Confirm => {
 				return (Task::none(), Action::CloseModal);
 			}
 			Message::DeveloperToggled(developer) => {
-				if let Some(launcher) = &mut self.settings.launcher {
+				if let Some(launcher) = &mut self.config.launcher {
 					launcher.developer = developer;
-					return (Task::none(), Action::SettingsChanged(self.settings.clone()));
+					return (Task::none(), Action::ConfigChanged(self.config.clone()));
 				}
 			}
 			Message::ExanimaExe(path) => {
@@ -118,19 +116,19 @@ impl Settings {
 				if !path.is_file() {
 					return (Task::none(), Action::None);
 				}
-				self.settings.exanima_exe = Some(path_str);
-				if self.settings.load_order.is_empty() {
-					self.settings.load_order = load_order(&path);
+				self.config.exanima_exe = Some(path_str);
+				if self.config.load_order.is_empty() {
+					self.config.load_order = load_order(&path);
 				} else {
 					let load_order = load_order(&path);
 
-					// append any new mods not found in settings
-					self.settings.load_order.append(
+					// append any new mods not found in config
+					self.config.load_order.append(
 						&mut load_order
 							.iter()
 							.filter_map(|(maybe_mod_id, enabled)| {
 								if self
-									.settings
+									.config
 									.load_order
 									.iter()
 									.any(|(mod_id, _enabled)| mod_id == maybe_mod_id)
@@ -143,7 +141,7 @@ impl Settings {
 							.collect::<Vec<_>>(),
 					);
 				}
-				return (Task::none(), Action::SettingsChanged(self.settings.clone()));
+				return (Task::none(), Action::ConfigChanged(self.config.clone()));
 			}
 			Message::ExanimaExeDialog => {
 				if let Some(path) = FileDialog::new()
@@ -154,13 +152,12 @@ impl Settings {
 				}
 			}
 			Message::ExplainToggled(explain) => {
-				if let Some(launcher) = &mut self.settings.launcher {
+				if let Some(launcher) = &mut self.config.launcher {
 					launcher.explain = explain;
-					return (Task::none(), Action::SettingsChanged(self.settings.clone()));
+					return (Task::none(), Action::ConfigChanged(self.config.clone()));
 				}
 			}
 			Message::FadeOut => self.fade.transition(false, now),
-			Message::SettingsRefetched(settings) => self.settings = settings,
 			Message::SizeChanged(size) => self.size = Some(size),
 			Message::ThemeChanged(theme) => {
 				self.theme = theme.to_owned();
@@ -189,17 +186,17 @@ impl Settings {
 					Theme::Ferra => "ferra",
 					Theme::Custom(custom) => "custom",
 				};
-				self.settings.launcher.as_mut().unwrap().theme = theme_setting.to_string();
-				return (Task::none(), Action::SettingsChanged(self.settings.clone()));
+				self.config.launcher.as_mut().unwrap().theme = theme_setting.to_string();
+				return (Task::none(), Action::ConfigChanged(self.config.clone()));
 			}
 			Message::Tick => (),
 			Message::TooltipHide => {
-				if self.settings.exanima_exe.is_none() && !self.tooltip_fade.in_progress(now) {
+				if self.config.exanima_exe.is_none() && !self.tooltip_fade.in_progress(now) {
 					self.tooltip_fade.transition_instantaneous(false, now);
 				}
 			}
 			Message::TooltipShow => {
-				if self.settings.exanima_exe.is_none() && !self.tooltip_fade.in_progress(now) {
+				if self.config.exanima_exe.is_none() && !self.tooltip_fade.in_progress(now) {
 					self.tooltip_fade.transition(true, now);
 				}
 			}
@@ -393,7 +390,7 @@ impl Settings {
 								Row::new().push(
 									checkbox(
 										"Developer Mode",
-										self.settings.launcher.as_ref().unwrap().developer,
+										self.config.launcher.as_ref().unwrap().developer,
 									)
 									.on_toggle(Message::DeveloperToggled)
 									.style(move |theme, status| {
@@ -401,12 +398,12 @@ impl Settings {
 									}),
 								),
 							)
-							.push_maybe(if self.settings.launcher.as_ref().unwrap().developer {
+							.push_maybe(if self.config.launcher.as_ref().unwrap().developer {
 								Some(
 									Row::new().push(
 										checkbox(
 											"Explain UI Layout",
-											self.settings.launcher.as_ref().unwrap().explain,
+											self.config.launcher.as_ref().unwrap().explain,
 										)
 										.on_toggle(Message::ExplainToggled)
 										.style(move |theme, status| {
@@ -432,7 +429,7 @@ impl Settings {
 									tooltip(
 										button("Confirm")
 											.on_press_maybe(
-												if self.settings.exanima_exe.is_none() {
+												if self.config.exanima_exe.is_none() {
 													None
 												} else {
 													Some(Message::Confirm)
@@ -505,13 +502,13 @@ impl Default for Settings {
 
 		Self {
 			cache_size: u64::default(),
+			config: Config::default(),
 			exanima_exe: String::default(),
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
 				.delay(0.)
 				.auto_start(true, now),
-			settings: config::Settings::default(),
 			size: Some(Size::default()),
 			theme: Theme::default(),
 			tooltip_fade: Animated::new(false)

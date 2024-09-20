@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Settings {
+pub struct Config {
 	pub exanima_exe: Option<String>,
 	pub launcher: Option<Launcher>,
 	pub load_order: Vec<(String, bool)>,
