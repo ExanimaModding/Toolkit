@@ -4,6 +4,7 @@
 
 mod config;
 mod gui;
+#[cfg(target_os = "windows")]
 mod injector;
 
 use std::path::PathBuf;
@@ -26,6 +27,7 @@ pub fn launch_exanima() {
 		panic!("Could not find Exanima.exe\nEither set EXANIMA_EXE to the full path to Exanima.exe or move EMTK into the game folder")
 	}
 
+	#[cfg(target_os = "windows")]
 	unsafe {
 		injector::inject(
 			r"emf.dll",

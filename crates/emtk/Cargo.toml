@@ -8,13 +8,15 @@ homepage = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
 
+[target."cfg(windows)".dependencies]
+detours-sys = { workspace = true }
+emf = { path = "../emf" }
+
 [dependencies]
 anyhow = "1.0.86"
-detours-sys = { workspace = true }
 # EMF is needed as a dependency so that emf.dll gets compiled before running EMTK.
 chrono = { version = "0.4.38", features = ["serde"] }
 dirs = "5.0.1"
-emf = { path = "../emf" }
 emf-types = { workspace = true }
 exparser = { path = "../exparser" }
 human_bytes = "0.4.3"
