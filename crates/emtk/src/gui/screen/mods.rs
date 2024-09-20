@@ -187,11 +187,16 @@ impl Mods {
 								droppable(
 									container(
 										Row::new()
-											.push(
+											.push(if mod_view.config.is_some() {
 												svg(icons.get(&Icon::Menu).unwrap().clone())
 													.width(Length::Shrink)
-													.style(theme::svg),
-											)
+													.style(theme::svg)
+											} else {
+												svg(icons.get(&Icon::CircleAlert).unwrap().clone())
+													.width(Length::Shrink)
+													.opacity(0.5)
+													.style(theme::svg_danger)
+											})
 											.push(
 												container(
 													checkbox(
@@ -206,18 +211,54 @@ impl Mods {
 													)
 													.on_toggle(move |enabled| {
 														Message::ModToggled(index, enabled)
+													})
+													.style(move |theme, status| {
+														if mod_view.config.is_some() {
+															checkbox::primary(theme, status)
+														} else {
+															let mut style =
+																checkbox::primary(theme, status);
+															style.background =
+																style.background.scale_alpha(0.5);
+															style.icon_color =
+																style.icon_color.scale_alpha(0.5);
+															style.border = style.border.color(
+																style.border.color.scale_alpha(0.5),
+															);
+															style.text_color = Some(
+																theme
+																	.palette()
+																	.text
+																	.scale_alpha(0.5),
+															);
+															style
+														}
 													}),
 												)
 												.width(name_column),
 											)
 											.push(
-												container(text(
-													if let Some(config) = &mod_view.config {
+												container(
+													text(if let Some(config) = &mod_view.config {
 														config.plugin.version.clone()
 													} else {
 														"?".to_string()
-													},
-												))
+													})
+													.style(|theme: &Theme| {
+														if mod_view.config.is_some() {
+															text::Style::default()
+														} else {
+															text::Style {
+																color: Some(
+																	theme
+																		.palette()
+																		.text
+																		.scale_alpha(0.5),
+																),
+															}
+														}
+													}),
+												)
 												.align_x(Alignment::Center)
 												.width(version_column),
 											)

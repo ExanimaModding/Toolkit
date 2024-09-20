@@ -62,6 +62,12 @@ pub fn svg_button(theme: &Theme, _status: widget::svg::Status) -> widget::svg::S
 	}
 }
 
+pub fn svg_danger(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
+	widget::svg::Style {
+		color: Some(theme.palette().danger),
+	}
+}
+
 pub fn tooltip(theme: &Theme, scale_alpha: f32) -> container::Style {
 	let palette = theme.extended_palette();
 

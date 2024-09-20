@@ -41,6 +41,7 @@ static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 #[derive(Debug, Hash, PartialEq, Eq, EnumIter)]
 pub enum Icon {
 	ArrowLeft,
+	CircleAlert,
 	Folder,
 	Layers,
 	Menu,
@@ -53,6 +54,7 @@ impl Icon {
 	fn bytes(&self) -> &'static [u8] {
 		match self {
 			Icon::ArrowLeft => include_bytes!("../../../../assets/images/arrow-left.svg"),
+			Icon::CircleAlert => include_bytes!("../../../../assets/images/circle-alert.svg"),
 			Icon::Folder => include_bytes!("../../../../assets/images/folder.svg"),
 			Icon::Layers => include_bytes!("../../../../assets/images/layers-3.svg"),
 			Icon::Menu => include_bytes!("../../../../assets/images/menu.svg"),
