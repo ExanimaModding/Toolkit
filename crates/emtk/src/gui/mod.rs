@@ -753,10 +753,10 @@ impl Emtk {
 			Subscription::none()
 		};
 
-		let modal = match &self.modal {
-			Some(Screen::Progress(progress)) => progress.subscription().map(Message::Progress),
-			Some(Screen::Settings(settings)) => settings.subscription().map(Message::Settings),
-			_ => Subscription::none(),
+		let modal = if let Some(Screen::Settings(settings)) = &self.modal {
+			settings.subscription().map(Message::Settings)
+		} else {
+			Subscription::none()
 		};
 
 		Subscription::batch([events, screen, modal_fade, modal])

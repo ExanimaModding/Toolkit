@@ -5,7 +5,7 @@ use iced::{
 	futures::{channel::mpsc::Sender, SinkExt, Stream, StreamExt},
 	stream, task,
 	widget::{button, container, progress_bar, text, Column, Row},
-	window, Alignment, Border, Color, Element, Length, Padding, Size, Subscription, Task, Theme,
+	Alignment, Border, Color, Element, Length, Padding, Size, Task, Theme,
 };
 use lilt::{Animated, Easing};
 use tokio::time::Duration;
@@ -42,7 +42,6 @@ pub struct Progress {
 	progress_completion: Animated<bool, Instant>,
 	progress_increment: Animated<f32, Instant>,
 	size: Option<Size>,
-	spinner_rotation: Animated<bool, Instant>,
 	handle: task::Handle,
 }
 
@@ -73,11 +72,6 @@ impl Progress {
 					.delay(0.),
 				progress_increment: Animated::new(0.0).easing(Easing::Linear).duration(500.),
 				size: Some(size),
-				spinner_rotation: Animated::new(false)
-					.easing(Easing::Linear)
-					.duration(900.)
-					.repeat_forever()
-					.auto_start(true, now),
 				handle,
 			},
 			task,
@@ -253,16 +247,6 @@ impl Progress {
 			content.width(size.width).into()
 		} else {
 			content.into()
-		}
-	}
-
-	pub fn subscription(&self) -> Subscription<Message> {
-		let now = Instant::now();
-
-		if self.spinner_rotation.in_progress(now) {
-			window::frames().map(|_| Message::Tick)
-		} else {
-			Subscription::none()
 		}
 	}
 }
