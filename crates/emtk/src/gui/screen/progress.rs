@@ -12,7 +12,7 @@ use tokio::time::Duration;
 
 use crate::{
 	config,
-	gui::{constants::FADE_DURATION, path_by_id},
+	gui::{constants::FADE_DURATION, missing_mods, path_by_id},
 };
 
 #[derive(Debug, Clone)]
@@ -261,6 +261,9 @@ fn load_mods(settings: config::Settings) -> impl Stream<Item = Event> {
 				.exanima_exe
 				.expect("error while getting exanima exe path"),
 		);
+
+		let missing_mods = missing_mods(&settings.load_order, &exanima_exe);
+
 		let exanima_path = exanima_exe
 			.parent()
 			.expect("error while getting parent directory of exanima exe");
@@ -314,9 +317,10 @@ fn load_mods(settings: config::Settings) -> impl Stream<Item = Event> {
 				exanima_sorted_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
 
 				for (mod_id, enabled) in &settings.load_order {
-					if !enabled {
+					if !enabled || missing_mods.contains(&(mod_id.clone(), *enabled)) {
 						continue;
 					}
+
 					let mod_path = if let Some(mod_path) = path_by_id(&exanima_exe, mod_id) {
 						mod_path
 					} else {
@@ -383,7 +387,6 @@ fn load_mods(settings: config::Settings) -> impl Stream<Item = Event> {
 				exanima_rpk.entries = exanima_sorted_entries;
 			};
 
-			// NOTE: code block writes to disk and is commented out for testing
 			let emtk_data_path = exanima_exe.parent().unwrap().join(".emtk");
 			// TODO: replace cache_path variable to use a cache_path function
 			let cache_path = emtk_data_path.join("cache").join(file_name);

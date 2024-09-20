@@ -793,7 +793,7 @@ async fn get_latest_release() -> anyhow::Result<Release> {
 pub fn load_order(path: &Path) -> Vec<(String, bool)> {
 	let mods_path = path.parent().unwrap().join("mods");
 	if !mods_path.is_dir() {
-		fs::create_dir_all(&mods_path).unwrap();
+		return Vec::new();
 	}
 	let mut load_order = Vec::new();
 	for entry in mods_path.read_dir().unwrap().flatten() {
@@ -882,4 +882,20 @@ pub fn path_by_id(path: &Path, mod_id: &str) -> Option<PathBuf> {
 	}
 
 	None
+}
+
+pub fn missing_mods(order: &[(String, bool)], path: &Path) -> Vec<(String, bool)> {
+	order
+		.iter()
+		.filter_map(|(mod_id, enabled)| {
+			if load_order(path)
+				.iter()
+				.any(|(maybe_mod_id, _enabled)| mod_id == maybe_mod_id)
+			{
+				None
+			} else {
+				Some((mod_id.clone(), *enabled))
+			}
+		})
+		.collect::<Vec<_>>()
 }

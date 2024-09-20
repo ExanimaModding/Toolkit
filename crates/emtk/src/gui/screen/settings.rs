@@ -1,10 +1,10 @@
-use std::{collections::HashMap, fs, io::Read, path::PathBuf, time::Instant};
+use std::{collections::HashMap, fs, path::PathBuf, time::Instant};
 
 use human_bytes::human_bytes;
 use iced::{
 	widget::{
 		button, checkbox, container, horizontal_rule, horizontal_space, mouse_area, pick_list,
-		scrollable, svg, text, Column, Row,
+		scrollable, svg, text, text_input, Column, Row,
 	},
 	window, Alignment, Border, Element, Length, Size, Subscription, Task, Theme,
 };
@@ -27,6 +27,7 @@ pub enum Action {
 #[derive(Debug, Clone)]
 pub struct Settings {
 	cache_size: u64,
+	exanima_exe: String,
 	fade: Animated<bool, Instant>,
 	settings: config::Settings,
 	size: Option<Size>,
@@ -63,6 +64,10 @@ impl Settings {
 	) -> (Self, Task<Message>) {
 		(
 			Self {
+				exanima_exe: match &settings.exanima_exe {
+					Some(exanima_exe) => exanima_exe.clone(),
+					None => String::new(),
+				},
 				settings,
 				size,
 				theme,
@@ -108,8 +113,36 @@ impl Settings {
 				}
 			}
 			Message::ExanimaExe(path) => {
-				self.settings.exanima_exe = Some(path.to_str().unwrap().to_string());
-				self.settings.load_order = load_order(&path);
+				let path_str = path.to_str().unwrap().to_string();
+				self.exanima_exe = path_str.clone();
+				if !path.is_file() {
+					return (Task::none(), Action::None);
+				}
+				self.settings.exanima_exe = Some(path_str);
+				if self.settings.load_order.is_empty() {
+					self.settings.load_order = load_order(&path);
+				} else {
+					let load_order = load_order(&path);
+
+					// append any new mods not found in settings
+					self.settings.load_order.append(
+						&mut load_order
+							.iter()
+							.filter_map(|(maybe_mod_id, enabled)| {
+								if self
+									.settings
+									.load_order
+									.iter()
+									.any(|(mod_id, _enabled)| mod_id == maybe_mod_id)
+								{
+									None
+								} else {
+									Some((maybe_mod_id.clone(), *enabled))
+								}
+							})
+							.collect::<Vec<_>>(),
+					);
+				}
 				return (Task::none(), Action::SettingsChanged(self.settings.clone()));
 			}
 			Message::ExanimaExeDialog => {
@@ -222,33 +255,12 @@ impl Settings {
 									.push(
 										Row::new()
 											.push(
-												container(
-													container(text(
-														match &self.settings.exanima_exe {
-															Some(exanima_exe) => exanima_exe,
-															None => "",
-														},
-													))
-													.padding(6),
+												text_input(
+													r"C:\Program Files (x86)\Steam\steamapps\common\Exanima\Exanima.exe",
+													&self.exanima_exe,
 												)
-												.width(Length::Fill)
-												.height(Length::Fixed(34.))
-												.style(move |theme: &Theme| {
-													let palette = theme.extended_palette();
-
-													container::Style::default().border(
-														Border::default()
-															.color(
-																palette
-																	.background
-																	.weak
-																	.color
-																	.scale_alpha(animate_alpha),
-															)
-															.width(3.)
-															.rounded(3.),
-													)
-												}),
+												.on_input(|s| Message::ExanimaExe(PathBuf::from(s)))
+												.padding(7),
 											)
 											.push(
 												button(
@@ -503,6 +515,7 @@ impl Default for Settings {
 
 		Self {
 			cache_size: u64::default(),
+			exanima_exe: String::default(),
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
