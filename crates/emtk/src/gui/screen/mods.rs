@@ -1,16 +1,20 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, fs, path::PathBuf};
 
 use emf_types::config::PluginConfig;
 use iced::{
 	advanced::widget,
-	widget::{checkbox, container, horizontal_space, scrollable, svg, text, Column, Row},
-	Alignment, Border, Element, Length, Point, Rectangle, Task, Theme,
+	widget::{
+		button, checkbox, container, horizontal_rule, horizontal_space, scrollable, svg, text,
+		Column, Row,
+	},
+	Alignment, Border, Color, Element, Length, Point, Rectangle, Shadow, Task, Theme, Vector,
 };
+use iced_aw::ContextMenu;
 use iced_drop::{droppable, find_zones};
 
 use crate::{
 	config::Config,
-	gui::{config_by_id, load_order, theme, Icon},
+	gui::{config_by_id, load_order, path_by_id, theme, Icon},
 };
 
 pub enum Action {
@@ -54,9 +58,11 @@ pub struct Mods {
 #[derive(Debug, Clone)]
 pub enum Message {
 	ConfigRefetched(Config),
+	ModEdited(usize, ModView),
+	ModDeleted(usize),
 	ModDragCanceled,
-	ModDragged(usize, Point, Rectangle),
-	ModDropped(usize, Point, Rectangle),
+	ModDragged(Rectangle),
+	ModDropped(usize),
 	ModToggled(usize, bool),
 	ModZonesFound(Vec<(widget::Id, Rectangle)>),
 }
@@ -142,8 +148,23 @@ impl Mods {
 				}
 				self.config = config;
 			}
+			Message::ModEdited(_index, _mod_view) => {
+				// TODO: either use modal or separate screen to configure selected mod
+			}
+			Message::ModDeleted(index) => {
+				self.load_order.remove(index);
+				let mod_id = self.config.load_order[index].0.clone();
+				self.config.load_order.remove(index);
+				// TODO: prompt confirmation dialog
+				if let Some(exanima_exe) = &self.config.exanima_exe
+					&& let Some(mod_path) = path_by_id(&PathBuf::from(exanima_exe), &mod_id)
+				{
+					fs::remove_dir_all(mod_path).unwrap();
+				}
+				return Action::ConfigChanged(self.config.clone());
+			}
 			Message::ModDragCanceled => self.hovered_mod = None,
-			Message::ModDragged(_index, _point, rectangle) => {
+			Message::ModDragged(rectangle) => {
 				return Action::Run(find_zones(
 					Message::ModZonesFound,
 					move |bounds| bounds.intersects(&rectangle),
@@ -156,7 +177,7 @@ impl Mods {
 					None,
 				));
 			}
-			Message::ModDropped(from_index, _point, _rectangle) => {
+			Message::ModDropped(from_index) => {
 				if let Some(to_id) = &self.hovered_mod
 					&& let Some(to_index) =
 						self.load_order
@@ -213,112 +234,175 @@ impl Mods {
 					.push(
 						container(scrollable(Column::with_children(
 							self.load_order.iter().enumerate().map(|(index, mod_view)| {
-								// TODO: add tooltip conditionally for missing mods
-								droppable(
-									container(
-										Row::new()
-											.push(if mod_view.mod_config.is_some() {
-												svg(icons.get(&Icon::Menu).unwrap().clone())
-													.width(Length::Shrink)
-													.style(theme::svg)
-											} else {
-												svg(icons.get(&Icon::CircleAlert).unwrap().clone())
+								ContextMenu::new(
+									// TODO: add tooltip conditionally for missing mods
+									droppable(
+										container(
+											Row::new()
+												.push(if mod_view.mod_config.is_some() {
+													svg(icons.get(&Icon::Menu).unwrap().clone())
+														.width(Length::Shrink)
+														.style(theme::svg)
+												} else {
+													svg(icons
+														.get(&Icon::CircleAlert)
+														.unwrap()
+														.clone())
 													.width(Length::Shrink)
 													.opacity(0.5)
 													.style(theme::svg_danger)
-											})
-											.push(
-												container(
-													checkbox(
-														if let Some(config) = &mod_view.mod_config {
-															config.plugin.name.clone()
-														} else {
-															self.config.load_order[index].0.clone()
-														},
-														self.config.load_order[index].1,
+												})
+												.push(
+													container(
+														checkbox(
+															if let Some(config) =
+																&mod_view.mod_config
+															{
+																config.plugin.name.clone()
+															} else {
+																self.config.load_order[index]
+																	.0
+																	.clone()
+															},
+															self.config.load_order[index].1,
+														)
+														.on_toggle(move |enabled| {
+															Message::ModToggled(index, enabled)
+														})
+														.style(
+															move |theme, status| {
+																if mod_view.mod_config.is_some() {
+																	checkbox::primary(theme, status)
+																} else {
+																	let mut style =
+																		checkbox::primary(
+																			theme, status,
+																		);
+																	style.background = style
+																		.background
+																		.scale_alpha(0.5);
+																	style.icon_color = style
+																		.icon_color
+																		.scale_alpha(0.5);
+																	style.border =
+																		style.border.color(
+																			style
+																				.border
+																				.color
+																				.scale_alpha(0.5),
+																		);
+																	style.text_color = Some(
+																		theme
+																			.palette()
+																			.text
+																			.scale_alpha(0.5),
+																	);
+																	style
+																}
+															},
+														),
 													)
-													.on_toggle(move |enabled| {
-														Message::ModToggled(index, enabled)
-													})
-													.style(move |theme, status| {
-														if mod_view.mod_config.is_some() {
-															checkbox::primary(theme, status)
-														} else {
-															let mut style =
-																checkbox::primary(theme, status);
-															style.background =
-																style.background.scale_alpha(0.5);
-															style.icon_color =
-																style.icon_color.scale_alpha(0.5);
-															style.border = style.border.color(
-																style.border.color.scale_alpha(0.5),
-															);
-															style.text_color = Some(
-																theme
-																	.palette()
-																	.text
-																	.scale_alpha(0.5),
-															);
-															style
-														}
-													}),
+													.width(name_column),
 												)
-												.width(name_column),
-											)
-											.push(
-												container(
-													text(
-														if let Some(config) = &mod_view.mod_config {
-															config.plugin.version.clone()
-														} else {
-															"?".to_string()
-														},
-													)
-													.style(|theme: &Theme| {
-														if mod_view.mod_config.is_some() {
-															text::Style::default()
-														} else {
-															text::Style {
-																color: Some(
-																	theme
-																		.palette()
-																		.text
-																		.scale_alpha(0.5),
-																),
+												.push(
+													container(
+														text(
+															if let Some(config) =
+																&mod_view.mod_config
+															{
+																config.plugin.version.clone()
+															} else {
+																"?".to_string()
+															},
+														)
+														.style(|theme: &Theme| {
+															if mod_view.mod_config.is_some() {
+																text::Style::default()
+															} else {
+																text::Style {
+																	color: Some(
+																		theme
+																			.palette()
+																			.text
+																			.scale_alpha(0.5),
+																	),
+																}
 															}
-														}
-													}),
+														}),
+													)
+													.align_x(Alignment::Center)
+													.width(version_column),
 												)
-												.align_x(Alignment::Center)
-												.width(version_column),
-											)
-											.align_y(Alignment::Center)
-											.spacing(3),
+												.align_y(Alignment::Center)
+												.spacing(3),
+										)
+										.id(mod_view.container_id.clone())
+										.padding(4)
+										.style(move |theme: &Theme| {
+											let palette = theme.extended_palette();
+											let style = container::Style::default();
+											if let Some(to_id) = &self.hovered_mod
+												&& &mod_view.widget_id == to_id
+											{
+												style.background(palette.primary.weak.color)
+											} else if index % 2 == 0 {
+												style.background(
+													palette.background.weak.color.scale_alpha(0.3),
+												)
+											} else {
+												style
+											}
+										}),
 									)
-									.id(mod_view.container_id.clone())
-									.padding(4)
-									.style(move |theme: &Theme| {
-										let palette = theme.extended_palette();
-										let style = container::Style::default();
-										if let Some(to_id) = &self.hovered_mod
-											&& &mod_view.widget_id == to_id
-										{
-											style.background(palette.primary.weak.color)
-										} else if index % 2 == 0 {
-											style.background(palette.background.weak.color)
-										} else {
-											style
-										}
-									}),
+									.on_drag(move |_point, rectangle| {
+										Message::ModDragged(rectangle)
+									})
+									.on_drop(move |_point, _rectangle| Message::ModDropped(index))
+									.on_cancel(Message::ModDragCanceled)
+									.drag_hide(true),
+									move || {
+										container(
+											Column::new()
+												.push(
+													button(text("Edit"))
+														.on_press(Message::ModEdited(
+															index,
+															mod_view.clone(),
+														))
+														.padding(3)
+														.width(Length::Fill)
+														.style(theme::transparent_primary_button),
+												)
+												.push(horizontal_rule(6))
+												.push(
+													button(text("Delete"))
+														.on_press(Message::ModDeleted(index))
+														.padding(3)
+														.width(Length::Fill)
+														.style(theme::transparent_danger_button),
+												),
+										)
+										.padding(6)
+										.width(Length::Fixed(164.))
+										.style(|theme| {
+											let palette = theme.extended_palette();
+											container::Style::default()
+												.background(palette.background.base.color)
+												.border(
+													Border::default()
+														.color(palette.background.weak.color)
+														.width(1)
+														.rounded(3),
+												)
+												.shadow(Shadow {
+													color: Color::BLACK,
+													offset: Vector::new(2., 2.),
+													blur_radius: 8.,
+												})
+										})
+										.into()
+									},
 								)
-								.on_drag(move |point, rectangle| {
-									Message::ModDragged(index, point, rectangle)
-								})
-								.on_drop(move |point, rectangle| {
-									Message::ModDropped(index, point, rectangle)
-								})
-								.on_cancel(Message::ModDragCanceled)
-								.drag_hide(true)
 								.into()
 							}),
 						)))

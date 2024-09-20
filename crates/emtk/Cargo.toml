@@ -26,6 +26,7 @@ iced = { version = "0.13.0", features = [
 	"svg",
 	"tokio",
 ] }
+iced_aw = { version = "0.10.0", features = ["context_menu"] }
 iced_core = "0.13.0"
 iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", rev = "0b1544cf50a8000dc17a93e2de62ff9411cd0884" }
 image = { version = "0.25.2", features = ["ico"] }

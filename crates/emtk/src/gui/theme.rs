@@ -107,3 +107,47 @@ pub fn transparent_button(theme: &Theme, status: widget::button::Status) -> widg
 	style.text_color = text;
 	style
 }
+
+pub fn transparent_danger_button(
+	theme: &Theme,
+	status: widget::button::Status,
+) -> widget::button::Style {
+	let palette = theme.extended_palette();
+
+	let (background, text) = match status {
+		widget::button::Status::Hovered => {
+			(palette.danger.strong.color, palette.danger.strong.text)
+		}
+		widget::button::Status::Disabled => (
+			palette.background.base.color.scale_alpha(0.5),
+			palette.danger.strong.color.scale_alpha(0.5),
+		),
+		_ => (Color::TRANSPARENT, palette.danger.strong.color),
+	};
+
+	let mut style = widget::button::danger(theme, status).with_background(background);
+	style.text_color = text;
+	style
+}
+
+pub fn transparent_primary_button(
+	theme: &Theme,
+	status: widget::button::Status,
+) -> widget::button::Style {
+	let palette = theme.extended_palette();
+
+	let (background, text) = match status {
+		widget::button::Status::Hovered => {
+			(palette.primary.strong.color, palette.primary.strong.text)
+		}
+		widget::button::Status::Disabled => (
+			palette.background.base.color.scale_alpha(0.5),
+			palette.background.base.text.scale_alpha(0.5),
+		),
+		_ => (Color::TRANSPARENT, palette.background.base.text),
+	};
+
+	let mut style = widget::button::primary(theme, status).with_background(background);
+	style.text_color = text;
+	style
+}
