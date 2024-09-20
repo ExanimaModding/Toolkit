@@ -257,7 +257,16 @@ impl Settings {
 													&self.exanima_exe,
 												)
 												.on_input(|s| Message::ExanimaExe(PathBuf::from(s)))
-												.padding(5),
+												.padding(5)
+												.style(move |theme, status| {
+													let mut style = text_input::default(theme, status);
+													style.background = style.background.scale_alpha(animate_alpha);
+													style.border = style.border.color(style.border.color.scale_alpha(animate_alpha));
+													style.icon = style.icon.scale_alpha(animate_alpha);
+													style.placeholder = style.placeholder.scale_alpha(animate_alpha);
+													style.value = style.value.scale_alpha(animate_alpha);
+													style
+												}),
 											)
 											.push(
 												button(
