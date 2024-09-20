@@ -48,17 +48,13 @@ pub fn pick_list(
 
 pub fn svg(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
 	widget::svg::Style {
-		color: Some(theme.palette().text),
+		color: Some(theme.extended_palette().background.base.text),
 	}
 }
 
 pub fn svg_button(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
 	widget::svg::Style {
-		color: Some(if theme.extended_palette().is_dark {
-			Color::BLACK
-		} else {
-			Color::WHITE
-		}),
+		color: Some(theme.extended_palette().primary.strong.text),
 	}
 }
 
@@ -72,7 +68,14 @@ pub fn tooltip(theme: &Theme, scale_alpha: f32) -> container::Style {
 	let palette = theme.extended_palette();
 
 	container::Style::default()
-		.color(theme.palette().text.scale_alpha(scale_alpha))
+		.color(
+			theme
+				.extended_palette()
+				.background
+				.base
+				.text
+				.scale_alpha(scale_alpha),
+		)
 		.background(palette.background.base.color.scale_alpha(scale_alpha))
 		.border(
 			Border::default()
@@ -88,20 +91,16 @@ pub fn tooltip(theme: &Theme, scale_alpha: f32) -> container::Style {
 }
 
 pub fn transparent_button(theme: &Theme, status: widget::button::Status) -> widget::button::Style {
-	let palette = theme.palette();
-	let extended_palette = theme.extended_palette();
+	let palette = theme.extended_palette();
 
 	let (background, text) = match status {
-		widget::button::Status::Hovered => (extended_palette.background.weak.color, palette.text),
-		widget::button::Status::Disabled => (
-			extended_palette.primary.strong.color,
-			if extended_palette.is_dark {
-				Color::BLACK
-			} else {
-				Color::WHITE
-			},
-		),
-		_ => (Color::TRANSPARENT, palette.text),
+		widget::button::Status::Hovered => {
+			(palette.background.weak.color, palette.background.weak.text)
+		}
+		widget::button::Status::Disabled => {
+			(palette.primary.strong.color, palette.primary.strong.text)
+		}
+		_ => (Color::TRANSPARENT, palette.background.base.text),
 	};
 
 	let mut style = widget::button::primary(theme, status).with_background(background);

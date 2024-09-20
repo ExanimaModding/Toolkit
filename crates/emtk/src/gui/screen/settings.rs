@@ -260,33 +260,25 @@ impl Settings {
 													&self.exanima_exe,
 												)
 												.on_input(|s| Message::ExanimaExe(PathBuf::from(s)))
-												.padding(7),
+												.padding(5),
 											)
 											.push(
 												button(
 													Row::new()
 														.push(text("Browse"))
 														.push(
-															// FIX: svg color not matching light/dark themes
-															svg(icons
-																.get(&Icon::SquareArrowOutUpRight)
-																.unwrap()
-																.clone())
-															.width(Length::Shrink)
-															.height(Length::Shrink)
-															.style(move |theme, status| {
-																// BUG: animating .scale_alpha doesn't work
-																let mut style = theme::svg_button(
-																	theme, status,
-																);
-																style.color = Some(
-																	style
-																		.color
-																		.unwrap()
-																		.scale_alpha(animate_alpha),
-																);
-																style
-															}),
+															container(
+																svg(icons
+																	.get(&Icon::SquareArrowOutUpRight)
+																	.unwrap()
+																	.clone())
+																.width(Length::Shrink)
+																.height(Length::Fixed(16.))
+																.opacity(animate_alpha)
+																.style(theme::svg_button),
+															)
+															.height(Length::Fixed(21.))
+															.align_y(Alignment::Center),
 														)
 														.spacing(2),
 												)
@@ -357,7 +349,7 @@ impl Settings {
 														.get(&Icon::SquareArrowOutUpRight)
 														.unwrap()
 														.clone())
-													.width(Length::Fixed(16.))
+													.width(Length::Shrink)
 													.height(Length::Fixed(16.))
 													.style(theme::svg_button),
 												)
@@ -437,7 +429,6 @@ impl Settings {
 						Some(
 							Row::new().push(horizontal_space()).push(
 								mouse_area(
-									// FIX: tooltip not showing
 									tooltip(
 										button("Confirm")
 											.on_press_maybe(
@@ -482,11 +473,10 @@ impl Settings {
 			.padding(12),
 		))
 		.style(move |theme: &Theme| {
-			let palette = theme.palette();
-
+			let palette = theme.extended_palette();
 			container::Style::default()
-				.color(palette.text.scale_alpha(animate_alpha))
-				.background(palette.background.scale_alpha(animate_alpha))
+				.color(palette.background.base.text.scale_alpha(animate_alpha))
+				.background(palette.background.base.color.scale_alpha(animate_alpha))
 				.border(Border::default().rounded(8))
 		});
 

@@ -144,20 +144,22 @@ impl Mods {
 				}
 			}
 			Message::SettingsRefetched(settings) => {
-				self.load_order = settings
-					.load_order
-					.iter()
-					.map(|(mod_id, _enabled)| {
-						let path = PathBuf::from(settings.exanima_exe.as_ref().unwrap());
-						let container_id = container::Id::new(mod_id.clone());
+				if let Some(exanima_exe) = &settings.exanima_exe {
+					self.load_order = settings
+						.load_order
+						.iter()
+						.map(|(mod_id, _enabled)| {
+							let path = PathBuf::from(exanima_exe);
+							let container_id = container::Id::new(mod_id.clone());
 
-						ModView::new(
-							widget::Id::from(container_id.clone()),
-							container_id,
-							config_by_id(&path, mod_id),
-						)
-					})
-					.collect();
+							ModView::new(
+								widget::Id::from(container_id.clone()),
+								container_id,
+								config_by_id(&path, mod_id),
+							)
+						})
+						.collect();
+				}
 				self.settings = settings;
 			}
 		}
@@ -184,6 +186,7 @@ impl Mods {
 					.push(
 						container(scrollable(Column::with_children(
 							self.load_order.iter().enumerate().map(|(index, mod_view)| {
+								// TODO: add tooltip conditionally for missing mods
 								droppable(
 									container(
 										Row::new()

@@ -473,6 +473,12 @@ impl Emtk {
 	}
 
 	pub fn view(&self) -> Element<Message> {
+		let explain_color = if self.theme().extended_palette().is_dark {
+			Color::WHITE
+		} else {
+			Color::BLACK
+		};
+
 		let screen = match &self.screen {
 			Screen::Mods(home) => home.view(&self.icons).map(Message::Mods),
 			Screen::Explorer(explorer) => explorer.view(&self.icons).map(Message::Explorer),
@@ -496,7 +502,7 @@ impl Emtk {
 				Screen::Changelog(changelog) => {
 					let changelog_view = changelog.view().map(Message::Changelog);
 					let changelog_view = if self.settings.launcher.as_ref().unwrap().explain {
-						changelog_view.explain(Color::BLACK)
+						changelog_view.explain(explain_color)
 					} else {
 						changelog_view
 					};
@@ -507,7 +513,7 @@ impl Emtk {
 				Screen::Progress(progress) => {
 					let progress_view = progress.view().map(Message::Progress);
 					let progress_view = if self.settings.launcher.as_ref().unwrap().explain {
-						progress_view.explain(Color::BLACK)
+						progress_view.explain(explain_color)
 					} else {
 						progress_view
 					};
@@ -516,7 +522,7 @@ impl Emtk {
 				Screen::Settings(settings) => {
 					let settings_view = settings.view(&self.icons).map(Message::Settings);
 					let settings_view = if self.settings.launcher.as_ref().unwrap().explain {
-						settings_view.explain(Color::BLACK)
+						settings_view.explain(explain_color)
 					} else {
 						settings_view
 					};
@@ -529,7 +535,7 @@ impl Emtk {
 		};
 
 		if self.settings.launcher.as_ref().unwrap().explain {
-			con.explain(Color::BLACK)
+			con.explain(explain_color)
 		} else {
 			con
 		}
