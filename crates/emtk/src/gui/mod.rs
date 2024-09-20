@@ -99,15 +99,14 @@ pub struct Release {
 	pub published_at: chrono::DateTime<chrono::Utc>,
 }
 
-// TODO: persist developer_enabled, explain_enabled, theme
 pub struct Emtk {
 	changelog: Vec<markdown::Item>,
+	config: Config,
 	fade: Animated<bool, Instant>,
 	icons: HashMap<Icon, svg::Handle>,
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
 	screen: Screen,
-	config: Config,
 	window_size: Size,
 }
 
@@ -174,6 +173,7 @@ impl Emtk {
 		let (mods, mods_action) = Mods::new(config.clone());
 		let mods_task = match mods_action {
 			mods::Action::ConfigChanged(config) => Task::done(Message::ConfigChanged(config)),
+			mods::Action::Run(task) => task.map(Message::Mods),
 			mods::Action::None => Task::none(),
 		};
 
@@ -260,14 +260,13 @@ impl Emtk {
 			},
 			Message::Mods(message) => {
 				if let Screen::Mods(mods) = &mut self.screen {
-					let (task, action) = mods.update(message);
-					let action_task = match action {
+					return match mods.update(message) {
 						mods::Action::ConfigChanged(config) => {
 							Task::done(Message::ConfigChanged(config))
 						}
+						mods::Action::Run(task) => task.map(Message::Mods),
 						mods::Action::None => Task::none(),
 					};
-					return Task::batch([task.map(Message::Mods), action_task]);
 				}
 			}
 			Message::LinkClicked(url) => {
@@ -333,11 +332,14 @@ impl Emtk {
 							);
 						}
 						progress::Action::ExanimaLaunched => {
-							let (task, _action) = match &mut self.screen {
+							let task = match &mut self.screen {
 								Screen::Settings(settings) => {
-									settings.update(settings::Message::CacheChecked)
+									match settings.update(settings::Message::CacheChecked) {
+										settings::Action::Run(task) => task,
+										_ => unreachable!("This is a bug. Please report this."),
+									}
 								}
-								_ => (Task::none(), settings::Action::None),
+								_ => unreachable!("This is a bug. Please report this."),
 							};
 							return Task::batch([
 								Task::done(Message::ExanimaLaunched),
@@ -385,6 +387,7 @@ impl Emtk {
 						mods::Action::ConfigChanged(config) => {
 							Task::done(Message::ConfigChanged(config))
 						}
+						mods::Action::Run(task) => task.map(Message::Mods),
 						mods::Action::None => Task::none(),
 					};
 				}
@@ -404,8 +407,7 @@ impl Emtk {
 					return Task::none();
 				};
 
-				let (task, action) = settings.update(message);
-				let action = match action {
+				return match settings.update(message) {
 					settings::Action::CloseModal => {
 						if let Some(Screen::Settings(_settings)) = &mut self.modal {
 							Task::done(Message::ModalClosed)
@@ -416,12 +418,12 @@ impl Emtk {
 					settings::Action::ConfigChanged(settings) => {
 						Task::done(Message::ConfigChanged(settings))
 					}
+					settings::Action::Run(task) => task.map(Message::Settings),
 					settings::Action::ViewChangelog => {
 						Task::done(Message::ModalChanged(ScreenKind::Changelog))
 					}
 					settings::Action::None => Task::none(),
 				};
-				return Task::batch([task.map(Message::Settings), action]);
 			}
 			Message::ConfigChanged(config) => {
 				let config_path = dirs::config_dir().unwrap().join("Exanima Modding Toolkit");
@@ -438,8 +440,12 @@ impl Emtk {
 						mods.update(mods::Message::ConfigRefetched(self.config.clone()));
 					}
 					Screen::Settings(settings) => {
-						let (_task, _action) = settings
-							.update(settings::Message::ConfigRefetched(self.config.clone()));
+						match settings
+							.update(settings::Message::ConfigRefetched(self.config.clone()))
+						{
+							settings::Action::None => (),
+							_ => unreachable!("This is a bug. Please report this."),
+						};
 					}
 					_ => (),
 				}

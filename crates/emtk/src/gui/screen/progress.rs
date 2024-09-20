@@ -15,7 +15,6 @@ use crate::{
 	gui::{constants::FADE_DURATION, missing_mods, path_by_id},
 };
 
-#[derive(Debug, Clone)]
 pub enum Action {
 	Canceled,
 	ExanimaLaunched,

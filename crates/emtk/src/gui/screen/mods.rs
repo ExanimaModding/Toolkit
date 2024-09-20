@@ -13,9 +13,9 @@ use crate::{
 	gui::{config_by_id, load_order, theme, Icon},
 };
 
-#[derive(Debug, Clone)]
 pub enum Action {
 	ConfigChanged(Config),
+	Run(Task<Message>),
 	None,
 }
 
@@ -121,7 +121,7 @@ impl Mods {
 		}
 	}
 
-	pub fn update(&mut self, message: Message) -> (Task<Message>, Action) {
+	pub fn update(&mut self, message: Message) -> Action {
 		match message {
 			Message::ConfigRefetched(config) => {
 				if let Some(exanima_exe) = &config.exanima_exe {
@@ -144,20 +144,17 @@ impl Mods {
 			}
 			Message::ModDragCanceled => self.hovered_mod = None,
 			Message::ModDragged(_index, _point, rectangle) => {
-				return (
-					find_zones(
-						Message::ModZonesFound,
-						move |bounds| bounds.intersects(&rectangle),
-						Some(
-							self.load_order
-								.iter()
-								.map(|(mod_view)| mod_view.widget_id.clone())
-								.collect(),
-						),
-						None,
+				return Action::Run(find_zones(
+					Message::ModZonesFound,
+					move |bounds| bounds.intersects(&rectangle),
+					Some(
+						self.load_order
+							.iter()
+							.map(|mod_view| mod_view.widget_id.clone())
+							.collect(),
 					),
-					Action::None,
-				);
+					None,
+				));
 			}
 			Message::ModDropped(from_index, _point, _rectangle) => {
 				if let Some(to_id) = &self.hovered_mod
@@ -180,12 +177,12 @@ impl Mods {
 					self.config.load_order.insert(to_index, (mod_id, enabled));
 
 					self.hovered_mod = None;
-					return (Task::none(), Action::ConfigChanged(self.config.clone()));
+					return Action::ConfigChanged(self.config.clone());
 				}
 			}
 			Message::ModToggled(index, enabled) => {
 				self.config.load_order[index].1 = enabled;
-				return (Task::none(), Action::ConfigChanged(self.config.clone()));
+				return Action::ConfigChanged(self.config.clone());
 			}
 			Message::ModZonesFound(zones) => {
 				if let Some(zone) = zones.first() {
@@ -194,7 +191,7 @@ impl Mods {
 			}
 		}
 
-		(Task::none(), Action::None)
+		Action::None
 	}
 
 	pub fn view(&self, icons: &HashMap<Icon, svg::Handle>) -> Element<Message> {

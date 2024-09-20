@@ -16,10 +16,10 @@ use crate::{
 	gui::{constants::FADE_DURATION, load_order, theme, widget::tooltip, Icon},
 };
 
-#[derive(Debug, Clone)]
 pub enum Action {
 	CloseModal,
 	ConfigChanged(Config),
+	Run(Task<Message>),
 	ViewChangelog,
 	None,
 }
@@ -74,47 +74,44 @@ impl Settings {
 		)
 	}
 
-	pub fn update(&mut self, message: Message) -> (Task<Message>, Action) {
+	pub fn update(&mut self, message: Message) -> Action {
 		let now = Instant::now();
 
 		match message {
 			Message::CacheChecked => {
 				if let Some(exanima_exe) = self.config.exanima_exe.clone() {
-					return (
-						Task::perform(cache_size(cache_path(exanima_exe)), Message::CacheSize),
-						Action::None,
-					);
+					return Action::Run(Task::perform(
+						cache_size(cache_path(exanima_exe)),
+						Message::CacheSize,
+					));
 				}
 			}
 			Message::CacheCleared => {
-				return (
-					Task::perform(
-						clear_cache(cache_path(self.config.exanima_exe.clone().unwrap())),
-						|_| Message::CacheChecked,
-					),
-					Action::None,
-				);
+				return Action::Run(Task::perform(
+					clear_cache(cache_path(self.config.exanima_exe.clone().unwrap())),
+					|_| Message::CacheChecked,
+				));
 			}
 			Message::CacheSize(cache_size) => self.cache_size = cache_size,
 			Message::CacheOpened => {
 				open::that(cache_path(self.config.exanima_exe.clone().unwrap())).unwrap()
 			}
-			Message::Changelog => return (Task::none(), Action::ViewChangelog),
+			Message::Changelog => return Action::ViewChangelog,
 			Message::ConfigRefetched(config) => self.config = config,
 			Message::Confirm => {
-				return (Task::none(), Action::CloseModal);
+				return Action::CloseModal;
 			}
 			Message::DeveloperToggled(developer) => {
 				if let Some(launcher) = &mut self.config.launcher {
 					launcher.developer = developer;
-					return (Task::none(), Action::ConfigChanged(self.config.clone()));
+					return Action::ConfigChanged(self.config.clone());
 				}
 			}
 			Message::ExanimaExe(path) => {
 				let path_str = path.to_str().unwrap().to_string();
 				self.exanima_exe = path_str.clone();
 				if !path.is_file() {
-					return (Task::none(), Action::None);
+					return Action::None;
 				}
 				self.config.exanima_exe = Some(path_str);
 				if self.config.load_order.is_empty() {
@@ -141,20 +138,20 @@ impl Settings {
 							.collect::<Vec<_>>(),
 					);
 				}
-				return (Task::none(), Action::ConfigChanged(self.config.clone()));
+				return Action::ConfigChanged(self.config.clone());
 			}
 			Message::ExanimaExeDialog => {
 				if let Some(path) = FileDialog::new()
 					.add_filter("Exanima Executable", &["exe"])
 					.pick_file()
 				{
-					return (Task::done(Message::ExanimaExe(path)), Action::None);
+					return Action::Run(Task::done(Message::ExanimaExe(path)));
 				}
 			}
 			Message::ExplainToggled(explain) => {
 				if let Some(launcher) = &mut self.config.launcher {
 					launcher.explain = explain;
-					return (Task::none(), Action::ConfigChanged(self.config.clone()));
+					return Action::ConfigChanged(self.config.clone());
 				}
 			}
 			Message::FadeOut => self.fade.transition(false, now),
@@ -184,10 +181,10 @@ impl Settings {
 					Theme::Nightfly => "nightfly",
 					Theme::Oxocarbon => "oxocarbon",
 					Theme::Ferra => "ferra",
-					Theme::Custom(custom) => "custom",
+					Theme::Custom(_custom) => "custom",
 				};
 				self.config.launcher.as_mut().unwrap().theme = theme_setting.to_string();
-				return (Task::none(), Action::ConfigChanged(self.config.clone()));
+				return Action::ConfigChanged(self.config.clone());
 			}
 			Message::Tick => (),
 			Message::TooltipHide => {
@@ -202,7 +199,7 @@ impl Settings {
 			}
 		};
 
-		(Task::none(), Action::None)
+		Action::None
 	}
 
 	pub fn view(&self, icons: &HashMap<Icon, svg::Handle>) -> Element<Message> {
