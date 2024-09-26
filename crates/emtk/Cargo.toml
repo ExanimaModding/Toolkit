@@ -20,15 +20,15 @@ dirs = "5.0.1"
 emf-types = { workspace = true }
 exparser = { path = "../exparser" }
 human_bytes = "0.4.3"
-iced = { version = "0.13.0", features = [
+iced = { version = "0.13.1", features = [
 	"advanced",
 	"markdown",
 	"svg",
 	"tokio",
 ] }
-iced_aw = { version = "0.10.0", features = ["context_menu"] }
-iced_core = "0.13.0"
-iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", rev = "0b1544cf50a8000dc17a93e2de62ff9411cd0884" }
+iced_aw = { version = "0.11.0", features = ["context_menu"] }
+iced_core = "0.13.1"
+iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", rev = "8314e58c75ca05fec9f7a02a22a74c67e47ec1a9" }
 image = { version = "0.25.2", features = ["ico"] }
 lilt = "0.7.0"
 log.workspace = true
