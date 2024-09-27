@@ -59,6 +59,7 @@ impl Confirm {
 
 	pub fn view(&self) -> Element<Message> {
 		let now = Instant::now();
+		let animate_alpha = self.fade.animate_bool(0., 1., now);
 
 		let con = container(
 			Column::new()
@@ -67,12 +68,26 @@ impl Confirm {
 				.push(
 					Row::new()
 						.push(horizontal_space())
-						.push(button(text("Cancel")).on_press(Message::Canceled))
-						.push(
-							button(text("Confirm"))
-								.on_press(Message::Confirmed)
-								.style(button::danger),
-						)
+						.push(button(text("Cancel")).on_press(Message::Canceled).style(
+							move |theme, status| {
+								let mut style = button::primary(theme, status);
+								if let Some(background) = style.background {
+									style.background = Some(background.scale_alpha(animate_alpha))
+								}
+								style.text_color = style.text_color.scale_alpha(animate_alpha);
+								style
+							},
+						))
+						.push(button(text("Confirm")).on_press(Message::Confirmed).style(
+							move |theme, status| {
+								let mut style = button::danger(theme, status);
+								if let Some(background) = style.background {
+									style.background = Some(background.scale_alpha(animate_alpha))
+								}
+								style.text_color = style.text_color.scale_alpha(animate_alpha);
+								style
+							},
+						))
 						.spacing(6),
 				)
 				.spacing(12),
@@ -80,7 +95,6 @@ impl Confirm {
 		.padding(12)
 		.style(move |theme: &Theme| {
 			let palette = theme.palette();
-			let animate_alpha = self.fade.animate_bool(0., 1., now);
 
 			container::Style::default()
 				.color(palette.text.scale_alpha(animate_alpha))

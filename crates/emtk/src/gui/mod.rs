@@ -116,6 +116,7 @@ pub struct Emtk {
 pub enum Message {
 	Changelog(changelog::Message),
 	Confirm(confirm::Message),
+	ConfirmCleanup,
 	ConfirmClosed,
 	ExanimaLaunched,
 	Explorer(explorer::Message),
@@ -245,7 +246,13 @@ impl Emtk {
 					};
 				}
 			}
-			Message::ConfirmClosed => self.confirm_dialog = None,
+			Message::ConfirmCleanup => self.confirm_dialog = None,
+			Message::ConfirmClosed => {
+				return Task::perform(
+					tokio::time::sleep(tokio::time::Duration::from_millis(FADE_DURATION)),
+					|_| Message::ConfirmCleanup,
+				)
+			}
 			// TODO: launch exanima
 			// crate::launch_exanima();
 			Message::ExanimaLaunched => log::info!("Launching exanima..."),
