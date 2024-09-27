@@ -7,7 +7,7 @@ use iced::{
 		button, checkbox, container, horizontal_rule, horizontal_space, scrollable, svg, text,
 		Column, Row,
 	},
-	Alignment, Border, Color, Element, Length, Point, Rectangle, Shadow, Task, Theme, Vector,
+	Alignment, Border, Color, Element, Length, Rectangle, Shadow, Task, Theme, Vector,
 };
 use iced_aw::ContextMenu;
 use iced_drop::{droppable, find_zones};
@@ -19,6 +19,7 @@ use crate::{
 
 pub enum Action {
 	ConfigChanged(Config),
+	PromptModDeleted(usize),
 	Run(Task<Message>),
 	None,
 }
@@ -58,13 +59,14 @@ pub struct Mods {
 #[derive(Debug, Clone)]
 pub enum Message {
 	ConfigRefetched(Config),
-	ModEdited(usize, ModView),
+	ModEdited(usize, Box<ModView>),
 	ModDeleted(usize),
 	ModDragCanceled,
 	ModDragged(Rectangle),
 	ModDropped(usize),
 	ModToggled(usize, bool),
 	ModZonesFound(Vec<(widget::Id, Rectangle)>),
+	PromptModDeleted(usize),
 }
 
 impl Mods {
@@ -209,6 +211,9 @@ impl Mods {
 				if let Some(zone) = zones.first() {
 					self.hovered_mod = Some(zone.0.clone())
 				}
+			}
+			Message::PromptModDeleted(index) => {
+				return Action::PromptModDeleted(index);
 			}
 		}
 
@@ -367,7 +372,7 @@ impl Mods {
 													button(text("Edit"))
 														.on_press(Message::ModEdited(
 															index,
-															mod_view.clone(),
+															Box::new(mod_view.clone()),
 														))
 														.padding(3)
 														.width(Length::Fill)
@@ -376,7 +381,7 @@ impl Mods {
 												.push(horizontal_rule(6))
 												.push(
 													button(text("Delete"))
-														.on_press(Message::ModDeleted(index))
+														.on_press(Message::PromptModDeleted(index))
 														.padding(3)
 														.width(Length::Fill)
 														.style(theme::transparent_danger_button),

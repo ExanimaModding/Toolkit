@@ -49,7 +49,6 @@ pub enum Message {
 	Canceled,
 	Event(Event),
 	SizeChanged(Size),
-	Tick,
 }
 
 impl Progress {
@@ -99,7 +98,6 @@ impl Progress {
 				}
 			},
 			Message::SizeChanged(size) => self.size = Some(size),
-			Message::Tick => (),
 		};
 
 		Action::None
@@ -367,9 +365,6 @@ fn load_mods(config: Config) -> impl Stream<Item = Event> {
 							}
 						}
 					}
-					// tx.send(Event::ProgressUpdated(bar.clone()))
-					// 	.await
-					// 	.expect("error while sending progress of mod to channel");
 				}
 				let mut prev_offset = 0;
 				let mut prev_size = 0;

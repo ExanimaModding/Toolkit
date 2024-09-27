@@ -1,4 +1,5 @@
 pub mod changelog;
+pub mod confirm;
 pub mod explorer;
 pub mod mods;
 pub mod progress;
@@ -10,6 +11,7 @@ use mods::Mods;
 use progress::Progress;
 use settings::Settings;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum ScreenKind {
 	Changelog,

@@ -24,6 +24,7 @@ use iced::{
 use lilt::{Animated, Easing};
 use screen::{
 	changelog::{self, Changelog},
+	confirm::{self, Confirm},
 	explorer::{self, Explorer},
 	mods::{self, Mods},
 	progress::{self, Progress},
@@ -102,6 +103,7 @@ pub struct Release {
 pub struct Emtk {
 	changelog: Vec<markdown::Item>,
 	config: Config,
+	confirm_dialog: Option<Confirm>,
 	fade: Animated<bool, Instant>,
 	icons: HashMap<Icon, svg::Handle>,
 	latest_release: GetLatestReleaseState,
@@ -113,6 +115,8 @@ pub struct Emtk {
 #[derive(Debug, Clone)]
 pub enum Message {
 	Changelog(changelog::Message),
+	Confirm(confirm::Message),
+	ConfirmClosed,
 	ExanimaLaunched,
 	Explorer(explorer::Message),
 	GetLatestRelease(GetLatestReleaseState),
@@ -171,17 +175,26 @@ impl Emtk {
 		}
 
 		let (mods, mods_action) = Mods::new(config.clone());
-		let mods_task = match mods_action {
-			mods::Action::ConfigChanged(config) => Task::done(Message::ConfigChanged(config)),
-			mods::Action::Run(task) => task.map(Message::Mods),
-			mods::Action::None => Task::none(),
-		};
 
-		let emtk = Self {
+		let mut emtk = Self {
 			config,
 			icons,
 			screen: Screen::Mods(mods),
 			..Default::default()
+		};
+
+		let mods_task = match mods_action {
+			mods::Action::ConfigChanged(config) => Task::done(Message::ConfigChanged(config)),
+			mods::Action::PromptModDeleted(index) => {
+				emtk.fade.transition(true, Instant::now());
+				emtk.confirm_dialog = Some(Confirm::new(
+					confirm::Action::ModDeleted(index),
+					Some(emtk.window_size * 0.25),
+				));
+				Task::none()
+			}
+			mods::Action::Run(task) => task.map(Message::Mods),
+			mods::Action::None => Task::none(),
 		};
 		(
 			emtk,
@@ -216,6 +229,23 @@ impl Emtk {
 					return Task::batch([task.map(Message::Changelog), action]);
 				}
 			}
+			Message::Confirm(message) => {
+				if let Some(confirm) = &mut self.confirm_dialog {
+					self.fade.transition(false, now);
+					confirm.update(confirm::Message::FadeOut);
+					return match confirm.update(message) {
+						confirm::Action::ModDeleted(index) => {
+							self.confirm_dialog = None;
+							Task::batch([
+								Task::done(Message::ConfirmClosed),
+								Task::done(Message::Mods(mods::Message::ModDeleted(index))),
+							])
+						}
+						confirm::Action::None => Task::done(Message::ConfirmClosed),
+					};
+				}
+			}
+			Message::ConfirmClosed => self.confirm_dialog = None,
 			// TODO: launch exanima
 			// crate::launch_exanima();
 			Message::ExanimaLaunched => log::info!("Launching exanima..."),
@@ -263,6 +293,14 @@ impl Emtk {
 					return match mods.update(message) {
 						mods::Action::ConfigChanged(config) => {
 							Task::done(Message::ConfigChanged(config))
+						}
+						mods::Action::PromptModDeleted(index) => {
+							self.fade.transition(true, now);
+							self.confirm_dialog = Some(Confirm::new(
+								confirm::Action::ModDeleted(index),
+								Some(self.window_size * 0.25),
+							));
+							Task::none()
 						}
 						mods::Action::Run(task) => task.map(Message::Mods),
 						mods::Action::None => Task::none(),
@@ -387,6 +425,14 @@ impl Emtk {
 						mods::Action::ConfigChanged(config) => {
 							Task::done(Message::ConfigChanged(config))
 						}
+						mods::Action::PromptModDeleted(index) => {
+							self.fade.transition(true, now);
+							self.confirm_dialog = Some(Confirm::new(
+								confirm::Action::ModDeleted(index),
+								Some(self.window_size * 0.25),
+							));
+							Task::none()
+						}
 						mods::Action::Run(task) => task.map(Message::Mods),
 						mods::Action::None => Task::none(),
 					};
@@ -452,6 +498,12 @@ impl Emtk {
 			}
 			Message::SizeChanged(size) => {
 				self.window_size = size;
+				if let Some(confirm) = &mut self.confirm_dialog {
+					let width = size.width * 0.8;
+					let height = size.height * 0.8;
+					let size = Size::new(width, height);
+					confirm.update(confirm::Message::SizeChanged(size));
+				}
 				let Some(screen) = &mut self.modal else {
 					return Task::none();
 				};
@@ -551,6 +603,20 @@ impl Emtk {
 			}
 		} else {
 			con.into()
+		};
+
+		let con = if let Some(confirm) = &self.confirm_dialog {
+			let confirm_view = confirm.view().map(Message::Confirm);
+			let confirm_view = if self.config.launcher.as_ref().unwrap().explain {
+				confirm_view.explain(explain_color)
+			} else {
+				confirm_view
+			};
+			modal(self.fade.clone(), con, confirm_view, || {
+				Message::ConfirmClosed
+			})
+		} else {
+			con
 		};
 
 		if self.config.launcher.as_ref().unwrap().explain {
@@ -795,6 +861,7 @@ impl Default for Emtk {
 		Self {
 			changelog: Vec::default(),
 			config: Config::default(),
+			confirm_dialog: None,
 			fade: Animated::new(false)
 				.duration(FADE_DURATION as f32)
 				.easing(Easing::EaseOut)
