@@ -7,12 +7,12 @@ use super::Plugin;
 
 pub struct Plugins {
 	plugins: HashMap<String, Plugin>,
-	selected: String,
+	selected: Option<String>,
 }
 
 impl From<Vec<Plugin>> for Plugins {
 	fn from(plugins: Vec<Plugin>) -> Self {
-		let selected = plugins[0].plugin.lock().unwrap().config.plugin.id.clone();
+		let selected = None;
 
 		let plugins = plugins
 			.into_iter()
@@ -50,10 +50,10 @@ impl Widget for Plugins {
 
 					if ui
 						.selectable_config(plugin.config.plugin.name.clone())
-						.selected(self.selected == plugin.config.plugin.id)
+						.selected(self.selected.as_ref() == Some(&plugin.config.plugin.id))
 						.build()
 					{
-						self.selected = plugin.config.plugin.id.clone();
+						self.selected = Some(plugin.config.plugin.id.clone());
 					}
 
 					style.pop();
@@ -65,15 +65,14 @@ impl Widget for Plugins {
 
 		ui.same_line();
 
-		let plugin = self.plugins.get_mut(&self.selected);
-
-		if let Some(plugin) = plugin {
-			ui.child_window("Plugin Settings").border(true).build(|| {
-				plugin.render(ui);
-			});
-		} else {
-			ui.text("No plugin selected");
+		if let Some(ref selected) = self.selected {
+			if let Some(plugin) = self.plugins.get_mut(selected) {
+				ui.child_window("Plugin Settings").border(true).build(|| {
+					plugin.render(ui);
+				});
+			} else {
+				ui.text("No plugin selected");
+			}
 		}
-		// }
 	}
 }

@@ -253,9 +253,11 @@ impl Emtk {
 					|_| Message::ConfirmCleanup,
 				)
 			}
-			// TODO: launch exanima
-			// crate::launch_exanima();
-			Message::ExanimaLaunched => log::info!("Launching exanima..."),
+			// TODO: Probably need to close the client after launching Exanima.
+			Message::ExanimaLaunched => {
+				log::info!("Launching exanima...");
+				super::launch_exanima();
+			}
 			Message::Explorer(message) => {
 				if let Screen::Explorer(explorer) = &mut self.screen {
 					return explorer.update(message).map(Message::Explorer);
@@ -385,6 +387,7 @@ impl Emtk {
 									}
 								}
 								_ => Task::none(),
+								// _ => unreachable!("This is a bug. Please report this."),
 							};
 							return Task::batch([
 								Task::done(Message::ExanimaLaunched),
