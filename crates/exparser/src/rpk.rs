@@ -15,11 +15,11 @@ pub const MAGIC: u32 = 0xAFBF0C01;
 pub struct Context {
 	/// Whether to skip the `Rpk` data field or not.
 	///
-	/// By default, the data field will be read by the reader. If performance is required and the
-	/// data field is not needed such as when simply viewing a list of entries, setting this to
-	/// `true` may be desired.
+	/// By default, the data field will be read by the reader. If you want to save memory and have
+	/// better performance, and the data field is not needed such as when simply viewing a list of
+	/// entries, setting this to `true` may be desired.
 	pub entries_only: bool,
-	/// Filter the `Rpk` data field with a desired `Vec<Entry>`.
+	/// Filter the `Rpk` data field by a desired `Vec<Entry>`.
 	///
 	/// By default, no filter is applied thus all of the data is read by the reader. If only data
 	/// from certain entries is desired, provide this field with your desired entries.
