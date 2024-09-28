@@ -52,7 +52,8 @@ winapi = { workspace = true }
 
 [build-dependencies]
 cbindgen = "0.26.0"
-winresource = "0.1.17"
+# See: https://github.com/BenjaminRi/winresource/pull/22
+winresource = { git = "https://github.com/BenjaminRi/winresource", rev = "3ebdb3289a8731d50e9728b2e7ee30997f537d4a" }
 
 # emf.dll is required for emtk to inject into the game.
 [package.metadata.cargo-machete]
