@@ -384,7 +384,7 @@ impl Emtk {
 										_ => unreachable!("This is a bug. Please report this."),
 									}
 								}
-								_ => unreachable!("This is a bug. Please report this."),
+								_ => Task::none(),
 							};
 							return Task::batch([
 								Task::done(Message::ExanimaLaunched),
