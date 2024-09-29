@@ -1,10 +1,8 @@
-#![feature(raw_ref_op)]
-
 mod framework;
 mod internal;
 mod plugins;
 
-use internal::gui;
+use internal::{gui, utils::fs_redirector};
 use log::*;
 
 use std::ffi::c_void;
@@ -66,6 +64,9 @@ unsafe extern "stdcall" fn DllMain(
 
 unsafe extern "C" fn main() {
 	info!("Main Hook Running");
+
+	// Redirect FS calls to the EMTK cache directory.
+	fs_redirector::register_hooks();
 
 	let mut curr_exe_path = std::env::current_exe().unwrap();
 	curr_exe_path.pop();

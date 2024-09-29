@@ -11,5 +11,17 @@
     "--all-targets",
     "--keep-going"
   ],
+  "rust-analyzer.check.overrideCommand": [
+    "cargo",
+    "xwin",
+    "check",
+    "--target",
+    "x86_64-pc-windows-msvc",
+    "--quiet",
+    "--workspace",
+    "--message-format=json",
+    "--all-targets",
+    "--keep-going"
+  ],
   "rust-analyzer.cargo.target": "x86_64-pc-windows-msvc"
 }
