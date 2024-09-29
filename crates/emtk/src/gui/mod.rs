@@ -11,14 +11,11 @@ use std::{
 	time::Instant,
 };
 
-use constants::FADE_DURATION;
+use constants::{CARGO_PKG_VERSION, FADE_DURATION};
 use emf_types::config::PluginConfig;
 use iced::{
 	event,
-	widget::{
-		button, container, horizontal_rule, markdown, scrollable, svg, text, vertical_space,
-		Column, Row,
-	},
+	widget::{button, container, markdown, svg, text, vertical_space, Column, Row},
 	window, Alignment, Color, Element, Length, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
@@ -43,6 +40,7 @@ static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 pub enum Icon {
 	ArrowLeft,
 	CircleAlert,
+	Download,
 	Folder,
 	Layers,
 	Menu,
@@ -56,6 +54,7 @@ impl Icon {
 		match self {
 			Icon::ArrowLeft => include_bytes!("../../../../assets/images/arrow-left.svg"),
 			Icon::CircleAlert => include_bytes!("../../../../assets/images/circle-alert.svg"),
+			Icon::Download => include_bytes!("../../../../assets/images/download.svg"),
 			Icon::Folder => include_bytes!("../../../../assets/images/folder.svg"),
 			Icon::Layers => include_bytes!("../../../../assets/images/layers-3.svg"),
 			Icon::Menu => include_bytes!("../../../../assets/images/menu.svg"),
@@ -97,7 +96,6 @@ pub struct Release {
 	pub tag_name: String,
 	pub html_url: String,
 	pub body: String,
-	pub published_at: chrono::DateTime<chrono::Utc>,
 }
 
 pub struct Emtk {
@@ -718,6 +716,41 @@ impl Emtk {
 					),
 				)
 				.push(vertical_space())
+				.push_maybe(match &self.latest_release {
+					GetLatestReleaseState::Loaded(release) => {
+						let ver = semver::Version::parse(release.tag_name.trim_start_matches("v"))
+							.unwrap_or(semver::Version::new(0, 0, 0));
+						if ver <= semver::Version::parse(CARGO_PKG_VERSION).unwrap() {
+							None
+						} else {
+							Some(
+								button(
+									container(
+										Row::new()
+											.push(
+												svg(self
+													.icons
+													.get(&Icon::Download)
+													.unwrap()
+													.clone())
+												.width(Length::Shrink)
+												.height(Length::Fixed(22.))
+												.style(theme::svg_button),
+											)
+											.push(text("Update").size(18))
+											.spacing(2),
+									)
+									.width(Length::Fill)
+									.align_x(Alignment::Center),
+								)
+								.on_press(Message::LinkClicked(release.html_url.clone()))
+								.style(button::success),
+							)
+						}
+					}
+					_ => None,
+				})
+				.push(vertical_space().height(Length::Fixed(2.)))
 				.push(
 					button(
 						container(
@@ -740,64 +773,6 @@ impl Emtk {
 				.spacing(1),
 		)
 		.into()
-	}
-
-	fn version(&self) -> Element<Message> {
-		Column::new()
-			.push(
-				text(format!(
-					"You're currently on version {}",
-					constants::CARGO_PKG_VERSION
-				))
-				.size(20),
-			)
-			.push(self.get_latest_release(&self.latest_release))
-			.push(horizontal_rule(1))
-			.spacing(10)
-			.into()
-	}
-
-	fn get_latest_release(&self, latest_release: &GetLatestReleaseState) -> Element<Message> {
-		match &latest_release {
-			GetLatestReleaseState::NotStarted => text("Checking for updates...").into(),
-			GetLatestReleaseState::Loading => text("Checking for updates...").into(),
-			GetLatestReleaseState::Loaded(release) => {
-				let ver = semver::Version::parse(release.tag_name.trim_start_matches("v"))
-					.unwrap_or(semver::Version::new(0, 0, 0));
-
-				if ver <= semver::Version::parse(constants::CARGO_PKG_VERSION).unwrap() {
-					return Column::new()
-						.spacing(10.)
-						.push(text("You're already up to date!"))
-						.push(horizontal_rule(1.))
-						.push(scrollable(
-							markdown(
-								&self.changelog,
-								markdown::Settings::default(),
-								markdown::Style::from_palette(self.theme().palette()),
-							)
-							.map(|url| Message::LinkClicked(url.to_string())),
-						))
-						.into();
-				}
-
-				Column::new()
-					.spacing(10.)
-					.push(text(format!(
-						"There's a new version available: {} (Published: {})",
-						release.tag_name,
-						release.published_at.format("%Y-%m-%d %H:%M:%S")
-					)))
-					.push(
-						button(text("Download"))
-							.on_press(Message::LinkClicked(release.html_url.clone()))
-							.width(100.)
-							.style(button::primary),
-					)
-			}
-			.into(),
-			GetLatestReleaseState::Error(error) => text(format!("Error: {}", error)).into(),
-		}
 	}
 
 	pub fn theme(&self) -> Theme {

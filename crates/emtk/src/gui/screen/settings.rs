@@ -13,7 +13,12 @@ use rfd::FileDialog;
 
 use crate::{
 	config::Config,
-	gui::{constants::FADE_DURATION, load_order, theme, widget::tooltip, Icon},
+	gui::{
+		constants::{CARGO_PKG_VERSION, FADE_DURATION},
+		load_order, theme,
+		widget::tooltip,
+		Icon,
+	},
 };
 
 pub enum Action {
@@ -208,7 +213,6 @@ impl Settings {
 
 	pub fn view(&self, icons: &HashMap<Icon, svg::Handle>) -> Element<Message> {
 		let now = Instant::now();
-		// let col = Column::new().push(self.version());
 
 		let spacing = 6;
 		let category_size = 24;
@@ -335,6 +339,7 @@ impl Settings {
 						Some(
 							Column::new()
 								.push(text("About").size(category_size))
+								.push(Column::new().push(text(format!("Version: {}", CARGO_PKG_VERSION))))
 								.push(button("View Changelog").on_press(Message::Changelog))
 								.push(horizontal_rule(1))
 								.spacing(spacing),
