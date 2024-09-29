@@ -33,6 +33,9 @@ pub fn main() {
 	out_file.pop();
 	out_file.pop();
 	out_file.push("deps");
+
+	println!("cargo:rustc-link-search={}", out_file.to_str().unwrap());
+
 	out_file.push("emf.dll.lib");
 
 	let metadata = std::fs::metadata(&out_file);
