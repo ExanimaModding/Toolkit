@@ -18,8 +18,9 @@ use iced::{
 		button, container, horizontal_rule, horizontal_space, mouse_area, scrollable, svg, text,
 		text_input, Column, Row,
 	},
-	window, Alignment, Element, Length, Subscription, Task,
+	window, Alignment, Border, Color, Element, Length, Shadow, Subscription, Task, Theme, Vector,
 };
+use iced_aw::ContextMenu;
 use lilt::{Animated, Easing};
 use nucleo::{
 	pattern::{CaseMatching, Normalization},
@@ -235,98 +236,91 @@ impl Explorer {
 					scrollable(
 						// FIX: add spacing(1) to list but fix scrollbar appearing while loading
 						List::new(&self.content, move |index, entry| {
-							Row::new()
-								.push(text(index + 1).width(Length::Fixed(38.)))
-								.push(text(entry.name.to_owned()))
-								.push(horizontal_space())
-								.push(text(human_bytes(entry.size)))
-								.push(
-									mouse_area(
-										tooltip(
-											button(text("Restore")).style(button::danger),
-											// .on_press(Message::EntryRestored),
-											"Restore to original",
-										)
-										.style(move |theme| {
-											theme::tooltip(
-												theme,
-												self.fade.animate_bool(0., 1., now),
-											)
-										}),
-									)
-									.on_enter(Message::TooltipShow)
-									.on_move(|_| Message::TooltipShow)
-									.on_exit(Message::TooltipHide),
-								)
-								.push(
-									mouse_area(
-										tooltip(
-											button(
-												Row::new()
-													.push(text("Import"))
-													.push(
-														container(
-															svg(square_arrow_out_up_right.clone())
+							let square_arrow_out_up_right = square_arrow_out_up_right.clone();
+							ContextMenu::new(
+								Row::new()
+									.push(text(index + 1).width(Length::Fixed(38.)))
+									.push(text(entry.name.to_owned()))
+									.push(horizontal_space())
+									.push(text(human_bytes(entry.size)))
+									.align_y(Alignment::Center)
+									.spacing(6),
+								move || {
+									container(
+										Column::new()
+											.push(
+												button(
+													Row::new()
+														.push(text("Export"))
+														.push(
+															container(
+																svg(square_arrow_out_up_right
+																	.clone())
 																.width(Length::Shrink)
 																.height(Length::Fixed(16.))
-																.style(theme::svg_button),
+																.style(theme::svg),
+															)
+															.height(Length::Fixed(24.))
+															.align_y(Alignment::Center),
 														)
-														.height(Length::Fixed(21.))
-														.align_y(Alignment::Center),
-													)
-													.spacing(2),
+														.spacing(2),
+												)
+												.on_press(Message::EntryExported(entry.to_owned()))
+												.padding(3)
+												.width(Length::Fill)
+												.style(theme::transparent_primary_button),
 											)
-											.style(button::danger),
-											// .on_press(Message::EntryImported),
-											"Replace with file",
-										)
-										.style(move |theme| {
-											theme::tooltip(
-												theme,
-												self.fade.animate_bool(0., 1., now),
-											)
-										}),
-									)
-									.on_enter(Message::TooltipShow)
-									.on_move(|_| Message::TooltipShow)
-									.on_exit(Message::TooltipHide),
-								)
-								.push(
-									mouse_area(
-										tooltip(
-											button(
-												Row::new()
-													.push(text("Export"))
-													.push(
-														container(
-															svg(square_arrow_out_up_right.clone())
+											.push(horizontal_rule(6))
+											.push(
+												button(
+													Row::new()
+														.push(text("Import"))
+														.push(
+															container(
+																svg(square_arrow_out_up_right
+																	.clone())
 																.width(Length::Shrink)
 																.height(Length::Fixed(16.))
-																.style(theme::svg_button),
+																.style(theme::svg_danger),
+															)
+															.height(Length::Fixed(24.))
+															.align_y(Alignment::Center),
 														)
-														.height(Length::Fixed(21.))
-														.align_y(Alignment::Center),
-													)
-													.spacing(2),
+														.spacing(2),
+												)
+												.padding(3)
+												.width(Length::Fill)
+												.style(theme::transparent_danger_button),
 											)
-											.on_press(Message::EntryExported(entry.to_owned())),
-											"Save to file",
-										)
-										.padding(8)
-										.style(move |theme| {
-											theme::tooltip(
-												theme,
-												self.fade.animate_bool(0., 1., now),
-											)
-										}),
+											.push(
+												button(text("Restore"))
+													.padding(3)
+													.width(Length::Fill)
+													.style(theme::transparent_danger_button),
+											),
 									)
-									.on_enter(Message::TooltipShow)
-									.on_move(|_| Message::TooltipShow)
-									.on_exit(Message::TooltipHide),
-								)
-								.align_y(Alignment::Center)
-								.spacing(6)
-								.into()
+									.padding(6)
+									.width(Length::Fixed(164.))
+									.style(|theme: &Theme| {
+										let palette = theme.extended_palette();
+										container::Style::default()
+											.background(palette.background.base.color)
+											.border(
+												Border::default()
+													.color(palette.background.weak.color)
+													.width(1)
+													.rounded(3),
+											)
+											.shadow(Shadow {
+												color: Color::BLACK,
+												offset: Vector::new(2., 2.),
+												blur_radius: 8.,
+											})
+									})
+									.into()
+								},
+							)
+							.into()
 						}),
 					)
 					.spacing(spacing),
