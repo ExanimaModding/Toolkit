@@ -76,7 +76,7 @@ unsafe fn create_file_a(
 	let file_name_stripped = file_name_stripped.to_str().unwrap();
 
 	// Prefix the relative path with the cache dir.
-	let new_file_name = CACHE_DIR.join(file_name_stripped).canonicalize().unwrap();
+	let new_file_name = CACHE_DIR.join(file_name_stripped);
 
 	// If the file doesn't exist in cache, fallback to the original file.
 	if !new_file_name.exists() {
