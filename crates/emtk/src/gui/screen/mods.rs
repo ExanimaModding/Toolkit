@@ -369,7 +369,7 @@ impl Mods {
 										container(
 											Column::new()
 												.push(
-													button(text("Edit"))
+													button(text("Example Button"))
 														.on_press(Message::ModEdited(
 															index,
 															Box::new(mod_view.clone()),

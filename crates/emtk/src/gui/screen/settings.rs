@@ -42,6 +42,7 @@ pub enum Message {
 	CacheSize(u64),
 	CacheOpened,
 	Changelog,
+	ConfigOpened,
 	ConfigRefetched(Config),
 	Confirm,
 	DeveloperToggled(bool),
@@ -97,6 +98,9 @@ impl Settings {
 				open::that(cache_path(self.config.exanima_exe.clone().unwrap())).unwrap()
 			}
 			Message::Changelog => return Action::ViewChangelog,
+			Message::ConfigOpened => {
+				open::that(dirs::config_dir().unwrap().join("Exanima Modding Toolkit")).unwrap()
+			}
 			Message::ConfigRefetched(config) => self.config = config,
 			Message::Confirm => {
 				return Action::CloseModal;
@@ -416,6 +420,32 @@ impl Settings {
 											theme::checkbox(theme, status, animate_alpha)
 										}),
 									),
+								)
+							} else {
+								None
+							})
+							.push_maybe(if self.config.launcher.as_ref().unwrap().developer {
+								Some(
+									button(
+										Row::new()
+											.push(text("Open Config"))
+											.push(
+												container(
+													svg(icons
+														.get(&Icon::SquareArrowOutUpRight)
+														.unwrap()
+														.clone())
+													.width(Length::Shrink)
+													.height(Length::Fixed(16.))
+													.opacity(animate_alpha)
+													.style(theme::svg_button),
+												)
+												.height(Length::Fixed(21.))
+												.align_y(Alignment::Center),
+											)
+											.spacing(2),
+									)
+									.on_press(Message::ConfigOpened)
 								)
 							} else {
 								None
