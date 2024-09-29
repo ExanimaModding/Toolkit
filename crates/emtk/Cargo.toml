@@ -14,9 +14,6 @@ detours-sys = { workspace = true }
 emf = { path = "../emf" }
 winapi = { workspace = true }
 
-[build-dependencies]
-cbindgen = "0.26.0"
-
 # emf.dll is required for emtk to inject into the game.
 [package.metadata.cargo-machete]
 ignored = ["emf"]

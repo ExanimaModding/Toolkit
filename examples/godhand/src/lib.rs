@@ -1,4 +1,3 @@
-#![feature(raw_ref_op)]
 #![allow(clippy::missing_safety_doc)]
 
 mod patches;
