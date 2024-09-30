@@ -6,7 +6,7 @@ use iced::{
 		button, checkbox, container, horizontal_rule, horizontal_space, mouse_area, pick_list,
 		scrollable, svg, text, text_input, Column, Row,
 	},
-	window, Alignment, Border, Element, Length, Size, Subscription, Task, Theme,
+	window, Alignment, Border, Element, Size, Subscription, Task, Theme,
 };
 use lilt::{Animated, Easing};
 use rfd::FileDialog;
@@ -16,7 +16,7 @@ use crate::{
 	gui::{
 		constants::{CARGO_PKG_VERSION, FADE_DURATION},
 		load_order, theme,
-		widget::tooltip,
+		widget::{icon, tooltip},
 		Icon,
 	},
 };
@@ -214,6 +214,7 @@ impl Settings {
 	pub fn view(&self, icons: &HashMap<Icon, svg::Handle>) -> Element<Message> {
 		let now = Instant::now();
 
+		let square_arrow_out_up_right = icons.get(&Icon::SquareArrowOutUpRight).unwrap().clone();
 		let spacing = 6;
 		let category_size = 24;
 		let animate_alpha = if self.size.is_none() {
@@ -264,12 +265,23 @@ impl Settings {
 												.on_input(|s| Message::ExanimaExe(PathBuf::from(s)))
 												.padding(5)
 												.style(move |theme, status| {
-													let mut style = text_input::default(theme, status);
-													style.background = style.background.scale_alpha(animate_alpha);
-													style.border = style.border.color(style.border.color.scale_alpha(animate_alpha));
-													style.icon = style.icon.scale_alpha(animate_alpha);
-													style.placeholder = style.placeholder.scale_alpha(animate_alpha);
-													style.value = style.value.scale_alpha(animate_alpha);
+													let mut style =
+														text_input::default(theme, status);
+													style.background =
+														style.background.scale_alpha(animate_alpha);
+													style.border = style.border.color(
+														style
+															.border
+															.color
+															.scale_alpha(animate_alpha),
+													);
+													style.icon =
+														style.icon.scale_alpha(animate_alpha);
+													style.placeholder = style
+														.placeholder
+														.scale_alpha(animate_alpha);
+													style.value =
+														style.value.scale_alpha(animate_alpha);
 													style
 												}),
 											)
@@ -278,19 +290,10 @@ impl Settings {
 													Row::new()
 														.push(text("Browse"))
 														.push(
-															container(
-																svg(icons
-																	.get(&Icon::SquareArrowOutUpRight)
-																	.unwrap()
-																	.clone())
-																.width(Length::Shrink)
-																.height(Length::Fixed(16.))
-																.opacity(animate_alpha)
+															icon(square_arrow_out_up_right.clone())
 																.style(theme::svg_button),
-															)
-															.height(Length::Fixed(21.))
-															.align_y(Alignment::Center),
 														)
+														.align_y(Alignment::Center)
 														.spacing(2),
 												)
 												.on_press(Message::ExanimaExeDialog)
@@ -339,7 +342,10 @@ impl Settings {
 						Some(
 							Column::new()
 								.push(text("About").size(category_size))
-								.push(Column::new().push(text(format!("Version: {}", CARGO_PKG_VERSION))))
+								.push(
+									Column::new()
+										.push(text(format!("Version: {}", CARGO_PKG_VERSION))),
+								)
 								.push(button("View Changelog").on_press(Message::Changelog))
 								.push(horizontal_rule(1))
 								.spacing(spacing),
@@ -356,18 +362,10 @@ impl Settings {
 										Row::new()
 											.push(text("Open Cache"))
 											.push(
-												container(
-													svg(icons
-														.get(&Icon::SquareArrowOutUpRight)
-														.unwrap()
-														.clone())
-													.width(Length::Shrink)
-													.height(Length::Fixed(16.))
+												icon(square_arrow_out_up_right.clone())
 													.style(theme::svg_button),
-												)
-												.height(Length::Fixed(21.))
-												.align_y(Alignment::Center),
 											)
+											.align_y(Alignment::Center)
 											.spacing(2),
 									)
 									.on_press(Message::CacheOpened),
@@ -435,22 +433,14 @@ impl Settings {
 										Row::new()
 											.push(text("Open Config"))
 											.push(
-												container(
-													svg(icons
-														.get(&Icon::SquareArrowOutUpRight)
-														.unwrap()
-														.clone())
-													.width(Length::Shrink)
-													.height(Length::Fixed(16.))
+												icon(square_arrow_out_up_right)
 													.opacity(animate_alpha)
 													.style(theme::svg_button),
-												)
-												.height(Length::Fixed(21.))
-												.align_y(Alignment::Center),
 											)
+											.align_y(Alignment::Center)
 											.spacing(2),
 									)
-									.on_press(Message::ConfigOpened)
+									.on_press(Message::ConfigOpened),
 								)
 							} else {
 								None
@@ -466,40 +456,31 @@ impl Settings {
 					} else {
 						Some(
 							Row::new().push(horizontal_space()).push(
-								mouse_area(
-									tooltip(
-										button("Confirm")
-											.on_press_maybe(
-												if self.config.exanima_exe.is_none() {
-													None
-												} else {
-													Some(Message::Confirm)
-												},
+								mouse_area(tooltip(
+									button("Confirm")
+										.on_press_maybe(if self.config.exanima_exe.is_none() {
+											None
+										} else {
+											Some(Message::Confirm)
+										})
+										.style(move |theme, status| {
+											let mut style = button::success(theme, status);
+											style.text_color =
+												style.text_color.scale_alpha(animate_alpha);
+											style.with_background(
+												style
+													.background
+													.unwrap()
+													.scale_alpha(animate_alpha),
 											)
-											.style(move |theme, status| {
-												let mut style = button::success(theme, status);
-												style.text_color =
-													style.text_color.scale_alpha(animate_alpha);
-												style.with_background(
-													style
-														.background
-														.unwrap()
-														.scale_alpha(animate_alpha),
-												)
-											}),
-										"Fill out the required fields",
-									)
-									.style(move |theme| {
-										theme::tooltip(
-											theme,
-											if self.size.is_none() {
-												1.
-											} else {
-												self.tooltip_fade.animate_bool(0., 1., now)
-											},
-										)
-									}),
-								)
+										}),
+									"Fill out the required fields",
+									if self.size.is_none() {
+										1.
+									} else {
+										self.tooltip_fade.animate_bool(0., 1., now)
+									},
+								))
 								.on_enter(Message::TooltipShow)
 								.on_move(|_| Message::TooltipShow)
 								.on_exit(Message::TooltipHide),

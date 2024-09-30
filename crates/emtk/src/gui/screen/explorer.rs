@@ -18,7 +18,7 @@ use iced::{
 		button, container, horizontal_rule, horizontal_space, mouse_area, scrollable, svg, text,
 		text_input, Column, Row,
 	},
-	window, Alignment, Border, Color, Element, Length, Shadow, Subscription, Task, Theme, Vector,
+	window, Alignment, Element, Length, Subscription, Task,
 };
 use iced_aw::ContextMenu;
 use lilt::{Animated, Easing};
@@ -32,6 +32,7 @@ use crate::gui::{
 	constants::FADE_DURATION,
 	theme,
 	widget::{
+		context_menu, icon,
 		list::{self, List},
 		tooltip,
 	},
@@ -246,23 +247,16 @@ impl Explorer {
 									.align_y(Alignment::Center)
 									.spacing(6),
 								move || {
-									container(
+									context_menu(
 										Column::new()
 											.push(
 												button(
 													Row::new()
 														.push(text("Export"))
-														.push(
-															container(
-																svg(square_arrow_out_up_right
-																	.clone())
-																.width(Length::Shrink)
-																.height(Length::Fixed(16.))
-																.style(theme::svg),
-															)
-															.height(Length::Fixed(24.))
-															.align_y(Alignment::Center),
-														)
+														.push(icon(
+															square_arrow_out_up_right.clone(),
+														))
+														.align_y(Alignment::Center)
 														.spacing(2),
 												)
 												.on_press(Message::EntryExported(entry.to_owned()))
@@ -276,16 +270,10 @@ impl Explorer {
 													Row::new()
 														.push(text("Import"))
 														.push(
-															container(
-																svg(square_arrow_out_up_right
-																	.clone())
-																.width(Length::Shrink)
-																.height(Length::Fixed(16.))
+															icon(square_arrow_out_up_right.clone())
 																.style(theme::svg_danger),
-															)
-															.height(Length::Fixed(24.))
-															.align_y(Alignment::Center),
 														)
+														.align_y(Alignment::Center)
 														.spacing(2),
 												)
 												.padding(3)
@@ -299,24 +287,6 @@ impl Explorer {
 													.style(theme::transparent_danger_button),
 											),
 									)
-									.padding(6)
-									.width(Length::Fixed(164.))
-									.style(|theme: &Theme| {
-										let palette = theme.extended_palette();
-										container::Style::default()
-											.background(palette.background.base.color)
-											.border(
-												Border::default()
-													.color(palette.background.weak.color)
-													.width(1)
-													.rounded(3),
-											)
-											.shadow(Shadow {
-												color: Color::BLACK,
-												offset: Vector::new(2., 2.),
-												blur_radius: 8.,
-											})
-									})
 									.into()
 								},
 							)
@@ -336,14 +306,13 @@ impl Explorer {
 						button(
 							Row::new()
 								.push(
-									svg(icons.get(&Icon::Folder).unwrap().clone())
-										.width(Length::Shrink)
-										.height(Length::Fixed(20.))
-										.style(theme::svg),
+									icon(icons.get(&Icon::Folder).unwrap().clone())
+										.height(Length::Fixed(20.)),
 								)
 								.push(text(path.file_name().unwrap().to_str().unwrap()))
 								.push(horizontal_space())
 								.push(text(file_size))
+								.align_y(Alignment::Center)
 								.spacing(12),
 						)
 						.on_press(Message::RpkSelected(Some(path.to_owned())))
@@ -354,34 +323,30 @@ impl Explorer {
 				)
 				.push(
 					container(
-						mouse_area(
-							tooltip(
-								button(
-									Row::new()
-										.push(text("Load a Package"))
-										.push(
-											container(
-												svg(icons
-													.get(&Icon::SquareArrowOutUpRight)
-													.unwrap()
-													.clone())
-												.width(Length::Shrink)
-												.height(Length::Fixed(16.))
-												.style(theme::svg_button),
-											)
-											.height(Length::Fixed(21.))
-											.align_y(Alignment::Center),
+						mouse_area(tooltip(
+							button(
+								Row::new()
+									.push(text("Load a Package"))
+									.push(
+										container(
+											svg(icons
+												.get(&Icon::SquareArrowOutUpRight)
+												.unwrap()
+												.clone())
+											.width(Length::Shrink)
+											.height(Length::Fixed(16.))
+											.style(theme::svg_button),
 										)
-										.spacing(2),
-								)
-								.on_press(Message::RpkDialog)
-								.style(button::primary),
-								"Custom Rayform Package",
+										.height(Length::Fixed(21.))
+										.align_y(Alignment::Center),
+									)
+									.spacing(2),
 							)
-							.style(move |theme| {
-								theme::tooltip(theme, self.fade.animate_bool(0., 1., now))
-							}),
-						)
+							.on_press(Message::RpkDialog)
+							.style(button::primary),
+							"Custom Rayform Package",
+							self.fade.animate_bool(0., 1., now),
+						))
 						.on_enter(Message::TooltipShow)
 						.on_move(|_| Message::TooltipShow)
 						.on_exit(Message::TooltipHide),

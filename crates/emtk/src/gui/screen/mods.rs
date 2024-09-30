@@ -7,14 +7,14 @@ use iced::{
 		button, checkbox, container, horizontal_rule, horizontal_space, scrollable, svg, text,
 		Column, Row,
 	},
-	Alignment, Border, Color, Element, Length, Rectangle, Shadow, Task, Theme, Vector,
+	Alignment, Border, Element, Length, Rectangle, Task, Theme,
 };
 use iced_aw::ContextMenu;
 use iced_drop::{droppable, find_zones};
 
 use crate::{
 	config::Config,
-	gui::{config_by_id, load_order, path_by_id, theme, Icon},
+	gui::{config_by_id, load_order, path_by_id, theme, widget::context_menu, Icon},
 };
 
 pub enum Action {
@@ -366,7 +366,7 @@ impl Mods {
 									.on_cancel(Message::ModDragCanceled)
 									.drag_hide(true),
 									move || {
-										container(
+										context_menu(
 											Column::new()
 												.push(
 													button(text("Example Button"))
@@ -387,24 +387,6 @@ impl Mods {
 														.style(theme::transparent_danger_button),
 												),
 										)
-										.padding(6)
-										.width(Length::Fixed(164.))
-										.style(|theme| {
-											let palette = theme.extended_palette();
-											container::Style::default()
-												.background(palette.background.base.color)
-												.border(
-													Border::default()
-														.color(palette.background.weak.color)
-														.width(1)
-														.rounded(3),
-												)
-												.shadow(Shadow {
-													color: Color::BLACK,
-													offset: Vector::new(2., 2.),
-													blur_radius: 8.,
-												})
-										})
 										.into()
 									},
 								)

@@ -21,6 +21,23 @@ pub fn checkbox(
 	}
 }
 
+pub fn context_menu(theme: &Theme) -> widget::container::Style {
+	let palette = theme.extended_palette();
+	container::Style::default()
+		.background(palette.background.base.color)
+		.border(
+			Border::default()
+				.color(palette.background.weak.color)
+				.width(1)
+				.rounded(3),
+		)
+		.shadow(Shadow {
+			color: Color::BLACK,
+			offset: Vector::new(2., 2.),
+			blur_radius: 8.,
+		})
+}
+
 pub fn rule(theme: &Theme, scale_alpha: f32) -> widget::rule::Style {
 	let mut style = widget::rule::default(theme);
 	style.color = style.color.scale_alpha(scale_alpha);

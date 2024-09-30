@@ -507,8 +507,8 @@ impl Emtk {
 			Message::SizeChanged(size) => {
 				self.window_size = size;
 				if let Some(confirm) = &mut self.confirm_dialog {
-					let width = size.width * 0.8;
-					let height = size.height * 0.8;
+					let width = size.width * 0.25;
+					let height = size.height;
 					let size = Size::new(width, height);
 					confirm.update(confirm::Message::SizeChanged(size));
 				}
@@ -620,6 +620,7 @@ impl Emtk {
 			} else {
 				confirm_view
 			};
+			// FIX: on_blur message breaks animation
 			modal(self.fade.clone(), con, confirm_view, || {
 				Message::ConfirmClosed
 			})
