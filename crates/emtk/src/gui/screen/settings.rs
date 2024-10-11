@@ -24,6 +24,7 @@ use crate::{
 pub enum Action {
 	CloseModal,
 	ConfigChanged(Config),
+	PromptCacheCleared,
 	Run(Task<Message>),
 	ViewChangelog,
 	None,
@@ -55,6 +56,7 @@ pub enum Message {
 	ExanimaExeDialog,
 	ExplainToggled(bool),
 	FadeOut,
+	PromptCacheCleared,
 	SizeChanged(Size),
 	ThemeChanged(Theme),
 	Tick,
@@ -164,6 +166,9 @@ impl Settings {
 				}
 			}
 			Message::FadeOut => self.fade.transition(false, now),
+			Message::PromptCacheCleared => {
+				return Action::PromptCacheCleared;
+			}
 			Message::SizeChanged(size) => self.size = Some(size),
 			Message::ThemeChanged(theme) => {
 				self.theme = theme.to_owned();
@@ -377,7 +382,7 @@ impl Settings {
 												.on_press_maybe(if self.cache_size == 0 {
 													None
 												} else {
-													Some(Message::CacheCleared)
+													Some(Message::PromptCacheCleared)
 												})
 												.style(button::danger),
 										)

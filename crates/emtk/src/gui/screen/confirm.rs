@@ -10,6 +10,7 @@ use crate::gui::constants::FADE_DURATION;
 
 #[derive(Debug, Clone)]
 pub enum Action {
+	CacheCleared,
 	ModDeleted(usize),
 	None,
 }

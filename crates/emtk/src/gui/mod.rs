@@ -233,6 +233,13 @@ impl Emtk {
 					self.fade.transition(false, now);
 					confirm.update(confirm::Message::FadeOut);
 					return match confirm.update(message) {
+						confirm::Action::CacheCleared => {
+							self.confirm_dialog = None;
+							Task::batch([
+								Task::done(Message::ConfirmClosed),
+								Task::done(Message::Settings(settings::Message::CacheCleared)),
+							])
+						}
 						confirm::Action::ModDeleted(index) => {
 							self.confirm_dialog = None;
 							Task::batch([
@@ -385,7 +392,6 @@ impl Emtk {
 									}
 								}
 								_ => Task::none(),
-								// _ => unreachable!("This is a bug. Please report this."),
 							};
 							return Task::batch([
 								Task::done(Message::ExanimaLaunched),
@@ -471,6 +477,14 @@ impl Emtk {
 					}
 					settings::Action::ConfigChanged(settings) => {
 						Task::done(Message::ConfigChanged(settings))
+					}
+					settings::Action::PromptCacheCleared => {
+						self.fade.transition(true, now);
+						self.confirm_dialog = Some(Confirm::new(
+							confirm::Action::CacheCleared,
+							Some(self.window_size * 0.25),
+						));
+						Task::none()
 					}
 					settings::Action::Run(task) => task.map(Message::Settings),
 					settings::Action::ViewChangelog => {
