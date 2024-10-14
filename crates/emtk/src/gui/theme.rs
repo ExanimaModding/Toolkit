@@ -77,7 +77,25 @@ pub fn svg_button(theme: &Theme, _status: widget::svg::Status) -> widget::svg::S
 
 pub fn svg_danger(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
 	widget::svg::Style {
-		color: Some(theme.palette().danger),
+		color: Some(theme.extended_palette().danger.base.color),
+	}
+}
+
+pub fn svg_primary(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
+	widget::svg::Style {
+		color: Some(theme.extended_palette().primary.base.color),
+	}
+}
+
+pub fn svg_secondary(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
+	widget::svg::Style {
+		color: Some(theme.extended_palette().secondary.base.color),
+	}
+}
+
+pub fn svg_success(theme: &Theme, _status: widget::svg::Status) -> widget::svg::Style {
+	widget::svg::Style {
+		color: Some(theme.extended_palette().success.base.color),
 	}
 }
 

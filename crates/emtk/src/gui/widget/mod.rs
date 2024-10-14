@@ -1,9 +1,10 @@
 pub mod list;
 pub mod modal;
+pub mod toast;
 
 use iced::{
 	widget::{self, container, text},
-	Alignment, Element, Length,
+	Element, Length,
 };
 
 use crate::gui::theme;

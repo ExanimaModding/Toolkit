@@ -29,7 +29,10 @@ use screen::{
 	Screen, ScreenKind,
 };
 use strum::{EnumIter, IntoEnumIterator};
-use widget::modal::modal;
+use widget::{
+	modal::modal,
+	toast::{self, Toast},
+};
 
 use crate::config::{self, Config};
 
@@ -40,13 +43,16 @@ static ICON: &[u8] = include_bytes!("../../../../assets/images/corro.ico");
 pub enum Icon {
 	ArrowLeft,
 	CircleAlert,
+	CircleCheck,
 	Download,
 	Folder,
+	Info,
 	Layers,
 	Menu,
 	Play,
 	Settings,
 	SquareArrowOutUpRight,
+	TriangleAlert,
 }
 
 impl Icon {
@@ -54,8 +60,10 @@ impl Icon {
 		match self {
 			Icon::ArrowLeft => include_bytes!("../../../../assets/images/arrow-left.svg"),
 			Icon::CircleAlert => include_bytes!("../../../../assets/images/circle-alert.svg"),
+			Icon::CircleCheck => include_bytes!("../../../../assets/images/circle-check.svg"),
 			Icon::Download => include_bytes!("../../../../assets/images/download.svg"),
 			Icon::Folder => include_bytes!("../../../../assets/images/folder.svg"),
+			Icon::Info => include_bytes!("../../../../assets/images/info.svg"),
 			Icon::Layers => include_bytes!("../../../../assets/images/layers-3.svg"),
 			Icon::Menu => include_bytes!("../../../../assets/images/menu.svg"),
 			Icon::Play => include_bytes!("../../../../assets/images/play.svg"),
@@ -63,6 +71,7 @@ impl Icon {
 			Icon::SquareArrowOutUpRight => {
 				include_bytes!("../../../../assets/images/square-arrow-out-up-right.svg")
 			}
+			Icon::TriangleAlert => include_bytes!("../../../../assets/images/triangle-alert.svg"),
 		}
 	}
 }
@@ -107,12 +116,14 @@ pub struct Emtk {
 	latest_release: GetLatestReleaseState,
 	modal: Option<Screen>,
 	screen: Screen,
+	toasts: Vec<Toast>,
 	window_size: Size,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
 	Changelog(changelog::Message),
+	ConfigChanged(Config),
 	Confirm(confirm::Message),
 	ConfirmCleanup,
 	ConfirmClosed,
@@ -128,10 +139,11 @@ pub enum Message {
 	Progress(progress::Message),
 	ScreenChanged(ScreenKind),
 	Settings(settings::Message),
-	ConfigChanged(Config),
 	SizeChanged(Size),
 	StartGame,
 	Tick,
+	ToastClosed(usize),
+	ToastCreated(Toast),
 }
 
 impl Emtk {
@@ -197,12 +209,6 @@ impl Emtk {
 		};
 		(
 			emtk,
-			// TODO: refactor
-			// Task::batch([
-			// 	Task::done(screen::settings::Message::default()).map(Message::Settings),
-			// 	Task::done(screen::home::Message::LoadSettings(settings.clone()))
-			// 		.map(Message::Home),
-			// ]),
 			Task::batch([
 				mods_task,
 				task_configure,
@@ -226,6 +232,31 @@ impl Emtk {
 						changelog::Action::None => Task::none(),
 					};
 					return Task::batch([task.map(Message::Changelog), action]);
+				}
+			}
+			Message::ConfigChanged(config) => {
+				let config_path = dirs::config_dir().unwrap().join("Exanima Modding Toolkit");
+				if !config_path.is_dir() {
+					fs::create_dir_all(&config_path).unwrap();
+				}
+				let config_path = config_path.join("config.ron");
+				let content =
+					ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap();
+				fs::write(config_path, content).unwrap();
+				self.config = config;
+				match &mut self.screen {
+					Screen::Mods(mods) => {
+						mods.update(mods::Message::ConfigRefetched(self.config.clone()));
+					}
+					Screen::Settings(settings) => {
+						match settings
+							.update(settings::Message::ConfigRefetched(self.config.clone()))
+						{
+							settings::Action::None => (),
+							_ => unreachable!("This is a bug. Please report this."),
+						};
+					}
+					_ => (),
 				}
 			}
 			Message::Confirm(message) => {
@@ -388,6 +419,9 @@ impl Emtk {
 								Screen::Settings(settings) => {
 									match settings.update(settings::Message::CacheChecked) {
 										settings::Action::Run(task) => task,
+										// This will become reachable if Message::CachChecked
+										// returns an Action other than Run which is currently only
+										// possible by changing what it returns
 										_ => unreachable!("This is a bug. Please report this."),
 									}
 								}
@@ -493,31 +527,6 @@ impl Emtk {
 					settings::Action::None => Task::none(),
 				};
 			}
-			Message::ConfigChanged(config) => {
-				let config_path = dirs::config_dir().unwrap().join("Exanima Modding Toolkit");
-				if !config_path.is_dir() {
-					fs::create_dir_all(&config_path).unwrap();
-				}
-				let config_path = config_path.join("config.ron");
-				let content =
-					ron::ser::to_string_pretty(&config, ron::ser::PrettyConfig::default()).unwrap();
-				fs::write(config_path, content).unwrap();
-				self.config = config;
-				match &mut self.screen {
-					Screen::Mods(mods) => {
-						mods.update(mods::Message::ConfigRefetched(self.config.clone()));
-					}
-					Screen::Settings(settings) => {
-						match settings
-							.update(settings::Message::ConfigRefetched(self.config.clone()))
-						{
-							settings::Action::None => (),
-							_ => unreachable!("This is a bug. Please report this."),
-						};
-					}
-					_ => (),
-				}
-			}
 			Message::SizeChanged(size) => {
 				self.window_size = size;
 				if let Some(confirm) = &mut self.confirm_dialog {
@@ -560,6 +569,12 @@ impl Emtk {
 				return task.map(Message::Progress);
 			}
 			Message::Tick => (),
+			Message::ToastClosed(index) => {
+				self.toasts.remove(index);
+			}
+			Message::ToastCreated(toast) => {
+				self.toasts.push(toast);
+			}
 		};
 
 		Task::none()
@@ -642,11 +657,24 @@ impl Emtk {
 			con
 		};
 
-		if self.config.launcher.as_ref().unwrap().explain {
+		let con = if self.config.launcher.as_ref().unwrap().explain {
 			con.explain(explain_color)
 		} else {
 			con
+		};
+
+		let mut toast_icons = HashMap::new();
+		for toast_icon in toast::Icon::iter() {
+			let icon = match toast_icon {
+				toast::Icon::Danger => Icon::TriangleAlert,
+				toast::Icon::Info => Icon::Info,
+				toast::Icon::Success => Icon::CircleCheck,
+			};
+			toast_icons.insert(toast_icon, self.icons.get(&icon).unwrap().clone());
 		}
+		toast::Manager::new(con, &self.toasts, Message::ToastClosed, Some(toast_icons))
+			.timeout(toast::DEFAULT_TIMEOUT)
+			.into()
 	}
 
 	pub fn sidebar(&self) -> Element<Message> {
@@ -870,6 +898,7 @@ impl Default for Emtk {
 			latest_release: GetLatestReleaseState::default(),
 			modal: Option::default(),
 			screen: Screen::default(),
+			toasts: Vec::default(),
 			window_size: Size::default(),
 		}
 	}
