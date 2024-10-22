@@ -9,10 +9,9 @@ repository = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
-# This branch fixes an issue with `id_pat = "_"`
-# We can stop using this once the fix PR is merged.
-# See: https://github.com/sharksforarms/deku/pull/454
-deku = { git = "https://github.com/sharksforarms/deku.git", rev = "88e6e0bedbfcec4f2ca6eda964895622cd4391ec" }
+# This revision adds support for reading the bytes in a Vec<u8> all at once which does not have a release yet.
+# Once a release including this revision is published, this can be changed to using versions.
+deku = { git = "https://github.com/sharksforarms/deku.git", rev = "59fc7603e2eb2ac3e500927d98514f431d691481" }
 log = { workspace = true }
 serde = { workspace = true }
 # Update the following files when modifying the features of pyo3:

@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 
-use crate::VecReader;
-
 pub const MAGIC: u32 = 0xAFBF0C01;
 
 #[derive(Debug, Clone, Default)]
@@ -42,7 +40,7 @@ pub struct Rpk {
 	#[deku(
 		cond = "!ctx.entries_only",
 		reader = "Rpk::read(ctx, deku::reader, entries)",
-		writer = "VecReader::write_nested(deku::writer, &self.data)"
+		writer = "Rpk::write(deku::writer, &self.data)"
 	)]
 	pub data: Vec<Vec<u8>>,
 }
@@ -60,7 +58,7 @@ pub struct Rpk {
 	#[deku(
 		cond = "!ctx.entries_only",
 		reader = "Rpk::read(ctx, deku::reader, entries)",
-		writer = "VecReader::write_nested(deku::writer, &self.data)"
+		writer = "Rpk::write(deku::writer, &self.data)"
 	)]
 	pub data: Vec<Vec<u8>>,
 }
@@ -95,6 +93,16 @@ impl Rpk {
 			formats.push(format);
 		}
 		Ok(formats)
+	}
+
+	fn write<W: io::Write + io::Seek>(
+		writer: &mut Writer<W>,
+		data: &Vec<Vec<u8>>,
+	) -> Result<(), DekuError> {
+		for vec in data {
+			writer.write_bytes(vec.as_slice())?;
+		}
+		Ok(())
 	}
 }
 

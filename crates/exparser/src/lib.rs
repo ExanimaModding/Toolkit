@@ -4,8 +4,6 @@ pub mod rfi;
 pub mod rpk;
 pub mod wav;
 
-use std::io;
-
 pub use deku;
 use deku::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -22,6 +20,7 @@ use rfi::Rfi;
 use rpk::Rpk;
 use wav::Wav;
 
+// FIX: Change context to be an enum
 // TODO: add contexts for the rest of the file formats
 #[derive(Debug, Clone, Default)]
 pub struct Context {
@@ -42,10 +41,7 @@ impl Context {
 #[derive(Clone, Debug, DekuRead, DekuWrite, Deserialize, Serialize)]
 #[deku(ctx = "ctx: Context", ctx_default = "Context::default()")]
 pub struct Unknown {
-	#[deku(
-		reader = "VecReader::read(deku::reader, ctx.size)",
-		writer = "VecReader::write(deku::writer, &self.data)"
-	)]
+	#[deku(count = "ctx.size")]
 	pub data: Vec<u8>,
 }
 
@@ -95,36 +91,5 @@ impl Format {
 			Ok(buf) => Ok(PyBytes::new_bound(py, &buf)),
 			Err(err) => Err(PyIOError::new_err(err.to_string())),
 		}
-	}
-}
-
-// TODO: rename struct
-pub(crate) struct VecReader;
-
-impl VecReader {
-	pub(crate) fn read<R: io::Read + io::Seek>(
-		reader: &mut Reader<R>,
-		size: usize,
-	) -> Result<Vec<u8>, DekuError> {
-		let mut buf = vec![0; size];
-		reader.read_bytes(size, &mut buf)?;
-		Ok(buf)
-	}
-
-	pub(crate) fn write<W: io::Write + io::Seek>(
-		writer: &mut Writer<W>,
-		data: &Vec<u8>,
-	) -> Result<(), DekuError> {
-		writer.write_bytes(data.as_slice())
-	}
-
-	pub(crate) fn write_nested<W: io::Write + io::Seek>(
-		writer: &mut Writer<W>,
-		data: &Vec<Vec<u8>>,
-	) -> Result<(), DekuError> {
-		for vec in data {
-			Self::write(writer, vec)?;
-		}
-		Ok(())
 	}
 }
