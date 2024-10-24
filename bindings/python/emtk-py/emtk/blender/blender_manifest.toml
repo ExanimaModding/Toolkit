@@ -18,10 +18,12 @@ tags = [
 ]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-only"]
-platforms = ["windows-x64"]
+platforms = ["windows-x64", "linux-x64"]
 # NOTE: emtk-py wheel
-wheels = ["./wheels/emtk-0.1.0b1-cp311-abi3-win_amd64.whl"]
-
+wheels = [
+	"wheels/emtk-0.1.0b1-cp311-abi3-win_amd64.whl",
+	"wheels/emtk-0.1.0b1-cp311-abi3-manylinux_2_34_x86_64.whl",
+]
 [permissions]
 files = "Import/export RFC from/to disk"
 

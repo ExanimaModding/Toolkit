@@ -4,8 +4,6 @@ use std::{
 	process,
 };
 
-const WINDOWS_ONLY: &str = "This command currently only supports windows";
-
 #[derive(PartialEq)]
 enum BuildMode {
 	Release,
@@ -175,7 +173,6 @@ fn setup_python() {
 		"-r",
 		"./bindings/python/emtk-py/requirements.txt",
 	];
-	let venv_cmd = "./.venv/Scripts/activate.bat";
 
 	process::Command::new(uv_cmd)
 		.current_dir(project_root)
@@ -187,10 +184,6 @@ fn setup_python() {
 		.args(uv_install_args)
 		.status()
 		.unwrap_or_else(|e| panic_command(uv_cmd, Some(uv_install_args), e));
-	process::Command::new(venv_cmd)
-		.current_dir(project_root)
-		.status()
-		.unwrap_or_else(|e| panic_command(venv_cmd, None, e));
 }
 
 /// A zip file will be created when building for release.
@@ -203,13 +196,16 @@ fn setup_python() {
 /// - The uv command **must** be in the PATH environment variable
 /// - The blender binary **must** be in the PATH environment variable when building in release
 fn blender(build_mode: BuildMode) {
-	if !cfg!(windows) {
-		return eprintln!("{}", WINDOWS_ONLY);
-	}
-
+	let unsupported_platform = "This task is currently unsupported on this system";
 	let project_root = project_root();
 	// NOTE: emtk-py wheel
-	let wheel_pkg = "wheels/emtk-0.1.0b1-cp311-abi3-win_amd64.whl";
+	let wheel_pkg = if cfg!(windows) {
+		"wheels/emtk-0.1.0b1-cp311-abi3-win_amd64.whl"
+	} else if cfg!(unix) {
+		"wheels/emtk-0.1.0b1-cp311-abi3-manylinux_2_34_x86_64.whl"
+	} else {
+		return eprintln!("{}", unsupported_platform);
+	};
 
 	// Copy the emtk-py wheel file into emtk's blender extension "wheels" folder
 	let bl_dep_path = PathBuf::from(&wheel_pkg);
@@ -229,6 +225,9 @@ fn blender(build_mode: BuildMode) {
 	fs::copy(&wheel_path, &target_wheel_path).unwrap();
 
 	if build_mode == BuildMode::Release {
+		// TODO: Add cross-compilation support
+		todo!("Add cross-compilation support");
+
 		// Bundle extension for distribution
 		let blender_cmd = "blender";
 		let blender_args = &[
@@ -247,9 +246,19 @@ fn blender(build_mode: BuildMode) {
 			.unwrap_or_else(|e| panic_command(blender_cmd, Some(blender_args), e));
 	} else if build_mode == BuildMode::Dev {
 		// Check if the extension folder exists first
-		// WARN: Be careful modifying the path of data_dir as fs::remove_dir_all is called with it
-		let mut data_dir = PathBuf::from(env::var("APPDATA").unwrap())
-			.join("Blender Foundation/Blender/4.2/extensions/user_default");
+		let mut data_dir = if cfg!(windows) {
+			PathBuf::from(env::var("APPDATA").unwrap())
+				.join("Blender Foundation/Blender/4.2/extensions/user_default")
+		} else if cfg!(unix) {
+			PathBuf::from(env::var("XDG_CONFIG_HOME").unwrap_or_else(|_| {
+				let mut config = env::var("HOME").unwrap();
+				config.push_str("/.config");
+				config
+			}))
+			.join("blender/4.2/extensions/user_default")
+		} else {
+			return eprintln!("{}", unsupported_platform);
+		};
 		if !data_dir.exists() {
 			fs::create_dir_all(&data_dir).unwrap();
 		}
@@ -289,10 +298,6 @@ fn blender(build_mode: BuildMode) {
 }
 
 fn python(build_mode: BuildMode) {
-	if !cfg!(windows) {
-		return eprintln!("{}", WINDOWS_ONLY);
-	}
-
 	setup_python();
 
 	let maturin_cmd = "maturin";
@@ -426,10 +431,6 @@ fn run_plugin(name: &str, exanima_exe_path: Option<PathBuf>) {
 ///
 /// - The uv command **must** be in the PATH environment variable
 fn wheel(build_mode: BuildMode) {
-	if !cfg!(windows) {
-		return eprintln!("{}", WINDOWS_ONLY);
-	}
-
 	setup_python();
 
 	let project_root = project_root();
