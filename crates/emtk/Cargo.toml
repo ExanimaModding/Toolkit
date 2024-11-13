@@ -18,7 +18,7 @@ anyhow = "1.0.86"
 chrono = { version = "0.4.38", features = ["serde"] }
 dirs = "5.0.1"
 emf-types = { workspace = true }
-exparser = { path = "../exparser" }
+exparser = { git = "https://codeberg.org/ExanimaModding/exparser.git", branch = "main" }
 human_bytes = "0.4.3"
 iced = { version = "0.13.1", features = [
 	"advanced",
