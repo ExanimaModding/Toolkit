@@ -138,7 +138,7 @@ impl Explorer {
 			// TODO: support multiple selections
 			Message::RpkDialog => {
 				if let Some(path) = FileDialog::new()
-					.add_filter("Rayform Package", &["rpk"])
+					.add_filter("Rayform Package", &["fds", "flb", "rml", "rpk"])
 					.pick_file()
 				{
 					return Task::done(Message::RpkSelected(Some(path)));
