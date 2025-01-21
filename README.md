@@ -29,6 +29,6 @@ The Exanima Modding Toolkit (EMTK) is ***not*** affiliated with Bare Mettle Ente
 
 ## License
 
-EMTK is under the GNU General Public License, see `LICENSE` in this repo
+EMTK is under the GNU Lesser General Public License v3.0 or later, see `LICENSE` in this repo
 
 
