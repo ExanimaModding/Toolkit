@@ -1,19 +1,51 @@
 [package]
 name = "emtk"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-documentation = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-license = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
-detours-sys = { workspace = true }
-# EMF is needed as a dependency so that emf.dll gets compiled before running EMTK.
+clap = { version = "4.5", features = ["derive"] }
+detours-sys.workspace = true
+emcore = { path = "../core" }
 emf = { path = "../emf" }
-winapi = { workspace = true }
+exparser = { git = "https://codeberg.org/ExanimaModding/exparser.git", branch = "main" }
+getset = "0.1"
+iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = [
+	"advanced",
+	"highlighter",
+	"lazy",
+	"markdown",
+	"svg",
+	"tokio",
+] }
+iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", branch = "dev" }
+iced_table = { git = "https://github.com/ProffDea/iced_table.git", branch = "dev" }
+image = { version = "0.25", default-features = false, features = ["png"] }
+# indicatif = "0.17"
+itertools = "0.14"
+# lilt = "0.8"
+open = "5.3"
+rfd = "0.15"
+ron = "0.8"
+serde.workspace = true
+termimad = "0.31"
+thiserror.workspace = true
+tokio = { version = "1", features = ["io-std", "fs", "io-util", "macros"] }
+toml.workspace = true
+tracing.workspace = true
+tracing-appender = "0.2"
+tracing-indicatif = "0.3"
+tracing-subscriber = "0.3"
+tracing-tracy = "0.11.4"
+winapi.workspace = true
 
-# emf.dll is required for emtk to inject into the game.
-[package.metadata.cargo-machete]
-ignored = ["emf"]
+[build-dependencies]
+winresource = "0.1"
+
+[dev-dependencies]
+tempfile = "3.16"

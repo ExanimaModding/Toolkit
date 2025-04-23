@@ -81,22 +81,23 @@ unsafe extern "C" fn main() {
 		}
 	};
 
-	gui::inject_gui();
+	// TODO: port plugin configs to emcore::plugin::Manifest
+	// gui::inject_gui();
 
-	let plugin_configs = match read_plugin_configs() {
-		Ok(configs) => configs,
-		Err(e) => {
-			error!("Failed to load plugin configs: {:?}", e);
-			return;
-		}
-	};
+	// let plugin_configs = match read_plugin_configs() {
+	// 	Ok(configs) => configs,
+	// 	Err(e) => {
+	// 		error!("Failed to load plugin configs: {:?}", e);
+	// 		return;
+	// 	}
+	// };
 
-	for config in plugin_configs {
-		let result = plugins::load_plugin(config);
-		if let Err(e) = result {
-			error!("Failed to load plugin: {:?}", e);
-		}
-	}
+	// for config in plugin_configs {
+	// 	let result = plugins::load_plugin(config);
+	// 	if let Err(e) = result {
+	// 		error!("Failed to load plugin: {:?}", e);
+	// 	}
+	// }
 
 	info!("Running Original Program Entrypoint");
 

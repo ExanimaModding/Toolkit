@@ -50,7 +50,14 @@ unsafe fn create_file_a(
 
 	// Statically read the cwd and cache dir so that it doesn't run every time CreateFileA is called.
 	static CWD_PATH: LazyLock<PathBuf> = LazyLock::new(|| std::env::current_dir().unwrap());
-	static CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| CWD_PATH.clone().join(".emtk/cache"));
+
+	static CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
+		CWD_PATH
+			.clone()
+			.join(emcore::Instance::DATA_DIR)
+			.join(emcore::Instance::CACHE_DIR)
+			.join(emcore::Instance::CACHE_BUILD_DIR)
+	});
 
 	// Convert the string pointer to a Rust path.
 	let file_name = CStr::from_ptr(lp_file_name).to_string_lossy().into_owned();
