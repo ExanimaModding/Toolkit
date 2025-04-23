@@ -91,9 +91,22 @@ unsafe fn create_file_a(
 		);
 	}
 
-	// Stringify and add the null terminator.
-	let new_file_name = new_file_name.to_string_lossy() + "\0";
-	let new_file_name = std::ffi::CString::from_raw(new_file_name.as_ptr() as *mut i8);
+	// Convert the new file name to a CString, ensuring it is null-terminated.
+	let new_file_name = match std::ffi::CString::new(new_file_name.to_string_lossy().as_bytes()) {
+		Ok(cstring) => cstring,
+		Err(_) => {
+			// If conversion fails, fallback to the original file.
+			return CREATE_FILE_A(
+				lp_file_name,
+				dw_desired_access,
+				dw_share_mode,
+				lp_security_attributes,
+				dw_creation_disposition,
+				dw_flags_and_attributes,
+				h_template_file,
+			);
+		}
+	};
 
 	// Call the original CreateFileA with the new file name, and return the result.
 	CREATE_FILE_A(
