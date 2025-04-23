@@ -219,13 +219,15 @@ pub struct Root {
 
 impl Root {
 	fn new() -> (Self, Task<Message>) {
-		(
-			Self::default(),
+		let task = if emcore::data_dir().join(App::TOML).is_file() {
 			Task::future(Config::read_config())
 				.map(|result| result.map_err(|e| error!("{}", e)))
 				.and_then(|config| Task::done(Message::RefreshConfig(config)))
-				.chain(Task::done(Message::Loaded)),
-		)
+				.chain(Task::done(Message::Loaded))
+		} else {
+			Task::done(Message::Loaded)
+		};
+		(Self::default(), task)
 	}
 }
 
@@ -235,7 +237,7 @@ impl Default for Root {
 			config: Config::default(),
 			loading: true,
 			logs: Vec::new(),
-			theme: Theme::Dark,
+			theme: default_theme(),
 		}
 	}
 }
