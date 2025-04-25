@@ -10,10 +10,10 @@ license.workspace = true
 
 [dependencies]
 emf-types.workspace = true
-safer-ffi = "0.1"
+safer-ffi.workspace = true
 
 [build-dependencies]
-serde = { version = "1.0", features = ["derive"] }
+serde.workspace = true
 serde_json = "1.0"
 ureq = { version = "2.10", features = ["json"] }
 zip = "2.1"

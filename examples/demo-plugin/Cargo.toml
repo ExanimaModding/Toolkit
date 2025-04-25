@@ -13,4 +13,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 emf-rs = { path = "../../bindings/rust/emf-rs" }
-log = "0.4.22"
+log.workspace = true

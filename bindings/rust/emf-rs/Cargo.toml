@@ -9,9 +9,9 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-anyhow = "1.0"
+anyhow.workspace = true
 emf-rs-macros = { path = "../emf-rs-macros" }
 emf-sys = { path = "../emf-sys" }
-log = "0.4"
-once_cell = "1.21"
-safer-ffi = "0.1"
+log.workspace = true
+once_cell.workspace = true
+safer-ffi.workspace = true
