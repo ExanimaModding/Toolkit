@@ -1,11 +1,12 @@
 pub(crate) mod manager;
 mod parser;
 
+use std::{path::PathBuf, result::Result::Ok};
+
 use anyhow::*;
 use emf_types::config;
-use log::*;
 use path_clean::PathClean;
-use std::{path::PathBuf, result::Result::Ok};
+use tracing::{error, info};
 
 use crate::internal::utils::get_game_dir;
 

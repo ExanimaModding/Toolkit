@@ -3,8 +3,6 @@ mod internal;
 mod plugins;
 
 use internal::{gui, utils::fs_redirector};
-use log::*;
-
 use std::ffi::c_void;
 
 use detours_sys::{
@@ -12,6 +10,8 @@ use detours_sys::{
 	DetourTransactionCommit,
 };
 use pelite::pe::Pe;
+use tracing::{error, info};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
 	um::{consoleapi::AllocConsole, winnt::DLL_PROCESS_ATTACH},
@@ -38,9 +38,16 @@ unsafe extern "stdcall" fn DllMain(
 	if fwd_reason == DLL_PROCESS_ATTACH {
 		AllocConsole();
 
-		pretty_env_logger::formatted_builder()
-			.filter_level(LevelFilter::Trace)
-			.filter(Some("hudhook"), LevelFilter::Off)
+		ansi_term::enable_ansi_support().unwrap();
+		tracing_subscriber::registry()
+			.with(
+				fmt::layer().with_filter(
+					EnvFilter::builder()
+						.from_env()
+						.unwrap()
+						.add_directive("emf=debug".parse().unwrap()),
+				),
+			)
 			.init();
 
 		info!("DllMain Loaded");

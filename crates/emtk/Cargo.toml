@@ -32,6 +32,7 @@ itertools = "0.14"
 open.workspace = true
 rfd = "0.15"
 ron.workspace = true
+safer-ffi.workspace = true
 serde.workspace = true
 termimad = "0.31"
 thiserror.workspace = true

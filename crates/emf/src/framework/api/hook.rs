@@ -1,16 +1,18 @@
-use crate::internal::memory::sigscanner::SigScanner;
-use crate::{framework::api::location_is_readwrite, internal::utils::ntdll::NtStatus};
+use std::{ffi::c_void, result::Result::Ok};
+
 use anyhow::*;
 use detours_sys::{
 	DetourAttach, DetourDetach, DetourTransactionAbort, DetourTransactionBegin,
 	DetourTransactionCommit,
 };
-use log::*;
 use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
-use std::ffi::c_void;
-use std::result::Result::Ok;
-use winapi::shared::ntdef::NTSTATUS;
-use winapi::um::processthreadsapi::GetCurrentProcess;
+use tracing::error;
+use winapi::{shared::ntdef::NTSTATUS, um::processthreadsapi::GetCurrentProcess};
+
+use crate::{
+	framework::api::location_is_readwrite,
+	internal::{memory::sigscanner::SigScanner, utils::ntdll::NtStatus},
+};
 
 pub trait Hookable {
 	/// Apply the hook.

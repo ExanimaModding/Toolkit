@@ -5,13 +5,14 @@ mod utils;
 
 use std::sync::Once;
 
+use tracing::{error, info};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use utils::{get_setting_bool, patch_is_applied};
+
 use crate::{
 	patches::PATCHES,
 	utils::{patch_apply, patch_revert},
 };
-
-use log::*;
-use utils::{get_setting_bool, patch_is_applied};
 
 static mut FIRST_RUN: bool = true;
 static mut PLUGIN_ID: &str = "dev.megu.godhand";
@@ -19,8 +20,15 @@ static mut PLUGIN_ID: &str = "dev.megu.godhand";
 #[no_mangle]
 pub unsafe extern "C" fn enable() -> bool {
 	if FIRST_RUN {
-		pretty_env_logger::formatted_builder()
-			.filter_level(log::LevelFilter::Trace)
+		tracing_subscriber::registry()
+			.with(
+				fmt::layer().with_filter(
+					EnvFilter::builder()
+						.from_env()
+						.unwrap()
+						.add_directive("godhand=debug".parse().unwrap()),
+				),
+			)
 			.init();
 		FIRST_RUN = false;
 	}

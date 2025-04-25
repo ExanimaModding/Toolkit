@@ -10,8 +10,8 @@ pub use safer_ffi;
 
 use anyhow::{anyhow, Result};
 use hook::Hookable;
-use log::*;
 use patch::Patchable;
+use tracing::{debug, error};
 use safer_ffi::prelude::char_p;
 use std::{collections::HashMap, ffi::c_void};
 

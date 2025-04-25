@@ -1,15 +1,15 @@
-use anyhow::*;
-use log::*;
-use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
 use std::result::Result::Ok;
+
+use anyhow::*;
+use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
+use tracing::error;
 use winapi::um::{
 	errhandlingapi::GetLastError, memoryapi::WriteProcessMemory,
 	processthreadsapi::GetCurrentProcess,
 };
 
-use crate::internal::memory::sigscanner::{SigScanner, SigScannerResult};
-
 use super::location_is_readwrite;
+use crate::internal::memory::sigscanner::{SigScanner, SigScannerResult};
 
 pub trait Patchable<T> {
 	unsafe fn apply(&mut self) -> Result<()>;

@@ -1,9 +1,8 @@
 mod components;
 
 use hudhook::*;
-use log::*;
 use once_cell::sync::Lazy;
-
+use tracing::error;
 use windows::Win32::UI::{
 	Input::KeyboardAndMouse,
 	WindowsAndMessaging::{GetCursorInfo, CURSORINFO, CURSOR_SHOWING, WM_KEYDOWN, WM_KEYUP},

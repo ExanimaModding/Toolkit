@@ -66,7 +66,7 @@ pub(crate) fn parse(
 					match hook {
 						Ok(_) => { #link_setting }
 						Err(e) => {
-							log::error!("Failed to create hook for {}: {:?}", stringify!(#name), e);
+							tracing::error!("Failed to create hook for {}: {:?}", stringify!(#name), e);
 						}
 					}
 				}},
@@ -88,7 +88,7 @@ pub(crate) fn parse(
 						match hook {
 							Ok(_) => { #link_setting }
 							Err(e) => {
-								log::error!("Failed to create hook for {}: {:?}", stringify!(#name), e);
+								tracing::error!("Failed to create hook for {}: {:?}", stringify!(#name), e);
 							}
 						}
 					}}

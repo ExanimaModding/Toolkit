@@ -1,4 +1,3 @@
-// TODO: move crate into emtk
 #![doc = include_str!("../README.md")]
 #![feature(let_chains)]
 #![feature(error_generic_member_access)]

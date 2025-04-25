@@ -1,10 +1,10 @@
 #![allow(clippy::missing_safety_doc)]
 
-use log::*;
 use std::ffi::{c_char, c_void};
 
 use emf_rs::macros::plugin;
 use emf_rs::safer_ffi::prelude::char_p;
+use tracing::debug;
 
 #[plugin(id = "dev.megu.demo-plugin")]
 mod plugin {

@@ -7,12 +7,11 @@ use std::{
 };
 
 use anyhow::Result;
-
+use emf_types::config;
 use libloading::os::windows::Symbol;
 use once_cell::sync::Lazy;
 use safer_ffi::prelude::*;
-
-use emf_types::config;
+use tracing::error;
 
 use super::write_plugin_config;
 
@@ -156,7 +155,7 @@ impl PluginManager {
 				Some(())
 			}
 			Err(e) => {
-				log::error!("Failed to write plugin config: {}", e);
+				error!("Failed to write plugin config: {}", e);
 				None
 			}
 		}?;

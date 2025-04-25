@@ -1,8 +1,8 @@
-use log::*;
+use emf_types::{ffi::GetSettingReturnValue, rust::config::PluginConfigSettingValue};
 use safer_ffi::prelude::*;
+use tracing::warn;
 
 use crate::plugins::manager::PluginManager;
-use emf_types::{ffi::GetSettingReturnValue, rust::config::PluginConfigSettingValue};
 
 #[ffi_export]
 pub fn get_setting_bool(

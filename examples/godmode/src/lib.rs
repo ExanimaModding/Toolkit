@@ -1,9 +1,10 @@
 #![allow(clippy::missing_safety_doc)]
 mod utils;
 
-use log::*;
 use safer_ffi::c_char;
 use std::{ffi::c_void, ptr::addr_of_mut};
+use tracing::{error, info};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 use utils::{hook_apply, hook_new, hook_revert, scan_memory};
 
 static mut PROC_DMG_STAM_PTR: *mut c_void = std::ptr::null_mut();
@@ -18,8 +19,15 @@ static mut HOOK: Option<safer_ffi::boxed::Box<utils::Hook>> = None;
 #[no_mangle]
 pub unsafe extern "C" fn enable() -> bool {
 	if unsafe { FIRST_RUN } {
-		pretty_env_logger::formatted_builder()
-			.filter_level(log::LevelFilter::Trace)
+		tracing_subscriber::registry()
+			.with(
+				fmt::layer().with_filter(
+					EnvFilter::builder()
+						.from_env()
+						.unwrap()
+						.add_directive("godmode=debug".parse().unwrap()),
+				),
+			)
 			.init();
 		unsafe { FIRST_RUN = false };
 	}

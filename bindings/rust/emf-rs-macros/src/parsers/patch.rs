@@ -64,7 +64,7 @@ pub(crate) fn parse(
 					match patch {
 						Ok(_) => { #link_setting }
 						Err(e) => {
-							log::error!("Failed to create patch for {}: {:?}", stringify!(#name), e);
+							tracing::error!("Failed to create patch for {}: {:?}", stringify!(#name), e);
 						}
 					}
 				}},
@@ -85,7 +85,7 @@ pub(crate) fn parse(
 						match patch {
 							Ok(_) => { #link_setting }
 							Err(e) => {
-								log::error!("Failed to create patch for {}: {:?}", stringify!(#name), e);
+								tracing::error!("Failed to create patch for {}: {:?}", stringify!(#name), e);
 							}
 						}
 					}}
