@@ -1,13 +1,13 @@
 [package]
 name = "emf-types"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-documentation = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-license = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [dependencies]
-safer-ffi = { workspace = true }
-serde = { workspace = true }
+safer-ffi.workspace = true
+serde.workspace = true

@@ -1,10 +1,10 @@
 [package]
 name = "detours-sys"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-documentation = { workspace = true }
-repository = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+repository.workspace = true
 license = "MIT"
 
 [build-dependencies]

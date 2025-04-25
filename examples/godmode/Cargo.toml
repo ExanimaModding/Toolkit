@@ -1,18 +1,18 @@
 [package]
 name = "godmode"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-documentation = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-license = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-emf-types = { workspace = true }
-log = { workspace = true }
-pretty_env_logger = { workspace = true }
-safer-ffi = { workspace = true }
+emf-types.workspace = true
+log.workspace = true
+pretty_env_logger.workspace = true
+safer-ffi.workspace = true

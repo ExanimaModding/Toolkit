@@ -1,12 +1,12 @@
 [package]
 name = "emf-rs-macros"
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-documentation = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-license = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 proc-macro = true
