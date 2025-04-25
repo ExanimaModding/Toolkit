@@ -2,13 +2,13 @@ mod framework;
 mod internal;
 mod plugins;
 
-use internal::{gui, utils::fs_redirector};
-use std::ffi::c_void;
+use std::{ffi::c_void, fs};
 
 use detours_sys::{
 	DetourAttach, DetourIsHelperProcess, DetourRestoreAfterWith, DetourTransactionBegin,
 	DetourTransactionCommit,
 };
+use internal::{gui, utils::fs_redirector};
 use pelite::pe::Pe;
 use tracing::{error, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
@@ -38,27 +38,15 @@ unsafe extern "stdcall" fn DllMain(
 	if fwd_reason == DLL_PROCESS_ATTACH {
 		AllocConsole();
 
-		ansi_term::enable_ansi_support().unwrap();
-		tracing_subscriber::registry()
-			.with(
-				fmt::layer().with_filter(
-					EnvFilter::builder()
-						.from_env()
-						.unwrap()
-						.add_directive("emf=debug".parse().unwrap()),
-				),
-			)
-			.init();
+		println!("DllMain Loaded");
 
-		info!("DllMain Loaded");
-
-		info!("Remapping Image");
+		println!("Remapping Image");
 		remap_image().unwrap();
 
-		info!("Restoring Memory Import Table");
+		println!("Restoring Memory Import Table");
 		DetourRestoreAfterWith();
 
-		info!("Hooking Process Entrypoint");
+		println!("Hooking Process Entrypoint");
 		DetourTransactionBegin();
 		let opt_headers = PE64::get_module_information().optional_header();
 		ORIGINAL_START = (opt_headers.ImageBase + opt_headers.AddressOfEntryPoint as u64) as _;
@@ -70,6 +58,36 @@ unsafe extern "stdcall" fn DllMain(
 }
 
 unsafe extern "C" fn main() {
+	ansi_term::enable_ansi_support().unwrap();
+	let log_dir = emcore::data_dir().join(emcore::LOG_DIR);
+	if !log_dir.is_dir() {
+		fs::create_dir_all(&log_dir).unwrap();
+	}
+	let file_appender = tracing_appender::rolling::hourly(log_dir, "emf.log");
+	let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+	// initialize subscriber here instead of `DllMain` due to `WorkerGuard` being dropped
+	tracing_subscriber::registry()
+		.with(
+			fmt::layer().with_filter(
+				EnvFilter::builder()
+					.from_env()
+					.unwrap()
+					.add_directive("emf=debug".parse().unwrap()),
+			),
+		)
+		.with(
+			fmt::layer()
+				.with_ansi(false)
+				.with_writer(non_blocking)
+				.with_filter(
+					EnvFilter::builder()
+						.from_env()
+						.unwrap()
+						.add_directive("emf=debug".parse().unwrap()),
+				),
+		)
+		.init();
+
 	info!("Main Hook Running");
 
 	// Redirect FS calls to the EMTK cache directory.
