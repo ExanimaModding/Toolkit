@@ -23,6 +23,7 @@ image = { version = "0.25", default-features = false, features = [
 	"ico",
 	"png",
 ] }
+itertools = "0.14"
 once_cell = "1.21"
 open = "5.3"
 ron = "0.8"

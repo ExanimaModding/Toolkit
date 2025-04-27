@@ -7,6 +7,7 @@ use std::{
 
 use bon::Builder;
 use getset::Getters;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::{
 	fs,
@@ -488,12 +489,22 @@ impl Profile {
 				source,
 			})?;
 		info!("load order read into buffer");
-		let load_order =
+		let mut load_order: LoadOrder =
 			toml::from_str(&buffer).map_err(|source| crate::error::TomlDeserialize {
 				message: "failed to deserialize load order",
 				source,
 			})?;
 		info!("load order deserialized from buffer");
+
+		// ensure removal of gaps in load order priority
+		load_order
+			.clone()
+			.iter()
+			.sorted_by(|(_, a), (_, b)| a.priority.cmp(&b.priority))
+			.enumerate()
+			.for_each(|(i, (id, _))| {
+				load_order.get_mut(id).unwrap().priority = i as _;
+			});
 
 		Ok(load_order)
 	}

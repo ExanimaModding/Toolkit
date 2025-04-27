@@ -16,6 +16,7 @@ bon = "3.3"
 dirs = "6.0"
 exparser = { git = "https://codeberg.org/ExanimaModding/exparser.git" }
 getset = "0.1"
+itertools.workspace = true
 ron.workspace = true
 serde.workspace = true
 sysinfo = { version = "0.34", default-features = false, features = ["system"] }

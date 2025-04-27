@@ -27,7 +27,7 @@ iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", branch = "dev" 
 iced_table = { git = "https://github.com/ProffDea/iced_table.git", branch = "dev" }
 image.workspace = true
 # indicatif = "0.17"
-itertools = "0.14"
+itertools.workspace = true
 # lilt = "0.8"
 open.workspace = true
 rfd = "0.15"

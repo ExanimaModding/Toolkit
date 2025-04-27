@@ -1596,6 +1596,7 @@ dependencies = [
  "dirs",
  "exparser 0.1.0 (git+https://codeberg.org/ExanimaModding/exparser.git)",
  "getset",
+ "itertools 0.14.0",
  "pretty_assertions",
  "ron",
  "serde",
