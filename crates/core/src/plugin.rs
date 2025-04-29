@@ -1,9 +1,12 @@
 use std::{
 	collections::HashMap,
 	fmt::{Display, Formatter},
+	path::PathBuf,
 };
 
 use serde::{Deserialize, Serialize};
+
+use super::Instance;
 
 pub mod prelude {
 	pub use crate::plugin::{self, Plugin};
@@ -107,6 +110,21 @@ impl Id {
 		};
 
 		true
+	}
+
+	/// Helper that returns a path to this plugin's directory
+	pub fn plugin_dir(&self) -> PathBuf {
+		PathBuf::from(Instance::MODS_DIR).join(self.to_string())
+	}
+
+	/// Helper that returns a path to this plugin's assets directory.
+	pub fn assets_dir(&self) -> PathBuf {
+		self.plugin_dir().join(Instance::ASSETS_DIR)
+	}
+
+	/// Helper that returns a path to this plugin's game assets directory.
+	pub fn packages_dir(&self) -> PathBuf {
+		self.assets_dir().join(Instance::PACKAGES_DIR)
 	}
 }
 

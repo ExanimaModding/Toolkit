@@ -3,13 +3,12 @@
 
 use std::{
 	collections::HashMap,
-	sync::{Arc, RwLock},
+	sync::{Arc, LazyLock, RwLock},
 };
 
 use anyhow::Result;
 use emf_types::config;
 use libloading::os::windows::Symbol;
-use once_cell::sync::Lazy;
 use safer_ffi::prelude::*;
 use tracing::error;
 
@@ -100,8 +99,8 @@ impl PluginState {
 	}
 }
 
-static PLUGIN_MANAGER: Lazy<RwLock<HashMap<String, Arc<RwLock<PluginState>>>>> =
-	Lazy::new(|| RwLock::new(HashMap::new()));
+static PLUGIN_MANAGER: LazyLock<RwLock<HashMap<String, Arc<RwLock<PluginState>>>>> =
+	LazyLock::new(|| RwLock::new(HashMap::new()));
 
 pub struct PluginManager;
 

@@ -13,7 +13,7 @@ clap = { version = "4.5", features = ["derive"] }
 detours-sys.workspace = true
 emcore = { path = "../core" }
 emf = { path = "../emf" }
-exparser = { git = "https://codeberg.org/ExanimaModding/exparser.git", branch = "main" }
+exparser.workspace = true
 getset = "0.1"
 iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = [
 	"advanced",

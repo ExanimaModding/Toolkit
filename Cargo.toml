@@ -19,12 +19,12 @@ license = "LGPL-3.0-or-later"
 anyhow = "1.0"
 detours-sys = { path = "./crates/detours" }
 emf-types = { path = "./crates/emf-types" }
+exparser = { git = "https://codeberg.org/ExanimaModding/exparser.git", branch = "main" }
 image = { version = "0.25", default-features = false, features = [
 	"ico",
 	"png",
 ] }
 itertools = "0.14"
-once_cell = "1.21"
 open = "5.3"
 ron = "0.8"
 safer-ffi = { version = "0.1", default-features = false, features = [

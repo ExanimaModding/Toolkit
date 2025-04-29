@@ -5,7 +5,6 @@ mod patch;
 pub use emf_rs_macros as macros;
 pub use emf_sys as sys;
 pub use memory::Memory;
-pub use once_cell;
 pub use safer_ffi;
 
 use anyhow::{anyhow, Result};

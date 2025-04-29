@@ -1,7 +1,8 @@
 mod components;
 
+use std::sync::LazyLock;
+
 use hudhook::*;
-use once_cell::sync::Lazy;
 use tracing::error;
 use windows::Win32::UI::{
 	Input::KeyboardAndMouse,
@@ -15,7 +16,7 @@ const EMF_REPO: &str = env!("CARGO_PKG_REPOSITORY");
 const EMF_DOCS: &str = env!("CARGO_PKG_HOMEPAGE");
 const EMF_LICENSE: &str = env!("CARGO_PKG_LICENSE");
 
-static EMF_AUTHORS: Lazy<String> = Lazy::new(|| {
+static EMF_AUTHORS: LazyLock<String> = LazyLock::new(|| {
 	env!("CARGO_PKG_AUTHORS")
 		.split(":")
 		.map(|s| {

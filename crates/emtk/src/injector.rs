@@ -1,13 +1,6 @@
-use std::{
-	borrow::BorrowMut,
-	env,
-	ffi::CString,
-	io,
-	mem::MaybeUninit,
-	ptr::{null, null_mut},
-};
+use std::{borrow::BorrowMut, env, ffi::CString, io, mem::MaybeUninit, ptr};
 
-use detours_sys::{_PROCESS_INFORMATION, _STARTUPINFOA};
+use detours_sys::{DetourCreateProcessWithDllExA, _PROCESS_INFORMATION, _STARTUPINFOA};
 use winapi::um::{handleapi::CloseHandle, processthreadsapi::ResumeThread};
 
 /// Inject a DLL into a target process.
@@ -35,15 +28,15 @@ pub unsafe fn inject(dll_path: &str, target_exe: &str) -> Result<(), emcore::err
 	})?;
 	curr_exe_path.pop();
 
-	let result = detours_sys::DetourCreateProcessWithDllExA(
-		null(),
+	let result = DetourCreateProcessWithDllExA(
+		ptr::null(),
 		target_exe.borrow_mut().as_ptr() as _,
-		null_mut(),
-		null_mut(),
+		ptr::null_mut(),
+		ptr::null_mut(),
 		0,
 		0,
-		null_mut(),
-		null(),
+		ptr::null_mut(),
+		ptr::null(),
 		&mut startup_info as *mut _,
 		&mut process_info as *mut _,
 		dll_path.as_ptr() as _,

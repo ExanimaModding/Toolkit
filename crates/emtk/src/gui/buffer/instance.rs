@@ -1,13 +1,9 @@
 use std::{
+	env,
 	path::{Path, PathBuf},
-	time::UNIX_EPOCH,
 };
 
 use emcore::{instance, plugin, profile};
-use exparser::{
-	deku::{reader::Reader, writer::Writer, DekuContainerRead, DekuReader, DekuWriter},
-	rpk, Format, Rpk,
-};
 use getset::Getters;
 use iced::{
 	advanced::widget as iced_widget,
@@ -20,10 +16,7 @@ use iced::{
 use iced_drop::zones_on_point;
 use iced_table::table;
 use itertools::Itertools;
-use tokio::{
-	fs,
-	io::{self, AsyncReadExt, AsyncWriteExt},
-};
+use tokio::fs;
 use tracing::{error, info};
 
 use crate::gui::widget::{button, icon, scrollable, tooltip};
@@ -436,14 +429,16 @@ impl Instance {
 				let instance_path = self.inner().path().clone();
 				let load_order = self.inner().profile().load_order().clone();
 				let profile = self.inner.profile().clone();
+				// TODO: env should be set within the launch() function to prevent forgetting to set this env
+				env::set_var(
+					"EMTK_LOAD_ORDER_PATH",
+					self.inner()
+						.profile()
+						.path()
+						.join(emcore::Profile::LOAD_ORDER_TOML),
+				);
 				return Action::Task(
 					Task::done(Message::Loading)
-						.chain(
-							Task::future(async move {
-								load_mods(&instance_path, load_order).await;
-							})
-							.discard(),
-						)
 						.chain(
 							Task::perform(
 								async move { profile.game_dir().await.map_err(|e| error!("{}", e)) },
@@ -826,307 +821,4 @@ impl Instance {
 		};
 		self
 	}
-}
-
-// TODO: huge function, separate logic into independent functions
-async fn load_mods(path: &Path, load_order: profile::LoadOrder) {
-	let mut load_order: Vec<_> = load_order
-		.into_iter()
-		.filter(|(_, entry)| {
-			entry.display_name.is_some() && entry.version.is_some() && entry.enabled
-		})
-		.collect();
-	let cache_build_dir = path
-		.join(emcore::Instance::DATA_DIR)
-		.join(emcore::Instance::CACHE_DIR)
-		.join(emcore::Instance::CACHE_BUILD_DIR);
-	if load_order.is_empty() {
-		// TODO: temporary solution to running vanilla exanima
-		if cache_build_dir.is_dir() {
-			fs::remove_dir_all(cache_build_dir).await.unwrap();
-		}
-		return;
-	}
-	load_order.sort_by(|(_, a), (_, b)| a.priority.cmp(&b.priority));
-	let native_packages: Vec<_> = path
-		.read_dir()
-		.expect("error while reading exanima directory")
-		.flatten()
-		.filter_map(|entry| {
-			let path = entry.path();
-			let file_name = path.display().to_string();
-			if path.is_dir() || !file_name.ends_with(".rpk") {
-				None
-			} else {
-				Some(path)
-			}
-		})
-		.collect();
-
-	let metadata_path = cache_build_dir.join(emcore::cache::METADATA_RON);
-	let cache_load_order_path = cache_build_dir.join(emcore::Profile::LOAD_ORDER_RON);
-	'check_metadata: {
-		// TODO: detect for any new mods added
-		if metadata_path.is_file() && cache_load_order_path.is_file() {
-			let Ok(file) = fs::File::open(&metadata_path).await else {
-				break 'check_metadata;
-			};
-			let mut reader = io::BufReader::new(file);
-			let mut buffer = String::new();
-			if reader.read_to_string(&mut buffer).await.is_err() {
-				break 'check_metadata;
-			};
-			let Ok(mut de) = ron::de::Deserializer::from_str(&buffer) else {
-				break 'check_metadata;
-			};
-			let Ok(metadata) = emcore::cache::deserialize_metadata(&mut de) else {
-				break 'check_metadata;
-			};
-			for (path, cache_time) in metadata.iter() {
-				let Ok(rpk_file) = fs::File::open(path).await else {
-					break 'check_metadata;
-				};
-				let time = rpk_file
-					.metadata()
-					.await
-					.unwrap()
-					.modified()
-					.unwrap()
-					.duration_since(UNIX_EPOCH)
-					.unwrap()
-					.as_secs();
-				if *cache_time != time {
-					break 'check_metadata;
-				}
-			}
-
-			let Ok(file) = fs::File::open(&cache_load_order_path).await else {
-				break 'check_metadata;
-			};
-			let mut reader = io::BufReader::new(file);
-			let mut buffer = String::new();
-			if reader.read_to_string(&mut buffer).await.is_err() {
-				break 'check_metadata;
-			}
-			let Ok(cached_load_order) =
-				ron::from_str::<Vec<(plugin::Id, profile::LoadOrderEntry)>>(&buffer)
-			else {
-				break 'check_metadata;
-			};
-			if load_order
-				.clone()
-				.into_iter()
-				.map(|(id, entry)| {
-					(
-						id,
-						profile::LoadOrderEntry::new(entry.enabled, entry.priority, None, None),
-					)
-				})
-				.collect::<Vec<_>>()
-				!= cached_load_order
-			{
-				break 'check_metadata;
-			}
-
-			for native_rpk_path in native_packages.iter() {
-				let native_rpk_name = native_rpk_path.file_name().unwrap().display().to_string();
-				for (id, _) in load_order.iter() {
-					let foreign_rpk_path = path
-						.join(emcore::Instance::MODS_DIR)
-						.join(id.to_string())
-						.join(emcore::Instance::ASSETS_DIR)
-						.join(emcore::Instance::PACKAGES_DIR)
-						.join(&native_rpk_name);
-					if foreign_rpk_path.is_file() {
-						if metadata.contains_key(&foreign_rpk_path.canonicalize().unwrap()) {
-							break 'check_metadata;
-						}
-					} else if foreign_rpk_path.is_dir() {
-						async fn is_cache_valid(
-							path: &Path,
-							metadata: &emcore::cache::Metadata,
-						) -> bool {
-							let mut read_plugin_dir = fs::read_dir(path).await.unwrap();
-							while let Some(entry) = read_plugin_dir.next_entry().await.unwrap() {
-								let entry_path = entry.path();
-								if entry_path.is_dir() {
-									return Box::pin(is_cache_valid(path, metadata)).await;
-								} else if entry_path.is_file() {
-									if metadata.contains_key(&entry_path.canonicalize().unwrap()) {
-										return false;
-									}
-								}
-							}
-
-							true
-						}
-						if !is_cache_valid(&foreign_rpk_path, &metadata).await {
-							break 'check_metadata;
-						}
-					}
-				}
-			}
-
-			return;
-		}
-	}
-	let mut metadata = emcore::cache::Metadata::new();
-
-	// TODO: support rebuilding only necessary rpks rather than all files
-
-	for native_rpk_path in native_packages {
-		let native_rpk_name = native_rpk_path.file_name().unwrap().display().to_string();
-
-		let native_rpk_file = fs::File::open(&native_rpk_path)
-			.await
-			.expect("error while opening exanima file");
-		let time = native_rpk_file
-			.metadata()
-			.await
-			.unwrap()
-			.modified()
-			.unwrap()
-			.duration_since(UNIX_EPOCH)
-			.unwrap()
-			.as_secs();
-		metadata.insert(native_rpk_path, time);
-
-		let mut buf_reader = io::BufReader::new(native_rpk_file);
-		let mut buffer = Vec::new();
-		buf_reader.read_to_end(&mut buffer).await.unwrap();
-		let mut cursor = std::io::Cursor::new(buffer);
-		let mut reader = Reader::new(&mut cursor);
-
-		let mut native_rpk_format = Format::from_reader_with_ctx(&mut reader, ()).unwrap();
-
-		if let Format::Rpk(native_package) = &mut native_rpk_format {
-			let mut native_entries = native_package.entries.to_vec();
-			native_entries.sort_by(|a, b| a.offset.cmp(&b.offset));
-
-			for (id, _) in load_order.iter() {
-				let mut foreign_rpk_path = path
-					.join(emcore::Instance::MODS_DIR)
-					.join(id.to_string())
-					.join(emcore::Instance::ASSETS_DIR)
-					.join(emcore::Instance::PACKAGES_DIR)
-					.join(&native_rpk_name);
-				let mut foreign_rpk_dir = foreign_rpk_path.clone();
-				foreign_rpk_dir.set_file_name(foreign_rpk_path.file_prefix().unwrap());
-
-				// NOTE: package file takes priority if there is a file and folder with same name
-				if foreign_rpk_path.is_file() {
-					let foreign_file = fs::File::open(&foreign_rpk_path)
-						.await
-						.expect("error while opening mod file");
-					let time = foreign_file
-						.metadata()
-						.await
-						.unwrap()
-						.modified()
-						.unwrap()
-						.duration_since(UNIX_EPOCH)
-						.unwrap()
-						.as_secs();
-					metadata.insert(foreign_rpk_path, time);
-
-					let mut buf_reader = io::BufReader::new(foreign_file);
-					let mut buffer = Vec::new();
-					buf_reader.read_to_end(&mut buffer).await.unwrap();
-					let mut cursor = std::io::Cursor::new(buffer);
-					let mut reader = Reader::new(&mut cursor);
-
-					if let Format::Rpk(foreign_package) =
-						Format::from_reader_with_ctx(&mut reader, ())
-							.expect("error while reading mod format")
-					{
-						for (i, foreign_entry) in foreign_package.entries.iter().enumerate() {
-							if let Some(j) = native_entries
-								.iter()
-								.position(|native_entry| native_entry.name == foreign_entry.name)
-							{
-								let foreign_data = foreign_package.data.get(i).unwrap();
-								let native_data = native_package.data.get_mut(j).unwrap();
-								*native_data = foreign_data.clone();
-							} else {
-								// TODO: Verify this works
-								// add the mod's entry to exanima's rpk file
-								native_entries.push(foreign_entry.clone());
-								native_package.data.push(foreign_package.data[i].clone());
-							}
-						}
-					}
-				} else if foreign_rpk_dir.is_dir() {
-					let mut read_foreign_dir = fs::read_dir(foreign_rpk_dir).await.unwrap();
-					while let Some(foreign_entry) = read_foreign_dir.next_entry().await.unwrap() {
-						let foreign_entry_path = foreign_entry.path();
-						let foreign_file = fs::File::open(&foreign_entry_path).await.unwrap();
-						let time = foreign_file
-							.metadata()
-							.await
-							.unwrap()
-							.modified()
-							.unwrap()
-							.duration_since(UNIX_EPOCH)
-							.unwrap()
-							.as_secs();
-						metadata.insert(foreign_entry_path, time);
-
-						let mut reader = io::BufReader::new(foreign_file);
-						let mut foreign_data = Vec::new();
-						reader.read_to_end(&mut foreign_data).await.unwrap();
-						if let Some(j) = native_entries.iter().position(|native_entry| {
-							native_entry.name == foreign_entry.file_name().display().to_string()
-						}) {
-							let native_data = native_package.data.get_mut(j).unwrap();
-							*native_data = foreign_data;
-						} else {
-							// TODO: Verify this works
-							// add the mod's entry to exanima's rpk file
-							native_entries.push(rpk::Entry {
-								name: foreign_entry.file_name().display().to_string(),
-								// default is used here as offset and size are computed later
-								..Default::default()
-							});
-							native_package.data.push(foreign_data);
-						}
-					}
-				}
-			}
-			let mut previous_offset = 0;
-			let mut previous_size = 0;
-			for (i, native_data) in native_package.data.iter().enumerate() {
-				let native_entry = native_entries.get_mut(i).unwrap();
-				native_entry.offset = previous_offset + previous_size;
-				native_entry.size = native_data.len() as u32;
-				previous_offset = native_entry.offset;
-				previous_size = native_entry.size;
-			}
-			native_entries.sort_by(|a, b| a.name.cmp(&b.name));
-			native_package.entries = native_entries;
-		};
-
-		let cache_file_path = cache_build_dir.join(native_rpk_name);
-		if !cache_build_dir.is_dir() {
-			fs::create_dir_all(&cache_build_dir)
-				.await
-				.expect("error while creating cache directory");
-		}
-		let mut cache_buf_writer = std::io::BufWriter::new(
-			std::fs::File::create(cache_file_path).expect("error while creating cache file"),
-		);
-		let mut cache_writer = Writer::new(&mut cache_buf_writer);
-		native_rpk_format
-			.to_writer(&mut cache_writer, ())
-			.expect("error while serializing to cache file");
-	}
-
-	let buffer = ron::ser::to_string_pretty(&metadata, ron::ser::PrettyConfig::default()).unwrap();
-	let mut writer = io::BufWriter::new(fs::File::create(metadata_path).await.unwrap());
-	writer.write_all(buffer.as_bytes()).await.unwrap();
-	writer.flush().await.unwrap();
-
-	let buffer = ron::to_string(&load_order).unwrap();
-	let mut writer = io::BufWriter::new(fs::File::create(cache_load_order_path).await.unwrap());
-	writer.write_all(buffer.as_bytes()).await.unwrap();
-	writer.flush().await.unwrap();
 }

@@ -12,6 +12,5 @@ license.workspace = true
 anyhow.workspace = true
 emf-rs-macros = { path = "../emf-rs-macros" }
 emf-sys = { path = "../emf-sys" }
-once_cell.workspace = true
 safer-ffi.workspace = true
 tracing.workspace = true

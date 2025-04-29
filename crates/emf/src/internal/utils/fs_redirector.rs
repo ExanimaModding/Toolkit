@@ -1,6 +1,8 @@
 use std::{
-	ffi::{c_void, CStr},
-	path::PathBuf,
+	env,
+	ffi::{c_void, CStr, CString},
+	mem,
+	path::{Path, PathBuf},
 	sync::LazyLock,
 };
 
@@ -46,10 +48,10 @@ unsafe fn create_file_a(
 	h_template_file: HANDLE,
 ) -> HANDLE {
 	static CREATE_FILE_A: LazyLock<TCreateFileA> =
-		LazyLock::new(|| unsafe { std::mem::transmute(O_CREATE_FILE_A) });
+		LazyLock::new(|| unsafe { mem::transmute(O_CREATE_FILE_A) });
 
 	// Statically read the cwd and cache dir so that it doesn't run every time CreateFileA is called.
-	static CWD_PATH: LazyLock<PathBuf> = LazyLock::new(|| std::env::current_dir().unwrap());
+	static CWD_PATH: LazyLock<PathBuf> = LazyLock::new(|| env::current_dir().unwrap());
 
 	static CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
 		CWD_PATH
@@ -61,7 +63,7 @@ unsafe fn create_file_a(
 
 	// Convert the string pointer to a Rust path.
 	let file_name = CStr::from_ptr(lp_file_name).to_string_lossy().into_owned();
-	let file_path = std::path::Path::new(&file_name);
+	let file_path = Path::new(&file_name);
 
 	let is_in_cwd = file_path.starts_with(&*CWD_PATH);
 
@@ -99,7 +101,7 @@ unsafe fn create_file_a(
 	}
 
 	// Convert the new file name to a CString, ensuring it is null-terminated.
-	let new_file_name = match std::ffi::CString::new(new_file_name.to_string_lossy().as_bytes()) {
+	let new_file_name = match CString::new(new_file_name.to_string_lossy().as_bytes()) {
 		Ok(cstring) => cstring,
 		Err(_) => {
 			// If conversion fails, fallback to the original file.

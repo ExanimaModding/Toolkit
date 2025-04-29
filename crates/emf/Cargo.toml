@@ -25,6 +25,7 @@ anyhow.workspace = true
 detours-sys.workspace = true
 emcore = { path = "../core" }
 emf-types.workspace = true
+exparser.workspace = true
 hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef25735fde84731745824341d506", features = [
 	"opengl3",
 	"imgui-docking",
@@ -33,7 +34,6 @@ hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef
 image.workspace = true
 libloading = "0.8"
 libmem = "5.0"
-once_cell.workspace = true
 open.workspace = true
 path-clean = "1.0"
 pelite = "0.10"
@@ -42,6 +42,7 @@ serde.workspace = true
 toml.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
+tracing-panic = "0.1.2"
 tracing-subscriber.workspace = true
 winapi.workspace = true
 

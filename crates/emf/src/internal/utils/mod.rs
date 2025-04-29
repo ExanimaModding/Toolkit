@@ -1,6 +1,7 @@
+pub(crate) mod fs_redirector;
 pub(crate) mod ntdll;
 pub(crate) mod pe64;
-pub(crate) mod fs_redirector;
+pub(crate) mod rpk_intercept;
 
 use std::{ffi::CStr, path::PathBuf, ptr::null_mut};
 
