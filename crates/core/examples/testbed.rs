@@ -39,16 +39,16 @@ fn testing_plugin_config() {
 }
 
 #[allow(dead_code)]
-fn testing_instance() {
+async fn testing_instance() {
 	let path = PathBuf::from("C:/Program Files (x86)/Steam/steamapps/common/Exanima");
-	let instance = Instance::with_path(path).unwrap().build().unwrap();
+	let instance = Instance::with_path(path).unwrap().build().await.unwrap();
 	dbg!(&instance);
 }
 
 #[allow(dead_code)]
-fn testing_profile() {
+async fn testing_profile() {
 	if let Err(profile::error::Builder::LoadOrder(e)) =
-		Profile::with_path("./Test/.emtk/profiles/TestProfile")
+		Profile::with_path("./Test/.emtk/profiles/TestProfile").await
 	{
 		error!("{}", e.to_string());
 	};

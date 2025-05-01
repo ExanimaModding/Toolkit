@@ -34,7 +34,6 @@ pub enum Error {
 /// ```rust
 /// use emcore::prelude::*;
 ///
-/// let my_plugin_id = plugin::Id::new("com.example.my-mod");
 /// let my_plugin_id = match plugin::Id::try_from("com.example.my-mod") {
 ///     Ok(id) => id,
 ///     Err(e) => match e {
@@ -55,8 +54,8 @@ pub enum Error {
 ///
 /// // Keep in mind these are equal
 /// assert_eq!(
-///     plugin::Id::new("com.example.MyMod"),
-///     plugin::Id::new("com.example.mymod")
+///     plugin::Id::try_from("com.example.MyMod").unwrap(),
+///     plugin::Id::try_from("com.example.mymod").unwrap()
 /// )
 /// ```
 #[must_use]

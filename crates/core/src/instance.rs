@@ -272,10 +272,19 @@ impl Instance {
 	/// ```rust
 	/// use emcore::prelude::*;
 	///
+	/// # tokio_test::block_on(async {
 	/// let maybe_instance = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Exanima";
-	/// let instance = Instance::with_path(maybe_instance).unwrap().build().unwrap();
-	/// let new_profile = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Exanima\\.emtk\\profiles\\New";
-	/// instance.set_profile(new_profile).unwrap();
+	/// let mut instance = Instance::with_path(maybe_instance).unwrap().build().await.unwrap();
+	/// let new_profile = Profile::with_path(
+	///     "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Exanima\\.emtk\\profiles\\New",
+	/// )
+	/// .await
+	/// .unwrap()
+	/// .build()
+	/// .await
+	/// .unwrap();
+	/// instance.set_profile(new_profile).await.unwrap();
+	/// # })
 	/// ```
 	///
 	/// # Errors
