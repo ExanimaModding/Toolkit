@@ -64,35 +64,6 @@ pub enum Error {
 pub struct Id(String);
 
 impl Id {
-	/// Attempt to create a new plugin Id from a `String`.
-	///
-	/// # Examples
-	///
-	/// ```rust
-	/// use emcore::prelude::*;
-	///
-	/// let my_plugin_id = plugin::Id::new("com.example.my-mod");
-	/// ```
-	///
-	/// # Panics
-	///
-	/// The following conditions will throw a panic:
-	///
-	/// - Is empty
-	/// - Starts or ends with '-' or '.'
-	/// - Not alphanumeric (exceptions: '-', '.')
-	///
-	/// To avoid panics, use `Id::try_from()`
-	pub fn new(id: impl Into<String>) -> Self {
-		let id: String = id.into();
-
-		if !Id::is_valid(&id) {
-			panic!("{}", Error::InvalidId(id));
-		}
-
-		Self(id.to_lowercase())
-	}
-
 	/// The following conditions will return false:
 	///
 	/// - Is empty
@@ -200,20 +171,20 @@ mod tests {
 	#[test]
 	fn id_is_equal() {
 		assert_eq!(
-			plugin::Id::new("com.example.my-mod"),
-			plugin::Id::new("com.example.my-mod")
+			plugin::Id::try_from("com.example.my-mod").unwrap(),
+			plugin::Id::try_from("com.example.my-mod").unwrap()
 		);
 		assert_eq!(
-			plugin::Id::new("com.example.my-mod"),
-			plugin::Id::new("com.example.My-Mod") // case-insensitive
+			plugin::Id::try_from("com.example.my-mod").unwrap(),
+			plugin::Id::try_from("com.example.My-Mod").unwrap() // case-insensitive
 		);
 	}
 
 	#[test]
 	fn id_is_not_equal() {
 		assert_ne!(
-			plugin::Id::new("com.example.my-mod"),
-			plugin::Id::new("com.example.my-other-mod")
+			plugin::Id::try_from("com.example.my-mod").unwrap(),
+			plugin::Id::try_from("com.example.my-other-mod").unwrap()
 		);
 	}
 

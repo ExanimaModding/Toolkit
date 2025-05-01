@@ -124,7 +124,11 @@ impl Config {
 	/// Attempt to deserialize and return GUI settings from the toml file stored
 	/// in `emcore::DATA_DIR`.
 	async fn read_config() -> Result<Self, emcore::error::TomlDeFile> {
-		let config_path = emcore::data_dir().join(App::TOML);
+		let data_dir = emcore::data_dir().ok_or(emcore::error::Io {
+			message: "failed to get app data directory",
+			source: io::Error::from(io::ErrorKind::NotFound),
+		})?;
+		let config_path = data_dir.join(App::TOML);
 
 		let file = fs::File::open(&config_path)
 			.await
@@ -168,7 +172,13 @@ impl Config {
 	/// - `tokio::io::BufWriter::write_all`
 	/// - `tokio::io::BufWriter::flush`
 	pub async fn write_config(self) -> Result<Self, error::Config> {
-		let file = fs::File::create(emcore::data_dir().join(App::TOML))
+		let toml_path = emcore::data_dir()
+			.map(|p| p.join(App::TOML))
+			.ok_or(emcore::error::Io {
+				message: "failed to get app data directory",
+				source: io::Error::from(io::ErrorKind::NotFound),
+			})?;
+		let file = fs::File::create(toml_path)
 			.await
 			.map_err(|source| emcore::error::Io {
 				message: "failed to create gui config file",
@@ -219,7 +229,10 @@ pub struct Root {
 
 impl Root {
 	fn new() -> (Self, Task<Message>) {
-		let task = if emcore::data_dir().join(App::TOML).is_file() {
+		let config_exists = emcore::data_dir().map(|p| p.join(App::TOML).is_file());
+		let task = if let Some(is_file) = config_exists
+			&& is_file
+		{
 			Task::future(Config::read_config())
 				.map(|result| result.map_err(|e| error!("{}", e)))
 				.and_then(|config| Task::done(Message::RefreshConfig(config)))

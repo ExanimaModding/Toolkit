@@ -69,7 +69,7 @@ unsafe extern "stdcall" fn DllMain(
 
 unsafe extern "C" fn main() {
 	ansi_term::enable_ansi_support().unwrap();
-	let log_dir = emcore::data_dir().join(emcore::LOG_DIR);
+	let log_dir = emcore::data_dir().unwrap().join(emcore::LOG_DIR);
 	if !log_dir.is_dir() {
 		fs::create_dir_all(&log_dir).unwrap();
 	}
@@ -97,7 +97,6 @@ unsafe extern "C" fn main() {
 				),
 		)
 		.init();
-	panic::set_hook(Box::new(tracing_panic::panic_hook));
 
 	let mut cwd = env::current_exe().unwrap();
 	cwd.pop();

@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, io};
 
 use iced::{
 	widget::{column, container, pick_list, row, text},
@@ -31,7 +31,11 @@ impl Settings {
 	pub fn update(&mut self, message: Message) -> Action {
 		match message {
 			Message::OpenAppDataDir => {
-				let _ = open::that(emcore::data_dir()).map_err(|e| error!("{}", e));
+				let Some(data_dir) = emcore::data_dir() else {
+					error!("{}", io::Error::from(io::ErrorKind::NotFound));
+					return Action::None;
+				};
+				let _ = open::that(data_dir).map_err(|e| error!("{}", e));
 			}
 			Message::ThemeSelected(theme) => return Action::ThemeSelected(theme),
 		}

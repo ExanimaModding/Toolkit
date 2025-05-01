@@ -1,6 +1,9 @@
 #![feature(let_chains)]
 #![feature(error_generic_member_access)]
 #![doc = include_str!("../README.md")]
+#![deny(clippy::panic)]
+#![deny(clippy::expect_used)]
+#![deny(clippy::unwrap_used)]
 
 pub mod cache;
 pub mod instance;
@@ -116,21 +119,16 @@ pub async fn ensure_dir(dir: &Path) -> Result<(), io::Error> {
 }
 
 /// Returns the path to the application's data directory.
-pub fn data_dir() -> PathBuf {
-	dirs::data_dir()
-		.unwrap_or_else(|| {
-			panic!(
-				"{}",
-				Error::ExpectedDataDir("could not find application data directory")
-			)
-		})
-		.join(DATA_DIR)
+pub fn data_dir() -> Option<PathBuf> {
+	dirs::data_dir().map(|p| p.join(DATA_DIR))
 }
 
 /// Returns the path to the application's cache directory. This is a child
 /// of `emcore::DATA_DIR_NAME`.
 pub async fn cache_dir() -> Result<PathBuf, io::Error> {
-	let cache_dir = data_dir().join(CACHE_DIR);
+	let cache_dir = data_dir()
+		.map(|p| p.join(CACHE_DIR))
+		.ok_or(io::Error::from(io::ErrorKind::NotFound))?;
 
 	ensure_dir(&cache_dir).await?;
 
@@ -140,7 +138,9 @@ pub async fn cache_dir() -> Result<PathBuf, io::Error> {
 /// Returns the path to the application's log directory. This is a child
 /// of `emcore::DATA_DIR_NAME`.
 pub async fn log_dir() -> Result<PathBuf, io::Error> {
-	let log_dir = data_dir().join(LOG_DIR);
+	let log_dir = data_dir()
+		.map(|p| p.join(LOG_DIR))
+		.ok_or(io::Error::from(io::ErrorKind::NotFound))?;
 
 	ensure_dir(&log_dir).await?;
 
