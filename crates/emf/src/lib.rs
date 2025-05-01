@@ -32,6 +32,10 @@ pub(crate) static LOAD_ORDER: OnceLock<Vec<(plugin::Id, profile::LoadOrderEntry)
 pub(crate) static MOD_ENTRIES: OnceLock<HashMap<String, HashMap<String, PathBuf>>> =
 	OnceLock::new();
 
+/// When tracing is initialized for logging, the guard to the log file is stored
+/// here to ensure tracing keeps writing to the log file.
+static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> = OnceLock::new();
+
 // TODO: Remove this when the new hooking system is implemented.
 static mut ORIGINAL_START: *mut c_void = 0 as _;
 
@@ -48,15 +52,39 @@ unsafe extern "stdcall" fn DllMain(
 	if fwd_reason == DLL_PROCESS_ATTACH {
 		AllocConsole();
 
-		println!("DllMain Loaded");
+		let maybe_data_dir = emcore::data_dir();
+		ansi_term::enable_ansi_support().unwrap();
+		let subscriber =
+			tracing_subscriber::registry().with(fmt::layer().with_filter(env_filter()));
+		if let Some(data_dir) = maybe_data_dir {
+			let log_dir = data_dir.join(emcore::LOG_DIR);
+			if !log_dir.is_dir() {
+				fs::create_dir_all(&log_dir).unwrap();
+			}
+			let file_appender = tracing_appender::rolling::hourly(log_dir, "emf.log");
+			let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+			TRACING_GUARD.set(guard).unwrap();
+			subscriber
+				.with(
+					fmt::layer()
+						.with_ansi(false)
+						.with_writer(non_blocking)
+						.with_filter(env_filter()),
+				)
+				.init();
+		} else {
+			subscriber.init();
+		}
 
-		println!("Remapping Image");
+		info!("DllMain Loaded");
+
+		info!("Remapping Image");
 		remap_image().unwrap();
 
-		println!("Restoring Memory Import Table");
+		info!("Restoring Memory Import Table");
 		DetourRestoreAfterWith();
 
-		println!("Hooking Process Entrypoint");
+		info!("Hooking Process Entrypoint");
 		DetourTransactionBegin();
 		let opt_headers = PE64::get_module_information().optional_header();
 		ORIGINAL_START = (opt_headers.ImageBase + opt_headers.AddressOfEntryPoint as u64) as _;
@@ -68,36 +96,6 @@ unsafe extern "stdcall" fn DllMain(
 }
 
 unsafe extern "C" fn main() {
-	ansi_term::enable_ansi_support().unwrap();
-	let log_dir = emcore::data_dir().unwrap().join(emcore::LOG_DIR);
-	if !log_dir.is_dir() {
-		fs::create_dir_all(&log_dir).unwrap();
-	}
-	let file_appender = tracing_appender::rolling::hourly(log_dir, "emf.log");
-	let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
-	// initialize subscriber here instead of `DllMain` due to `WorkerGuard` being dropped
-	tracing_subscriber::registry()
-		.with(
-			fmt::layer().with_filter(
-				EnvFilter::builder()
-					.from_env()
-					.unwrap()
-					.add_directive("emf=debug".parse().unwrap()),
-			),
-		)
-		.with(
-			fmt::layer()
-				.with_ansi(false)
-				.with_writer(non_blocking)
-				.with_filter(
-					EnvFilter::builder()
-						.from_env()
-						.unwrap()
-						.add_directive("emf=debug".parse().unwrap()),
-				),
-		)
-		.init();
-
 	let mut cwd = env::current_exe().unwrap();
 	cwd.pop();
 
@@ -216,4 +214,12 @@ unsafe extern "C" fn main() {
 #[cfg(feature = "headers")] // c.f. the `Cargo.toml` section
 pub fn generate_headers() -> ::std::io::Result<()> {
 	::safer_ffi::headers::builder().to_file("emf.h")?.generate()
+}
+
+/// tracing filter
+pub fn env_filter() -> tracing_subscriber::EnvFilter {
+	tracing_subscriber::EnvFilter::builder()
+		.from_env()
+		.unwrap()
+		.add_directive("emf=debug".parse().unwrap())
 }

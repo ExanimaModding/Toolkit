@@ -2,6 +2,7 @@ use std::{
 	fmt::Debug,
 	io,
 	path::{self, PathBuf},
+	sync::OnceLock,
 };
 
 use iced::{
@@ -11,6 +12,11 @@ use iced::{
 	Element,
 };
 use tracing_subscriber::{fmt::MakeWriter, layer::SubscriberExt, util::SubscriberInitExt, Layer};
+
+/// When tracing is initialized for logging, the guard to the log file is stored
+/// here to ensure tracing keeps writing to the log file.
+pub(crate) static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> =
+	OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct Event(pub Vec<(String, Option<tracing::Level>)>);
@@ -26,18 +32,19 @@ pub fn view<'a, Message: 'a>(events: &[Event]) -> Element<'a, Message> {
 
 pub fn stream() -> impl Stream<Item = Event> {
 	channel(0, |tx: mpsc::Sender<Event>| async move {
-		// FIX: file appender not working, use tracing_subscriber::reload
-		// let file_appender =
-		// 	tracing_appender::rolling::hourly(emcore::log_dir().await.unwrap(), "gui.log");
-		// let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+		let file_appender =
+			tracing_appender::rolling::hourly(emcore::log_dir().await.unwrap(), "gui.log");
+		let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+		TRACING_GUARD.set(guard).unwrap();
 
 		let subscriber = tracing_subscriber::registry()
 			.with(tracing_subscriber::fmt::layer().with_filter(crate::env_filter()))
-			// .with(
-			// 	tracing_subscriber::fmt::layer()
-			// 		.with_writer(non_blocking)
-			// 		.with_filter(crate::env_filter()),
-			// )
+			.with(
+				tracing_subscriber::fmt::layer()
+					.with_ansi(false)
+					.with_writer(non_blocking)
+					.with_filter(crate::env_filter()),
+			)
 			.with(
 				tracing_subscriber::fmt::layer()
 					.with_writer(Writer::new(tx))
