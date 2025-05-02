@@ -33,7 +33,7 @@ hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef
 ], default-features = false }
 image.workspace = true
 libloading = "0.8"
-libmem = "5.0"
+libmem = { version = "5.0.4", default-features = false, features = ["static"] }
 open.workspace = true
 path-clean = "1.0"
 pelite = "0.10"
@@ -55,3 +55,8 @@ winapi = { version = "0.3", features = [
 
 [features]
 headers = ["safer-ffi/headers"]
+
+[build-dependencies]
+flate2 = "1.1.1"
+reqwest = { version = "0.12.15", features = ["blocking"] }
+tar = "0.4.44"
