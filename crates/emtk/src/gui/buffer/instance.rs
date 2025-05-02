@@ -6,12 +6,12 @@ use std::{
 use emcore::{instance, plugin, profile};
 use getset::Getters;
 use iced::{
+	Alignment, Border, Element, Fill, Font, Point, Rectangle, Renderer, Task, Theme,
 	advanced::widget as iced_widget,
 	widget::{
 		center_x, checkbox, column, container, horizontal_space, pick_list, responsive, row, text,
 		text_input,
 	},
-	Alignment, Border, Element, Fill, Font, Point, Rectangle, Renderer, Task, Theme,
 };
 use iced_drop::zones_on_point;
 use iced_table::table;
@@ -426,17 +426,17 @@ impl Instance {
 				);
 			}
 			Message::Launch => {
-				let instance_path = self.inner().path().clone();
-				let load_order = self.inner().profile().load_order().clone();
 				let profile = self.inner.profile().clone();
 				// TODO: env should be set within the launch() function to prevent forgetting to set this env
-				env::set_var(
-					"EMTK_LOAD_ORDER_PATH",
-					self.inner()
-						.profile()
-						.path()
-						.join(emcore::Profile::LOAD_ORDER_TOML),
-				);
+				unsafe {
+					env::set_var(
+						"EMTK_LOAD_ORDER_PATH",
+						self.inner()
+							.profile()
+							.path()
+							.join(emcore::Profile::LOAD_ORDER_TOML),
+					);
+				}
 				return Action::Task(
 					Task::done(Message::Loading)
 						.chain(
@@ -649,7 +649,7 @@ impl Instance {
 				return Action::Task(Task::batch([
 					scrollable::scroll_to(self.table.header.clone(), offset),
 					scrollable::scroll_to(self.table.footer.clone(), offset),
-				]))
+				]));
 			}
 		}
 

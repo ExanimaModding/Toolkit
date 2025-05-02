@@ -3,7 +3,7 @@ use winapi::{shared::ntdef::NTSTATUS, um::winnt::HANDLE};
 
 #[link(name = "ntdll")]
 #[allow(unused)]
-extern "system" {
+unsafe extern "system" {
 	pub fn NtProtectVirtualMemory(
 		ProcessHandle: DWORD,
 		BaseAddress: HANDLE,

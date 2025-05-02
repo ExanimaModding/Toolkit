@@ -100,8 +100,6 @@ pub fn button<'a, Message>(content: impl Into<Element<'a, Message>>) -> Button<'
 pub mod container {
 	use super::*;
 
-	pub use iced::widget::container::Style;
-
 	pub fn bordered_box(theme: &Theme) -> iced_container::Style {
 		let bordered_box = iced_container::bordered_box(theme);
 		iced_container::Style {

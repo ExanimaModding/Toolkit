@@ -10,10 +10,11 @@ use std::{env, mem, path::PathBuf};
 use getset::{Getters, WithSetters};
 use iced::widget::pane_grid;
 use iced::{
+	Element, Event, Padding, Subscription, Task, Theme,
 	advanced::widget as iced_widget,
 	event, keyboard,
-	widget::{container, pane_grid::Pane, responsive, svg},
-	window, Element, Event, Padding, Subscription, Task, Theme,
+	widget::{container, pane_grid::Pane, responsive},
+	window,
 };
 use iced_drop::zones_on_point;
 use serde::{Deserialize, Serialize};
@@ -24,11 +25,11 @@ use tokio::{
 use tracing::{debug, error, info};
 
 use buffer::{
+	Buffer,
 	instance::{self, Instance},
 	instance_history::{self, InstanceHistory},
 	logs::Logs,
 	settings::{self, Settings},
-	Buffer,
 };
 use tab::TabManager;
 use widget::toast::{self, Toast};
@@ -430,7 +431,7 @@ impl App {
 											pane,
 											buffer::Message::Instance(message),
 										))
-									})
+									});
 								}
 							},
 							buffer::Action::InstanceHistory(action) => match action {
@@ -479,7 +480,7 @@ impl App {
 											pane,
 											buffer::Message::InstanceHistory(message),
 										))
-									})
+									});
 								}
 							},
 							buffer::Action::Loaded => tab.loading = false,
@@ -607,7 +608,7 @@ impl App {
 							buffer::Action::Task(task) => {
 								return task.map(move |message| {
 									Message::Tab(tab::Message::Buffer(pane, message))
-								})
+								});
 							}
 						}
 					} else {
@@ -691,7 +692,9 @@ impl App {
 					if let Some(tab_manager) = self.tab_managers.get_mut(pane) {
 						tab_manager.focus = Some(tab_id);
 					} else {
-						debug!("failed to find currently focused pane to focus on selected tab, doing nothing")
+						debug!(
+							"failed to find currently focused pane to focus on selected tab, doing nothing"
+						)
 					}
 				}
 				tab::Message::DockTab(pane) => {}
@@ -811,7 +814,9 @@ impl App {
 							))
 						});
 					} else {
-						debug!("failed to find currently focused pane to create new tab in, doing nothing")
+						debug!(
+							"failed to find currently focused pane to create new tab in, doing nothing"
+						)
 					}
 				}
 				tab::Message::OverTab(zones) => {

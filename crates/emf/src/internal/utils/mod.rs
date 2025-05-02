@@ -17,7 +17,7 @@ use winapi::{
 	},
 };
 
-use self::pe64::{remap_view_of_section, PE64};
+use self::pe64::{PE64, remap_view_of_section};
 
 #[allow(unused)]
 pub unsafe fn virtual_protect(
@@ -26,26 +26,28 @@ pub unsafe fn virtual_protect(
 	permissions: DWORD,
 	old_protect: &mut DWORD,
 ) -> BOOL {
-	VirtualProtect(from, size, permissions, old_protect)
+	unsafe { VirtualProtect(from, size, permissions, old_protect) }
 }
 
 #[allow(unused)]
 pub unsafe fn virtual_protect_module(permissions: DWORD) -> BOOL {
-	let h_module_info = PE64::get_module_information();
-	virtual_protect(
-		h_module_info.optional_header().ImageBase as _,
-		h_module_info.optional_header().SizeOfImage as _,
-		permissions,
-		&mut 0,
-	)
+	unsafe {
+		let h_module_info = PE64::get_module_information();
+		virtual_protect(
+			h_module_info.optional_header().ImageBase as _,
+			h_module_info.optional_header().SizeOfImage as _,
+			permissions,
+			&mut 0,
+		)
+	}
 }
 
 pub unsafe fn remap_image() -> Result<(), String> {
-	let info = PE64::get_module_information().optional_header();
+	let info = unsafe { PE64::get_module_information().optional_header() };
 	let page_start = info.ImageBase as HANDLE;
 	let page_size = info.SizeOfImage as usize;
 
-	remap_view_of_section(page_start, page_size, PAGE_EXECUTE_READWRITE)
+	unsafe { remap_view_of_section(page_start, page_size, PAGE_EXECUTE_READWRITE) }
 }
 
 pub fn get_game_path() -> PathBuf {

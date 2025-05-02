@@ -1,3 +1,5 @@
+cargo-features = ["profile-rustflags"]
+
 [workspace]
 resolver = "2"
 members = ["crates/*", "bindings/rust/*", "examples/*"]
@@ -9,7 +11,7 @@ default-members = ["crates/emtk"]
 # - ./crates/xtask/src/main.rs
 version = "0.1.0-beta.2"
 authors = ["Megumin <megumin@megu.dev>", "ProffDea <deatea@riseup.net>"]
-edition = "2021"
+edition = "2024"
 documentation = "https://exanimamodding.codeberg.page/Book"
 homepage = "https://exanimamodding.codeberg.page/Book"
 repository = "https://codeberg.org/ExanimaModding/Toolkit"
@@ -19,14 +21,12 @@ license = "LGPL-3.0-or-later"
 anyhow = "1.0"
 detours-sys = { path = "./crates/detours" }
 emf-types = { path = "./crates/emf-types" }
-exparser = { git = "https://codeberg.org/ExanimaModding/exparser.git", branch = "main" }
 image = { version = "0.25", default-features = false, features = [
 	"ico",
 	"png",
 ] }
 itertools = "0.14"
 open = "5.3"
-ron = "0.8"
 safer-ffi = { version = "0.1", default-features = false, features = [
 	"alloc",
 	"log",
@@ -45,12 +45,14 @@ toml = "0.8"
 tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-winapi = { version = "0.3", features = [
-	"minwindef",
-	"winnt",
-	"winbase",
-	"errhandlingapi",
-	"psapi",
-	"consoleapi",
-	"ntdef",
-] }
+
+[profile.release]
+strip = true
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+rustflags = ["-Zlocation-detail=none"]
+
+[profile.release.package.emf]
+opt-level = 3

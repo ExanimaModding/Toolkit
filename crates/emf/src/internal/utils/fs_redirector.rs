@@ -1,6 +1,6 @@
 use std::{
 	env,
-	ffi::{c_void, CStr, CString},
+	ffi::{CStr, CString, c_void},
 	mem,
 	path::{Path, PathBuf},
 	sync::LazyLock,
@@ -20,12 +20,14 @@ static mut O_CREATE_FILE_W: *mut c_void = 0 as _;
 static mut O_CREATE_FILE_A: *mut c_void = 0 as _;
 
 pub unsafe fn register_hooks() {
-	O_CREATE_FILE_W = CreateFileW as *mut c_void;
-	O_CREATE_FILE_A = CreateFileA as *mut c_void;
+	unsafe {
+		O_CREATE_FILE_W = CreateFileW as *mut c_void;
+		O_CREATE_FILE_A = CreateFileA as *mut c_void;
 
-	DetourTransactionBegin();
-	DetourAttach(&raw mut O_CREATE_FILE_A, create_file_a as _);
-	DetourTransactionCommit();
+		DetourTransactionBegin();
+		DetourAttach(&raw mut O_CREATE_FILE_A, create_file_a as _);
+		DetourTransactionCommit();
+	}
 }
 
 type TCreateFileA = unsafe extern "system" fn(
@@ -62,22 +64,24 @@ unsafe fn create_file_a(
 	});
 
 	// Convert the string pointer to a Rust path.
-	let file_name = CStr::from_ptr(lp_file_name).to_string_lossy().into_owned();
+	let file_name = unsafe { CStr::from_ptr(lp_file_name).to_string_lossy().into_owned() };
 	let file_path = Path::new(&file_name);
 
 	let is_in_cwd = file_path.starts_with(&*CWD_PATH);
 
 	// TODO: Should we restrict or allowlist the file (types) that can be redirected?
 	if !is_in_cwd {
-		return CREATE_FILE_A(
-			lp_file_name,
-			dw_desired_access,
-			dw_share_mode,
-			lp_security_attributes,
-			dw_creation_disposition,
-			dw_flags_and_attributes,
-			h_template_file,
-		);
+		return unsafe {
+			CREATE_FILE_A(
+				lp_file_name,
+				dw_desired_access,
+				dw_share_mode,
+				lp_security_attributes,
+				dw_creation_disposition,
+				dw_flags_and_attributes,
+				h_template_file,
+			)
+		};
 	}
 
 	// Strip the cwd path from the file path, to get the relative path.
@@ -89,23 +93,8 @@ unsafe fn create_file_a(
 
 	// If the file doesn't exist in cache, fallback to the original file.
 	if !new_file_name.exists() {
-		return CREATE_FILE_A(
-			lp_file_name,
-			dw_desired_access,
-			dw_share_mode,
-			lp_security_attributes,
-			dw_creation_disposition,
-			dw_flags_and_attributes,
-			h_template_file,
-		);
-	}
-
-	// Convert the new file name to a CString, ensuring it is null-terminated.
-	let new_file_name = match CString::new(new_file_name.to_string_lossy().as_bytes()) {
-		Ok(cstring) => cstring,
-		Err(_) => {
-			// If conversion fails, fallback to the original file.
-			return CREATE_FILE_A(
+		return unsafe {
+			CREATE_FILE_A(
 				lp_file_name,
 				dw_desired_access,
 				dw_share_mode,
@@ -113,18 +102,39 @@ unsafe fn create_file_a(
 				dw_creation_disposition,
 				dw_flags_and_attributes,
 				h_template_file,
-			);
+			)
+		};
+	}
+
+	// Convert the new file name to a CString, ensuring it is null-terminated.
+	let new_file_name = match CString::new(new_file_name.to_string_lossy().as_bytes()) {
+		Ok(cstring) => cstring,
+		Err(_) => {
+			// If conversion fails, fallback to the original file.
+			return unsafe {
+				CREATE_FILE_A(
+					lp_file_name,
+					dw_desired_access,
+					dw_share_mode,
+					lp_security_attributes,
+					dw_creation_disposition,
+					dw_flags_and_attributes,
+					h_template_file,
+				)
+			};
 		}
 	};
 
 	// Call the original CreateFileA with the new file name, and return the result.
-	CREATE_FILE_A(
-		new_file_name.as_ptr(),
-		dw_desired_access,
-		dw_share_mode,
-		lp_security_attributes,
-		dw_creation_disposition,
-		dw_flags_and_attributes,
-		h_template_file,
-	)
+	unsafe {
+		CREATE_FILE_A(
+			new_file_name.as_ptr(),
+			dw_desired_access,
+			dw_share_mode,
+			lp_security_attributes,
+			dw_creation_disposition,
+			dw_flags_and_attributes,
+			h_template_file,
+		)
+	}
 }

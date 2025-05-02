@@ -5,7 +5,14 @@ mod internal;
 mod plugins;
 
 use std::{
-	collections::HashMap, env, ffi::c_void, fs, io::Read, mem, panic, path::PathBuf, sync::OnceLock,
+	collections::HashMap,
+	env,
+	ffi::c_void,
+	fs,
+	io::{self, Read, Write},
+	mem,
+	path::PathBuf,
+	sync::OnceLock,
 };
 
 use detours_sys::{
@@ -13,19 +20,16 @@ use detours_sys::{
 	DetourTransactionCommit,
 };
 use emcore::{plugin, profile};
-use internal::{gui, utils::rpk_intercept};
+use internal::utils::rpk_intercept;
 use pelite::pe::Pe;
 use tracing::{error, info};
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
+use tracing_subscriber::{Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
 	um::{consoleapi::AllocConsole, winnt::DLL_PROCESS_ATTACH},
 };
 
-use crate::{
-	internal::utils::{pe64::PE64, remap_image},
-	plugins::read_plugin_configs,
-};
+use crate::internal::utils::{pe64::PE64, remap_image};
 
 pub(crate) static LOAD_ORDER: OnceLock<Vec<(plugin::Id, profile::LoadOrderEntry)>> =
 	OnceLock::new();
@@ -39,63 +43,65 @@ static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> = On
 // TODO: Remove this when the new hooking system is implemented.
 static mut ORIGINAL_START: *mut c_void = 0 as _;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 unsafe extern "stdcall" fn DllMain(
 	_hinst_dll: HINSTANCE,
 	fwd_reason: DWORD,
 	_lpv_reserved: LPVOID,
 ) -> BOOL {
-	if DetourIsHelperProcess() != 0 {
-		return 1;
-	}
-
-	if fwd_reason == DLL_PROCESS_ATTACH {
-		AllocConsole();
-
-		let maybe_data_dir = emcore::data_dir();
-		ansi_term::enable_ansi_support().unwrap();
-		let subscriber =
-			tracing_subscriber::registry().with(fmt::layer().with_filter(env_filter()));
-		if let Some(data_dir) = maybe_data_dir {
-			let log_dir = data_dir.join(emcore::LOG_DIR);
-			if !log_dir.is_dir() {
-				fs::create_dir_all(&log_dir).unwrap();
-			}
-			let file_appender = tracing_appender::rolling::hourly(log_dir, "emf.log");
-			let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-			TRACING_GUARD.set(guard).unwrap();
-			subscriber
-				.with(
-					fmt::layer()
-						.with_ansi(false)
-						.with_writer(non_blocking)
-						.with_filter(env_filter()),
-				)
-				.init();
-		} else {
-			subscriber.init();
+	unsafe {
+		if DetourIsHelperProcess() != 0 {
+			return 1;
 		}
 
-		info!("DllMain Loaded");
+		if fwd_reason == DLL_PROCESS_ATTACH {
+			AllocConsole();
 
-		info!("Remapping Image");
-		remap_image().unwrap();
+			let mut lock = io::stdout().lock();
+			let _ = writeln!(lock, "DllMain Loaded");
 
-		info!("Restoring Memory Import Table");
-		DetourRestoreAfterWith();
+			let _ = writeln!(lock, "Remapping Image");
+			remap_image().unwrap();
 
-		info!("Hooking Process Entrypoint");
-		DetourTransactionBegin();
-		let opt_headers = PE64::get_module_information().optional_header();
-		ORIGINAL_START = (opt_headers.ImageBase + opt_headers.AddressOfEntryPoint as u64) as _;
-		DetourAttach(&raw mut ORIGINAL_START, main as _);
-		DetourTransactionCommit();
+			let _ = writeln!(lock, "Restoring Memory Import Table");
+			DetourRestoreAfterWith();
+
+			let _ = writeln!(lock, "Hooking Process Entrypoint");
+			DetourTransactionBegin();
+			let opt_headers = PE64::get_module_information().optional_header();
+			ORIGINAL_START = (opt_headers.ImageBase + opt_headers.AddressOfEntryPoint as u64) as _;
+			DetourAttach(&raw mut ORIGINAL_START, main as _);
+			DetourTransactionCommit();
+		}
 	}
 
 	1
 }
 
 unsafe extern "C" fn main() {
+	let maybe_data_dir = emcore::data_dir();
+	ansi_term::enable_ansi_support().unwrap();
+	let subscriber = tracing_subscriber::registry().with(fmt::layer().with_filter(env_filter()));
+	if let Some(data_dir) = maybe_data_dir {
+		let log_dir = data_dir.join(emcore::LOG_DIR);
+		if !log_dir.is_dir() {
+			fs::create_dir_all(&log_dir).unwrap();
+		}
+		let file_appender = tracing_appender::rolling::hourly(log_dir, "emf.log");
+		let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+		TRACING_GUARD.set(guard).unwrap();
+		subscriber
+			.with(
+				fmt::layer()
+					.with_ansi(false)
+					.with_writer(non_blocking)
+					.with_filter(env_filter()),
+			)
+			.init();
+	} else {
+		subscriber.init();
+	}
+
 	let mut cwd = env::current_exe().unwrap();
 	cwd.pop();
 
@@ -172,7 +178,7 @@ unsafe extern "C" fn main() {
 	// fs_redirector::register_hooks();
 
 	if !LOAD_ORDER.get().unwrap().is_empty() {
-		rpk_intercept::register_hooks();
+		unsafe { rpk_intercept::register_hooks() };
 	}
 
 	match env::set_current_dir(cwd) {
@@ -206,7 +212,7 @@ unsafe extern "C" fn main() {
 	info!("Running Original Program Entrypoint");
 
 	// TODO: replace this with the new hooking system.
-	let original_start: extern "C" fn() = mem::transmute(ORIGINAL_START);
+	let original_start: extern "C" fn() = unsafe { mem::transmute(ORIGINAL_START) };
 	original_start();
 }
 

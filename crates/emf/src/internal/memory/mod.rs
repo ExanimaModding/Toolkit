@@ -28,7 +28,7 @@ impl Ptr {
 	}
 
 	pub unsafe fn deref(ptr: usize) -> *mut usize {
-		*(ptr as *mut *mut usize)
+		unsafe { *(ptr as *mut *mut usize) }
 	}
 
 	pub fn offset<T>(ptr: usize, offset: i64) -> *mut T {

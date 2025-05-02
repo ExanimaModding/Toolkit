@@ -31,7 +31,8 @@ impl Hook {
 		replacement_fn: *mut c_void,
 	) -> Self {
 		let hook_name = hook_name.to_string();
-		let raw = crate::sys::hook_new(hook_name.clone().into(), target_fn, replacement_fn);
+		let raw =
+			unsafe { crate::sys::hook_new(hook_name.clone().into(), target_fn, replacement_fn) };
 
 		Self {
 			hook_name,
@@ -59,11 +60,13 @@ impl Hook {
 		replacement_fn: *mut c_void,
 	) -> Option<Self> {
 		let hook_name = hook_name.to_string();
-		let result = crate::sys::hook_from_signature(
-			hook_name.clone().into(),
-			signature.into(),
-			replacement_fn,
-		);
+		let result = unsafe {
+			crate::sys::hook_from_signature(
+				hook_name.clone().into(),
+				signature.into(),
+				replacement_fn,
+			)
+		};
 
 		result.map(|raw| Self {
 			hook_name,
@@ -126,26 +129,30 @@ pub trait Hookable {
 
 impl Hookable for Hook {
 	unsafe fn is_applied(&self) -> bool {
-		crate::sys::hook_is_applied(&self.raw)
+		unsafe { crate::sys::hook_is_applied(&self.raw) }
 	}
 
 	unsafe fn apply(&mut self) -> anyhow::Result<()> {
-		if self.is_applied() {
-			Err(anyhow::anyhow!("Hook is already applied."))
-		} else if crate::sys::hook_apply(&mut self.raw) {
-			Ok(())
-		} else {
-			Err(anyhow::anyhow!("Failed to apply hook."))
+		unsafe {
+			if self.is_applied() {
+				Err(anyhow::anyhow!("Hook is already applied."))
+			} else if crate::sys::hook_apply(&mut self.raw) {
+				Ok(())
+			} else {
+				Err(anyhow::anyhow!("Failed to apply hook."))
+			}
 		}
 	}
 
 	unsafe fn revert(&mut self) -> anyhow::Result<()> {
-		if !self.is_applied() {
-			Err(anyhow::anyhow!("Hook is not applied."))
-		} else if crate::sys::hook_revert(&mut self.raw) {
-			Ok(())
-		} else {
-			Err(anyhow::anyhow!("Failed to revert hook."))
+		unsafe {
+			if !self.is_applied() {
+				Err(anyhow::anyhow!("Hook is not applied."))
+			} else if crate::sys::hook_revert(&mut self.raw) {
+				Ok(())
+			} else {
+				Err(anyhow::anyhow!("Failed to revert hook."))
+			}
 		}
 	}
 
@@ -162,10 +169,12 @@ impl Hookable for Hook {
 	}
 
 	unsafe fn is_config_enabled(&self, plugin_id: &str) -> bool {
-		let result = crate::sys::get_setting_bool(
-			plugin_id.into(),
-			format!("hook::{}", self.get_name()).into(),
-		);
+		let result = unsafe {
+			crate::sys::get_setting_bool(
+				plugin_id.into(),
+				format!("hook::{}", self.get_name()).into(),
+			)
+		};
 
 		match result.found {
 			true => result.value,

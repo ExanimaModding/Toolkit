@@ -13,7 +13,6 @@ clap = { version = "4.5", features = ["derive"] }
 detours-sys.workspace = true
 emcore = { path = "../core" }
 emf = { path = "../emf" }
-exparser.workspace = true
 getset = "0.1"
 iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = [
 	"advanced",
@@ -26,13 +25,9 @@ iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = 
 iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", branch = "dev" }
 iced_table = { git = "https://github.com/ProffDea/iced_table.git", branch = "dev" }
 image.workspace = true
-# indicatif = "0.17"
 itertools.workspace = true
-# lilt = "0.8"
 open.workspace = true
 rfd = "0.15"
-ron.workspace = true
-safer-ffi.workspace = true
 serde.workspace = true
 termimad = "0.31"
 thiserror.workspace = true
@@ -40,10 +35,8 @@ tokio.workspace = true
 toml.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
-tracing-indicatif = "0.3"
 tracing-subscriber.workspace = true
 tracing-tracy = "0.11.4"
-winapi.workspace = true
 
 [build-dependencies]
 winresource = "0.1"

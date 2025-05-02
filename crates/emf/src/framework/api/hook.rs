@@ -54,8 +54,10 @@ impl Hook {
 		signature: &str,
 		replacement_fn_ptr: *mut c_void,
 	) -> Result<Self> {
-		let result = SigScanner::new(signature);
-		let result = result.exec();
+		let result = unsafe {
+			let result = SigScanner::new(signature);
+			result.exec()
+		};
 
 		if let crate::internal::memory::sigscanner::SigScannerResult::Found(ptr) = result {
 			Ok(Self::new(hook_name, ptr as _, replacement_fn_ptr))
@@ -66,7 +68,7 @@ impl Hook {
 
 	/// Offset the target function pointer by a given amount of bytes.
 	pub unsafe fn offset_pointer(&mut self, offset: isize) -> *mut *mut c_void {
-		self.target_fn_ptr = self.target_fn_ptr.byte_offset(offset);
+		self.target_fn_ptr = unsafe { self.target_fn_ptr.byte_offset(offset) };
 		self.target_fn_ptr
 	}
 }
@@ -81,26 +83,28 @@ impl Hookable for Hook {
 			return Err(anyhow!("Target or replacement function is null."));
 		}
 
-		let proc = GetCurrentProcess();
-		let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
+		unsafe {
+			let proc = GetCurrentProcess();
+			let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
 
-		if writable.is_err() {
-			return Err(anyhow!(
-				"Target or replacement function is not read-writeable."
-			));
-		}
+			if writable.is_err() {
+				return Err(anyhow!(
+					"Target or replacement function is not read-writeable."
+				));
+			}
 
-		DetourTransactionBegin();
+			DetourTransactionBegin();
 
-		let result: NTSTATUS = DetourAttach(self.target_fn_ptr, self.replacement_fn_ptr);
+			let result: NTSTATUS = DetourAttach(self.target_fn_ptr, self.replacement_fn_ptr);
 
-		if let NtStatus::Other(status) = NtStatus::from(result) {
-			DetourTransactionAbort();
-			Err(anyhow!("Failed to attach detour. Status: {:#X}", status))
-		} else {
-			DetourTransactionCommit();
-			self.hooked = true;
-			Ok(())
+			if let NtStatus::Other(status) = NtStatus::from(result) {
+				DetourTransactionAbort();
+				Err(anyhow!("Failed to attach detour. Status: {:#X}", status))
+			} else {
+				DetourTransactionCommit();
+				self.hooked = true;
+				Ok(())
+			}
 		}
 	}
 
@@ -113,25 +117,27 @@ impl Hookable for Hook {
 			return Err(anyhow!("Target or replacement function is null."));
 		}
 
-		let proc = GetCurrentProcess();
-		let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
+		unsafe {
+			let proc = GetCurrentProcess();
+			let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
 
-		if writable.is_err() {
-			return Err(anyhow!(
-				"Target or replacement function is not read-writeable."
-			));
-		}
+			if writable.is_err() {
+				return Err(anyhow!(
+					"Target or replacement function is not read-writeable."
+				));
+			}
 
-		DetourTransactionBegin();
-		let result: NTSTATUS = DetourDetach(self.target_fn_ptr, self.replacement_fn_ptr);
+			DetourTransactionBegin();
+			let result: NTSTATUS = DetourDetach(self.target_fn_ptr, self.replacement_fn_ptr);
 
-		if let NtStatus::Other(status) = NtStatus::from(result) {
-			DetourTransactionAbort();
-			Err(anyhow!("Failed to detach detour. Status: {:#X}", status))
-		} else {
-			DetourTransactionCommit();
-			self.hooked = false;
-			Ok(())
+			if let NtStatus::Other(status) = NtStatus::from(result) {
+				DetourTransactionAbort();
+				Err(anyhow!("Failed to detach detour. Status: {:#X}", status))
+			} else {
+				DetourTransactionCommit();
+				self.hooked = false;
+				Ok(())
+			}
 		}
 	}
 
@@ -163,11 +169,13 @@ pub unsafe extern "C" fn hook_from_signature(
 	signature: repr_c::String,
 	replacement_fn_ptr: *mut c_void,
 ) -> Option<repr_c::Box<Hook>> {
-	match Hook::from_signature(hook_name.into(), &signature, replacement_fn_ptr) {
-		Ok(hook) => Some(Box::new(hook).into()),
-		Err(e) => {
-			error!("{:?}", e);
-			None
+	unsafe {
+		match Hook::from_signature(hook_name.into(), &signature, replacement_fn_ptr) {
+			Ok(hook) => Some(Box::new(hook).into()),
+			Err(e) => {
+				error!("{:?}", e);
+				None
+			}
 		}
 	}
 }
@@ -175,17 +183,19 @@ pub unsafe extern "C" fn hook_from_signature(
 #[ffi_export]
 /// Offset the target function pointer by the given offset.
 pub unsafe extern "C" fn hook_offset_pointer(hook: &mut Hook, offset: isize) -> *mut *mut c_void {
-	hook.offset_pointer(offset)
+	unsafe { hook.offset_pointer(offset) }
 }
 
 #[ffi_export]
 /// Apply the hook.
 pub unsafe extern "C" fn hook_apply(hook: &mut Hook) -> bool {
-	match hook.apply() {
-		Ok(_) => true,
-		Err(e) => {
-			error!("{:?}", e);
-			false
+	unsafe {
+		match hook.apply() {
+			Ok(_) => true,
+			Err(e) => {
+				error!("{:?}", e);
+				false
+			}
 		}
 	}
 }
@@ -193,11 +203,13 @@ pub unsafe extern "C" fn hook_apply(hook: &mut Hook) -> bool {
 #[ffi_export]
 /// Revert the hook.
 pub unsafe extern "C" fn hook_revert(hook: &mut Hook) -> bool {
-	match hook.revert() {
-		Ok(_) => true,
-		Err(e) => {
-			error!("{:?}", e);
-			false
+	unsafe {
+		match hook.revert() {
+			Ok(_) => true,
+			Err(e) => {
+				error!("{:?}", e);
+				false
+			}
 		}
 	}
 }
@@ -205,5 +217,5 @@ pub unsafe extern "C" fn hook_revert(hook: &mut Hook) -> bool {
 #[ffi_export]
 /// Check if the hook is already applied.
 pub unsafe extern "C" fn hook_is_applied(hook: &Hook) -> bool {
-	hook.is_applied()
+	unsafe { hook.is_applied() }
 }

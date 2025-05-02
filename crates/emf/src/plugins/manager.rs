@@ -55,47 +55,51 @@ impl PluginState {
 			};
 		}
 
-		let enable = sym!(b"enable", extern "C" fn() -> bool);
-		let disable = sym!(b"disable", extern "C" fn() -> bool);
+		unsafe {
+			let enable = sym!(b"enable", extern "C" fn() -> bool);
+			let disable = sym!(b"disable", extern "C" fn() -> bool);
 
-		let send_message = sym!(b"on_message", extern "C" fn(char_p::Box, char_p::Box));
+			let send_message = sym!(b"on_message", extern "C" fn(char_p::Box, char_p::Box));
 
-		let read_setting_bool = sym!(b"read_setting_bool", extern "C" fn(char_p::Box) -> bool);
-		let read_setting_int = sym!(b"read_setting_int", extern "C" fn(char_p::Box) -> i64);
-		let read_setting_float = sym!(b"read_setting_float", extern "C" fn(char_p::Box) -> f64);
-		let read_setting_string = sym!(
-			b"read_setting_string",
-			extern "C" fn(char_p::Box) -> char_p::Box
-		);
+			let read_setting_bool = sym!(b"read_setting_bool", extern "C" fn(char_p::Box) -> bool);
+			let read_setting_int = sym!(b"read_setting_int", extern "C" fn(char_p::Box) -> i64);
+			let read_setting_float = sym!(b"read_setting_float", extern "C" fn(char_p::Box) -> f64);
+			let read_setting_string = sym!(
+				b"read_setting_string",
+				extern "C" fn(char_p::Box) -> char_p::Box
+			);
 
-		let setting_changed_bool = sym!(b"setting_changed_bool", extern "C" fn(char_p::Box, bool));
-		let setting_changed_int = sym!(b"setting_changed_int", extern "C" fn(char_p::Box, i64));
-		let setting_changed_float = sym!(b"setting_changed_float", extern "C" fn(char_p::Box, f64));
-		let setting_changed_string = sym!(
-			b"setting_changed_string",
-			extern "C" fn(char_p::Box, char_p::Box)
-		);
+			let setting_changed_bool =
+				sym!(b"setting_changed_bool", extern "C" fn(char_p::Box, bool));
+			let setting_changed_int = sym!(b"setting_changed_int", extern "C" fn(char_p::Box, i64));
+			let setting_changed_float =
+				sym!(b"setting_changed_float", extern "C" fn(char_p::Box, f64));
+			let setting_changed_string = sym!(
+				b"setting_changed_string",
+				extern "C" fn(char_p::Box, char_p::Box)
+			);
 
-		Ok(PluginState {
-			loaded: false,
-			enabled: false,
-			info,
-			lib,
-			enable: enable.expect("Plugin does not have an enable function"),
-			disable: disable.expect("Plugin does not have a disable function"),
+			Ok(PluginState {
+				loaded: false,
+				enabled: false,
+				info,
+				lib,
+				enable: enable.expect("Plugin does not have an enable function"),
+				disable: disable.expect("Plugin does not have a disable function"),
 
-			send_message,
+				send_message,
 
-			read_setting_bool,
-			read_setting_int,
-			read_setting_float,
-			read_setting_string,
+				read_setting_bool,
+				read_setting_int,
+				read_setting_float,
+				read_setting_string,
 
-			setting_changed_bool,
-			setting_changed_int,
-			setting_changed_float,
-			setting_changed_string,
-		})
+				setting_changed_bool,
+				setting_changed_int,
+				setting_changed_float,
+				setting_changed_string,
+			})
+		}
 	}
 }
 

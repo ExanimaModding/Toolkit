@@ -34,16 +34,18 @@ impl Patch {
 	pub unsafe fn new(name: &str, address: *const u8, patch_bytes: Vec<u8>) -> Self {
 		let name = name.to_string();
 
-		let original_bytes = crate::sys::read_bytes(address as _, patch_bytes.len());
-		let raw = crate::sys::patch_new(address as _, patch_bytes.clone().into());
+		unsafe {
+			let original_bytes = crate::sys::read_bytes(address as _, patch_bytes.len());
+			let raw = crate::sys::patch_new(address as _, patch_bytes.clone().into());
 
-		Self {
-			name,
-			address,
-			patch_bytes,
-			original_bytes,
-			raw,
-			enabled: true,
+			Self {
+				name,
+				address,
+				patch_bytes,
+				original_bytes,
+				raw,
+				enabled: true,
+			}
 		}
 	}
 }
@@ -106,31 +108,35 @@ pub trait Patchable {
 
 impl Patchable for Patch {
 	unsafe fn is_applied(&self) -> bool {
-		crate::sys::patch_is_applied(&self.raw)
+		unsafe { crate::sys::patch_is_applied(&self.raw) }
 	}
 
 	unsafe fn apply(&mut self) -> anyhow::Result<()> {
-		if self.is_applied() {
-			Err(anyhow::anyhow!("Patch is already applied."))
-		} else if crate::sys::patch_apply(&mut self.raw) {
-			Ok(())
-		} else {
-			Err(anyhow::anyhow!("Failed to apply patch."))
+		unsafe {
+			if self.is_applied() {
+				Err(anyhow::anyhow!("Patch is already applied."))
+			} else if crate::sys::patch_apply(&mut self.raw) {
+				Ok(())
+			} else {
+				Err(anyhow::anyhow!("Failed to apply patch."))
+			}
 		}
 	}
 
 	unsafe fn revert(&mut self) -> anyhow::Result<()> {
-		if !self.is_applied() {
-			Err(anyhow::anyhow!("Patch is not applied."))
-		} else if crate::sys::patch_revert(&mut self.raw) {
-			Ok(())
-		} else {
-			Err(anyhow::anyhow!("Failed to revert patch."))
+		unsafe {
+			if !self.is_applied() {
+				Err(anyhow::anyhow!("Patch is not applied."))
+			} else if crate::sys::patch_revert(&mut self.raw) {
+				Ok(())
+			} else {
+				Err(anyhow::anyhow!("Failed to revert patch."))
+			}
 		}
 	}
 
 	unsafe fn get_current_bytes(&self) -> Vec<u8> {
-		crate::sys::read_bytes(self.address as _, self.patch_bytes.len()).into()
+		unsafe { crate::sys::read_bytes(self.address as _, self.patch_bytes.len()).into() }
 	}
 
 	fn is_enabled(&self) -> bool {
@@ -146,10 +152,12 @@ impl Patchable for Patch {
 	}
 
 	unsafe fn is_config_enabled(&self, plugin_id: &str) -> bool {
-		let result = crate::sys::get_setting_bool(
-			plugin_id.into(),
-			format!("patch::{}", self.get_name()).into(),
-		);
+		let result = unsafe {
+			crate::sys::get_setting_bool(
+				plugin_id.into(),
+				format!("patch::{}", self.get_name()).into(),
+			)
+		};
 
 		match result.found {
 			true => result.value,

@@ -1,17 +1,12 @@
-use std::{
-	fmt::Debug,
-	io,
-	path::{self, PathBuf},
-	sync::OnceLock,
-};
+use std::{fmt::Debug, io, sync::OnceLock};
 
 use iced::{
-	futures::{channel::mpsc, Stream},
-	stream::channel,
-	widget::{text, Column},
 	Element,
+	futures::{Stream, channel::mpsc},
+	stream::channel,
+	widget::{Column, text},
 };
-use tracing_subscriber::{fmt::MakeWriter, layer::SubscriberExt, util::SubscriberInitExt, Layer};
+use tracing_subscriber::{Layer, fmt::MakeWriter, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// When tracing is initialized for logging, the guard to the log file is stored
 /// here to ensure tracing keeps writing to the log file.

@@ -1,6 +1,6 @@
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
-	ffi::{c_void, CString},
+	ffi::{CString, c_void},
 	fs,
 	io::{Cursor, Read},
 	mem,
@@ -11,8 +11,9 @@ use std::{
 
 use detours_sys::{DetourAttach, DetourTransactionBegin, DetourTransactionCommit};
 use exparser::{
-	deku::{reader::Reader, writer::Writer, DekuReader, DekuWriter},
-	rpk, Format,
+	Format,
+	deku::{DekuReader, DekuWriter, reader::Reader, writer::Writer},
+	rpk,
 };
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, LPDWORD, LPVOID, MAX_PATH},
@@ -53,11 +54,13 @@ static PACKAGES: LazyLock<Mutex<BTreeMap<PathBuf, FileState>>> =
 static mut O_READ_FILE: *mut c_void = 0 as _;
 
 pub unsafe fn register_hooks() {
-	O_READ_FILE = ReadFile as *mut c_void;
+	unsafe {
+		O_READ_FILE = ReadFile as *mut c_void;
 
-	DetourTransactionBegin();
-	DetourAttach(&raw mut O_READ_FILE, read_file as _);
-	DetourTransactionCommit();
+		DetourTransactionBegin();
+		DetourAttach(&raw mut O_READ_FILE, read_file as _);
+		DetourTransactionCommit();
+	}
 }
 
 type TReadFile = unsafe extern "system" fn(
@@ -82,12 +85,14 @@ unsafe fn read_file(
 		// Get the file name from the handle.
 		let file_name: PathBuf = {
 			let mut file_name = vec![0u8; MAX_PATH];
-			let len = GetFinalPathNameByHandleA(
-				h_file,
-				file_name.as_mut_ptr() as *mut i8,
-				MAX_PATH as u32,
-				0,
-			);
+			let len = unsafe {
+				GetFinalPathNameByHandleA(
+					h_file,
+					file_name.as_mut_ptr() as *mut i8,
+					MAX_PATH as u32,
+					0,
+				)
+			};
 			file_name.truncate(len as usize);
 			let Ok(file_name) = CString::new(file_name) else {
 				break 'try_proxy_file;
@@ -102,7 +107,7 @@ unsafe fn read_file(
 			break 'try_proxy_file;
 		}
 
-		let requested_offset = SetFilePointer(h_file, 0, ptr::null_mut(), FILE_CURRENT);
+		let requested_offset = unsafe { SetFilePointer(h_file, 0, ptr::null_mut(), FILE_CURRENT) };
 
 		// Lock the global packages map for the duration of this function.
 		let mut packages = PACKAGES.lock().unwrap();
@@ -267,12 +272,14 @@ unsafe fn read_file(
 
 			// Write out our ReadFile results for the caller to read.
 			let buffer = lp_buffer as *mut u32;
-			*buffer = rpk::MAGIC;
-			*(buffer.offset(1)) = table_size_bytes;
-			*lp_number_of_bytes_read = 8;
+			unsafe {
+				*buffer = rpk::MAGIC;
+				*(buffer.offset(1)) = table_size_bytes;
+				*lp_number_of_bytes_read = 8;
 
-			// Increment the file pointer, as is the default behaviour of ReadFile.
-			SetFilePointer(h_file, 8, ptr::null_mut(), FILE_BEGIN);
+				// Increment the file pointer, as is the default behaviour of ReadFile.
+				SetFilePointer(h_file, 8, ptr::null_mut(), FILE_BEGIN);
+			}
 
 			return 1;
 		} else if requested_offset == 8 && packages.contains_key(&file_name) {
@@ -294,10 +301,12 @@ unsafe fn read_file(
 			rpk_entries.to_writer(&mut writer, ()).unwrap();
 			let buffer = buffer.into_inner();
 
-			ptr::copy_nonoverlapping(buffer.as_ptr(), lp_buffer as _, buffer.len() as _);
-			*lp_number_of_bytes_read = buffer.len() as u32;
+			unsafe {
+				ptr::copy_nonoverlapping(buffer.as_ptr(), lp_buffer as _, buffer.len() as _);
+				*lp_number_of_bytes_read = buffer.len() as u32;
 
-			SetFilePointer(h_file, buffer.len() as i32, ptr::null_mut(), FILE_CURRENT);
+				SetFilePointer(h_file, buffer.len() as i32, ptr::null_mut(), FILE_CURRENT);
+			}
 
 			return 1;
 		} else if packages.contains_key(&file_name) {
@@ -330,50 +339,60 @@ unsafe fn read_file(
 					let mut buffer = vec![0u8; entry.intercepted_size as usize];
 					file.read_exact(&mut buffer).unwrap();
 
-					ptr::copy_nonoverlapping(buffer.as_ptr(), lp_buffer as _, buffer.len() as _);
-					*lp_number_of_bytes_read = buffer.len() as u32;
+					unsafe {
+						ptr::copy_nonoverlapping(
+							buffer.as_ptr(),
+							lp_buffer as _,
+							buffer.len() as _,
+						);
+						*lp_number_of_bytes_read = buffer.len() as u32;
+					}
 					return 1;
 				}
 
-				// Set the file pointer to the start of the original entry.
-				SetFilePointer(
-					h_file,
-					entry.original_offset as i32 + state.original_end_of_table as i32,
-					ptr::null_mut(),
-					FILE_BEGIN,
-				);
+				unsafe {
+					// Set the file pointer to the start of the original entry.
+					SetFilePointer(
+						h_file,
+						entry.original_offset as i32 + state.original_end_of_table as i32,
+						ptr::null_mut(),
+						FILE_BEGIN,
+					);
 
-				// Read the original entry.
-				let result = READ_FILE(
-					h_file,
-					lp_buffer,
-					n_number_of_bytes_to_read,
-					lp_number_of_bytes_read,
-					lp_overlapped,
-				);
+					// Read the original entry.
+					let result = READ_FILE(
+						h_file,
+						lp_buffer,
+						n_number_of_bytes_to_read,
+						lp_number_of_bytes_read,
+						lp_overlapped,
+					);
 
-				// Set the file pointer to where exanima expects it to be.
-				// This is intercepted offset + intercepted size.
-				SetFilePointer(
-					h_file,
-					(requested_offset + n_number_of_bytes_to_read) as _,
-					ptr::null_mut(),
-					FILE_BEGIN,
-				);
+					// Set the file pointer to where exanima expects it to be.
+					// This is intercepted offset + intercepted size.
+					SetFilePointer(
+						h_file,
+						(requested_offset + n_number_of_bytes_to_read) as _,
+						ptr::null_mut(),
+						FILE_BEGIN,
+					);
 
-				// Return the result of the ReadFile call.
-				return result;
+					// Return the result of the ReadFile call.
+					return result;
+				}
 			} else {
 				panic!("Failed to find matching intercepted entry for offset: {requested_offset}");
 			}
 		}
 	}
 
-	READ_FILE(
-		h_file,
-		lp_buffer,
-		n_number_of_bytes_to_read,
-		lp_number_of_bytes_read,
-		lp_overlapped,
-	)
+	unsafe {
+		READ_FILE(
+			h_file,
+			lp_buffer,
+			n_number_of_bytes_to_read,
+			lp_number_of_bytes_read,
+			lp_overlapped,
+		)
+	}
 }

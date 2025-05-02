@@ -750,26 +750,26 @@ pub type PF_DETOUR_IMPORT_FUNC_CALLBACK_EX = ::std::option::Option<
 	) -> BOOL,
 >;
 pub type PDETOUR_BINARY = *mut ::std::os::raw::c_void;
-extern "C" {
+unsafe extern "C" {
 	#[doc = " Transaction APIs."]
 	pub fn DetourTransactionBegin() -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourTransactionAbort() -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourTransactionCommit() -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourTransactionCommitEx(pppFailedPointer: *mut *mut PVOID) -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourUpdateThread(hThread: HANDLE) -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourAttach(ppPointer: *mut PVOID, pDetour: PVOID) -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourAttachEx(
 		ppPointer: *mut PVOID,
 		pDetour: PVOID,
@@ -778,29 +778,29 @@ extern "C" {
 		ppRealDetour: *mut PVOID,
 	) -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourDetach(ppPointer: *mut PVOID, pDetour: PVOID) -> LONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourSetIgnoreTooSmall(fIgnore: BOOL) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourSetRetainRegions(fRetain: BOOL) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourSetSystemRegionLowerBound(pSystemRegionLowerBound: PVOID) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourSetSystemRegionUpperBound(pSystemRegionUpperBound: PVOID) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	#[doc = " Code Functions."]
 	pub fn DetourFindFunction(pszModule: LPCSTR, pszFunction: LPCSTR) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCodeFromPointer(pPointer: PVOID, ppGlobals: *mut PVOID) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCopyInstruction(
 		pDst: PVOID,
 		ppDstPool: *mut PVOID,
@@ -809,39 +809,39 @@ extern "C" {
 		plExtra: *mut LONG,
 	) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourSetCodeModule(hModule: HMODULE, fLimitReferencesToModule: BOOL) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourAllocateRegionWithinJumpBounds(
 		pbTarget: LPCVOID,
 		pcbAllocatedSize: PDWORD,
 	) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourIsFunctionImported(pbCode: PBYTE, pbAddress: PBYTE) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	#[doc = " Loaded Binary Functions."]
 	pub fn DetourGetContainingModule(pvAddr: PVOID) -> HMODULE;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourEnumerateModules(hModuleLast: HMODULE) -> HMODULE;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourGetEntryPoint(hModule: HMODULE) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourGetModuleSize(hModule: HMODULE) -> ULONG;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourEnumerateExports(
 		hModule: HMODULE,
 		pContext: PVOID,
 		pfExport: PF_DETOUR_ENUMERATE_EXPORT_CALLBACK,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourEnumerateImports(
 		hModule: HMODULE,
 		pContext: PVOID,
@@ -849,7 +849,7 @@ extern "C" {
 		pfImportFunc: PF_DETOUR_IMPORT_FUNC_CALLBACK,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourEnumerateImportsEx(
 		hModule: HMODULE,
 		pContext: PVOID,
@@ -857,23 +857,23 @@ extern "C" {
 		pfImportFuncEx: PF_DETOUR_IMPORT_FUNC_CALLBACK_EX,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourFindPayload(hModule: HMODULE, rguid: *const GUID, pcbData: *mut DWORD) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourFindPayloadEx(rguid: *const GUID, pcbData: *mut DWORD) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourGetSizeOfPayloads(hModule: HMODULE) -> DWORD;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourFreePayload(pvData: PVOID) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	#[doc = " Persistent Binary Functions."]
 	pub fn DetourBinaryOpen(hFile: HANDLE) -> PDETOUR_BINARY;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryEnumeratePayloads(
 		pBinary: PDETOUR_BINARY,
 		pGuid: *mut GUID,
@@ -881,14 +881,14 @@ extern "C" {
 		pnIterator: *mut DWORD,
 	) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryFindPayload(
 		pBinary: PDETOUR_BINARY,
 		rguid: *const GUID,
 		pcbData: *mut DWORD,
 	) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinarySetPayload(
 		pBinary: PDETOUR_BINARY,
 		rguid: *const GUID,
@@ -896,16 +896,16 @@ extern "C" {
 		cbData: DWORD,
 	) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryDeletePayload(pBinary: PDETOUR_BINARY, rguid: *const GUID) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryPurgePayloads(pBinary: PDETOUR_BINARY) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryResetImports(pBinary: PDETOUR_BINARY) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryEditImports(
 		pBinary: PDETOUR_BINARY,
 		pContext: PVOID,
@@ -915,13 +915,13 @@ extern "C" {
 		pfCommit: PF_DETOUR_BINARY_COMMIT_CALLBACK,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryWrite(pBinary: PDETOUR_BINARY, hFile: HANDLE) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourBinaryClose(pBinary: PDETOUR_BINARY) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	#[doc = " Create Process & Load Dll."]
 	pub fn DetourFindRemotePayload(
 		hProcess: HANDLE,
@@ -957,7 +957,7 @@ pub type PDETOUR_CREATE_PROCESS_ROUTINEW = ::std::option::Option<
 		lpProcessInformation: LPPROCESS_INFORMATION,
 	) -> BOOL,
 >;
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCreateProcessWithDllA(
 		lpApplicationName: LPCSTR,
 		lpCommandLine: LPSTR,
@@ -973,7 +973,7 @@ extern "C" {
 		pfCreateProcessA: PDETOUR_CREATE_PROCESS_ROUTINEA,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCreateProcessWithDllW(
 		lpApplicationName: LPCWSTR,
 		lpCommandLine: LPWSTR,
@@ -989,7 +989,7 @@ extern "C" {
 		pfCreateProcessW: PDETOUR_CREATE_PROCESS_ROUTINEW,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCreateProcessWithDllExA(
 		lpApplicationName: LPCSTR,
 		lpCommandLine: LPSTR,
@@ -1005,7 +1005,7 @@ extern "C" {
 		pfCreateProcessA: PDETOUR_CREATE_PROCESS_ROUTINEA,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCreateProcessWithDllExW(
 		lpApplicationName: LPCWSTR,
 		lpCommandLine: LPWSTR,
@@ -1021,7 +1021,7 @@ extern "C" {
 		pfCreateProcessW: PDETOUR_CREATE_PROCESS_ROUTINEW,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCreateProcessWithDllsA(
 		lpApplicationName: LPCSTR,
 		lpCommandLine: LPSTR,
@@ -1038,7 +1038,7 @@ extern "C" {
 		pfCreateProcessA: PDETOUR_CREATE_PROCESS_ROUTINEA,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCreateProcessWithDllsW(
 		lpApplicationName: LPCWSTR,
 		lpCommandLine: LPWSTR,
@@ -1055,21 +1055,21 @@ extern "C" {
 		pfCreateProcessW: PDETOUR_CREATE_PROCESS_ROUTINEW,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourProcessViaHelperA(
 		dwTargetPid: DWORD,
 		lpDllName: LPCSTR,
 		pfCreateProcessA: PDETOUR_CREATE_PROCESS_ROUTINEA,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourProcessViaHelperW(
 		dwTargetPid: DWORD,
 		lpDllName: LPCSTR,
 		pfCreateProcessW: PDETOUR_CREATE_PROCESS_ROUTINEW,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourProcessViaHelperDllsA(
 		dwTargetPid: DWORD,
 		nDlls: DWORD,
@@ -1077,7 +1077,7 @@ extern "C" {
 		pfCreateProcessA: PDETOUR_CREATE_PROCESS_ROUTINEA,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourProcessViaHelperDllsW(
 		dwTargetPid: DWORD,
 		nDlls: DWORD,
@@ -1085,11 +1085,11 @@ extern "C" {
 		pfCreateProcessW: PDETOUR_CREATE_PROCESS_ROUTINEW,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourUpdateProcessWithDll(hProcess: HANDLE, rlpDlls: *mut LPCSTR, nDlls: DWORD)
-		-> BOOL;
+	-> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourUpdateProcessWithDllEx(
 		hProcess: HANDLE,
 		hImage: HMODULE,
@@ -1098,7 +1098,7 @@ extern "C" {
 		nDlls: DWORD,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCopyPayloadToProcess(
 		hProcess: HANDLE,
 		rguid: *const GUID,
@@ -1106,7 +1106,7 @@ extern "C" {
 		cbData: DWORD,
 	) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourCopyPayloadToProcessEx(
 		hProcess: HANDLE,
 		rguid: *const GUID,
@@ -1114,15 +1114,15 @@ extern "C" {
 		cbData: DWORD,
 	) -> PVOID;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourRestoreAfterWith() -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourRestoreAfterWithEx(pvData: PVOID, cbData: DWORD) -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourIsHelperProcess() -> BOOL;
 }
-extern "C" {
+unsafe extern "C" {
 	pub fn DetourFinishHelperProcess(arg1: HWND, arg2: HINSTANCE, arg3: LPSTR, arg4: INT);
 }

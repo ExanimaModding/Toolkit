@@ -42,14 +42,16 @@ pub struct SigScanner {
 #[allow(unused)]
 impl SigScanner {
 	pub unsafe fn exec(&self) -> SigScannerResult {
-		match libmem::sig_scan(&self.signature, self.search_start as _, self.search_length) {
-			Some(ptr) => SigScannerResult::Found(ptr),
-			None => SigScannerResult::NotFound,
+		unsafe {
+			match libmem::sig_scan(&self.signature, self.search_start as _, self.search_length) {
+				Some(ptr) => SigScannerResult::Found(ptr),
+				None => SigScannerResult::NotFound,
+			}
 		}
 	}
 
 	pub unsafe fn new(signature: &str) -> Self {
-		let h_module = PE64::get_module_information();
+		let h_module = unsafe { PE64::get_module_information() };
 		let sections = h_module.section_headers();
 
 		let text_section = sections.iter().find(|section| {
