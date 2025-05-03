@@ -43,6 +43,7 @@ toml.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
+tracing-tracy.workspace = true
 winapi = { version = "0.3", features = [
 	"minwindef",
 	"winnt",
