@@ -74,8 +74,6 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
 
 	#[instrument(level = "trace")]
 	fn cell(&'a self, _col_index: usize, row_index: usize, row: &'a Row) -> Element<'a, Message> {
-		let plugin_valid = row.plugin.display_name.is_some() && row.plugin.version.is_some();
-
 		let content: Element<_> = match self.kind {
 			ColumnKind::Name => {
 				let content = tooltip(
@@ -89,51 +87,21 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
 								line_height: text::LineHeight::Relative(1.),
 								shaping: text::Shaping::Basic,
 							}),
-						text(
-							row.plugin
-								.display_name
-								.clone()
-								.unwrap_or(row.plugin_id.to_string())
-						)
+						text(row.plugin.display_name.clone())
 					],
 					text(row.plugin_id.to_string()),
 					tooltip::Position::Top,
 				);
 
-				if plugin_valid {
-					content.into()
-				} else {
-					row![
-						content,
-						tooltip(
-							icon::info().size(16).center().style(text::danger),
-							"Missing or invalid manifest",
-							tooltip::Position::Top
-						),
-					]
-					.spacing(8)
-					.into()
-				}
+				content.into()
 			}
-			ColumnKind::Version => {
-				text(row.plugin.version.to_owned().unwrap_or("? ? ?".to_string())).into()
-			}
+			ColumnKind::Version => text(row.plugin.version.clone()).into(),
 			ColumnKind::Priority => text(row.plugin.priority).into(),
 		};
 
-		let layout = container(content).style(move |theme: &Theme| {
-			let default = container::Style {
-				text_color: Some(theme.palette().text),
-				..container::Style::default()
-			};
-			if plugin_valid {
-				default
-			} else {
-				container::Style {
-					text_color: Some(theme.palette().text.scale_alpha(0.5)),
-					..default
-				}
-			}
+		let layout = container(content).style(move |theme: &Theme| container::Style {
+			text_color: Some(theme.palette().text),
+			..container::Style::default()
 		});
 
 		layout.width(Fill).into()
@@ -397,14 +365,7 @@ impl Instance {
 				{
 					row.plugin.enabled = enabled;
 					plugin.enabled = enabled;
-					info!(
-						"{} set to {}",
-						plugin
-							.display_name
-							.clone()
-							.unwrap_or(row.plugin_id.to_string()),
-						plugin.enabled
-					)
+					info!("{} set to {}", plugin.display_name.clone(), plugin.enabled)
 				} else {
 					error!(
 						"failed to toggle entry #{} to {}, doing nothing",

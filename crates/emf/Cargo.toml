@@ -24,7 +24,6 @@ ansi_term = "0.12"
 anyhow.workspace = true
 detours-sys.workspace = true
 emcore = { path = "../core" }
-emf-types.workspace = true
 exparser = { git = "https://codeberg.org/ExanimaModding/exparser.git", branch = "main" }
 hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef25735fde84731745824341d506", features = [
 	"opengl3",
@@ -34,6 +33,7 @@ hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef
 image.workspace = true
 libloading = "0.8"
 libmem = { version = "5.0.4", default-features = false, features = ["static"] }
+mlua = { version = "0.10.3", features = ["luajit", "macros", "vendored"] }
 open.workspace = true
 path-clean = "1.0"
 pelite = "0.10"

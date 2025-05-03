@@ -9,7 +9,7 @@ use windows::Win32::UI::{
 	WindowsAndMessaging::{GetCursorInfo, CURSORINFO, CURSOR_SHOWING, WM_KEYDOWN, WM_KEYUP},
 };
 
-use crate::plugins::manager::PluginManager;
+// use crate::plugins::manager::PluginManager;
 
 const EMF_VERSION: &str = env!("CARGO_PKG_VERSION");
 const EMF_REPO: &str = env!("CARGO_PKG_REPOSITORY");
@@ -108,15 +108,18 @@ impl ImguiRenderLoop for RenderLoop {
 			}),
 		}]);
 
-		let plugin_ids = PluginManager::get_ids();
+		// let plugin_ids = PluginManager::get_ids();
 
-		let plugins: Vec<components::Plugin> = plugin_ids
-			.into_iter()
-			.map(|id| {
-				let config = PluginManager::get_info_for(&id).unwrap();
-				components::Plugin::from(config)
-			})
-			.collect();
+		// let plugins: Vec<components::Plugin> = plugin_ids
+		// 	.into_iter()
+		// 	.map(|id| {
+		// 		let config = PluginManager::get_info_for(&id).unwrap();
+		// 		components::Plugin::from(config)
+		// 	})
+		// 	.collect();
+
+		// TODO: Removed during migration to lua. Reimplement.
+		let plugins = Vec::new();
 
 		let mut plugins = components::Plugins::from(plugins);
 		plugins.initialize(ctx, render_context);

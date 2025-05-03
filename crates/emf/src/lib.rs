@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 
+pub mod bindings;
 mod framework;
 mod internal;
 mod plugins;
@@ -48,6 +49,10 @@ static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> = On
 // TODO: Remove this when the new hooking system is implemented.
 static mut ORIGINAL_START: *mut c_void = 0 as _;
 
+fn should_hook() -> bool {
+	!std::env::var("RUST_LIBLOADING").is_ok()
+}
+
 #[unsafe(no_mangle)]
 unsafe extern "stdcall" fn DllMain(
 	_hinst_dll: HINSTANCE,
@@ -55,7 +60,7 @@ unsafe extern "stdcall" fn DllMain(
 	_lpv_reserved: LPVOID,
 ) -> BOOL {
 	unsafe {
-		if DetourIsHelperProcess() != 0 {
+		if DetourIsHelperProcess() != 0 || !should_hook() {
 			return 1;
 		}
 
@@ -128,28 +133,30 @@ unsafe extern "C" fn main() {
 	file.read_to_string(&mut buffer)
 		.map_err(|e| error!("{}", e))
 		.expect("load order contents must be valid UTF-8");
-	let load_order: Vec<_> = toml::from_str::<profile::LoadOrder>(&buffer)
-		.expect("load order contents must be valid toml and structure")
-		.into_iter()
-		.filter(|(id, entry)| {
-			if !entry.enabled {
-				return false;
-			}
-			let Ok(mut file) =
-				fs::File::open(cwd.join(id.plugin_dir().join(plugin::Manifest::TOML)))
-			else {
-				return false;
-			};
-			let mut buffer = String::new();
-			let Ok(_) = file.read_to_string(&mut buffer) else {
-				return false;
-			};
-			let Ok(_) = toml::from_str::<plugin::Manifest>(&buffer) else {
-				return false;
-			};
-			true
-		})
-		.collect();
+
+	// TODO: reimplement load order
+	// let load_order: Vec<_> = toml::from_str::<profile::LoadOrder>(&buffer)
+	// 	.expect("load order contents must be valid toml and structure")
+	// 	.into_iter()
+	// 	.filter(|(id, entry)| {
+	// 		if !entry.enabled {
+	// 			return false;
+	// 		}
+	// 		let Ok(mut file) =
+	// 			fs::File::open(cwd.join(id.plugin_dir().join(plugin::Manifest::TOML)))
+	// 		else {
+	// 			return false;
+	// 		};
+	// 		let mut buffer = String::new();
+	// 		let Ok(_) = file.read_to_string(&mut buffer) else {
+	// 			return false;
+	// 		};
+	// 		let Ok(_) = toml::from_str::<plugin::Manifest>(&buffer) else {
+	// 			return false;
+	// 		};
+	// 		true
+	// 	})
+	// 	.collect();
 
 	let native_packages: Vec<_> = cwd
 		.read_dir()
@@ -165,25 +172,26 @@ unsafe extern "C" fn main() {
 			}
 		})
 		.collect();
+
 	let mut custom_packages: HashMap<String, HashMap<String, PathBuf>> = HashMap::new();
-	for name in native_packages {
-		let mut mod_entries: HashMap<String, PathBuf> = HashMap::new();
-		for (id, _) in load_order.iter() {
-			let loose_files_path = id.packages_dir().join(&name);
-			if let Ok(foreign_dir) = fs::read_dir(cwd.join(loose_files_path)) {
-				let entries: Vec<_> = foreign_dir.filter_map(Result::ok).collect();
-				entries.iter().for_each(|entry| {
-					mod_entries.insert(entry.file_name().display().to_string(), entry.path());
-				});
-			} else {
-				continue;
-			}
-		}
-		custom_packages.insert(name, mod_entries);
-	}
+	// for name in native_packages {
+	// 	let mut mod_entries: HashMap<String, PathBuf> = HashMap::new();
+	// 	for (id, _) in load_order.iter() {
+	// 		let loose_files_path = id.packages_dir().join(&name);
+	// 		if let Ok(foreign_dir) = fs::read_dir(cwd.join(loose_files_path)) {
+	// 			let entries: Vec<_> = foreign_dir.filter_map(Result::ok).collect();
+	// 			entries.iter().for_each(|entry| {
+	// 				mod_entries.insert(entry.file_name().display().to_string(), entry.path());
+	// 			});
+	// 		} else {
+	// 			continue;
+	// 		}
+	// 	}
+	// 	custom_packages.insert(name, mod_entries);
+	// }
 
 	MOD_ENTRIES.set(custom_packages).unwrap();
-	LOAD_ORDER.set(load_order).unwrap();
+	// LOAD_ORDER.set(load_order).unwrap();
 
 	info!("Main Hook Running");
 

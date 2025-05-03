@@ -1,5 +1,5 @@
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, HashSet},
 	ffi::{CString, c_void},
 	fs,
 	io::{Cursor, Read},
