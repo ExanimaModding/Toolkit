@@ -327,7 +327,7 @@ impl Instance {
 				return Err(crate::error::Io {
 					message: "failed to create cache file for profile path",
 					source,
-				})?
+				})?;
 			}
 		};
 
@@ -592,12 +592,16 @@ where
 							}
 						}
 						Err(_) => {
-							warn!("failed to deserialize cached profile path from buffer, using default path instead");
+							warn!(
+								"failed to deserialize cached profile path from buffer, using default path instead"
+							);
 							default_profile_dir.clone()
 						}
 					}
 				} else {
-					warn!("failed to read cached profile path into buffer, using default path instead");
+					warn!(
+						"failed to read cached profile path into buffer, using default path instead"
+					);
 					default_profile_dir.clone()
 				}
 			} else {
@@ -657,7 +661,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use tempfile::{tempdir, NamedTempFile, TempDir};
+	use tempfile::{NamedTempFile, TempDir, tempdir};
 
 	use crate::prelude::*;
 
@@ -685,11 +689,13 @@ mod tests {
 		let data_dir = instance.path.join(Instance::DATA_DIR);
 		let cache_dir = data_dir.join(Instance::CACHE_DIR);
 
-		assert!(crate::cache_dir()
-			.await
-			.unwrap()
-			.join(Instance::HISTORY_CACHE_RON)
-			.is_file());
+		assert!(
+			crate::cache_dir()
+				.await
+				.unwrap()
+				.join(Instance::HISTORY_CACHE_RON)
+				.is_file()
+		);
 		assert!(data_dir.is_dir());
 		assert!(instance.path.join(Instance::MODS_DIR).is_dir());
 		assert!(cache_dir.is_dir());
@@ -697,11 +703,13 @@ mod tests {
 		assert!(cache_dir.join(Instance::RECENT_PROFILE_RON).is_file());
 		assert!(data_dir.join(Instance::PROFILES_DIR).is_dir());
 		assert!(instance.profile.path().is_dir());
-		assert!(instance
-			.profile
-			.path()
-			.join(Profile::LOAD_ORDER_TOML)
-			.is_file());
+		assert!(
+			instance
+				.profile
+				.path()
+				.join(Profile::LOAD_ORDER_TOML)
+				.is_file()
+		);
 	}
 
 	#[test]

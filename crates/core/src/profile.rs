@@ -84,19 +84,12 @@ pub mod error {
 pub struct LoadOrderEntry {
 	pub enabled: bool,
 	pub priority: u32,
-	#[serde(skip)]
-	pub display_name: Option<String>,
-	#[serde(skip)]
-	pub version: Option<String>,
+	pub display_name: String,
+	pub version: String,
 }
 
 impl LoadOrderEntry {
-	pub fn new(
-		enabled: bool,
-		priority: u32,
-		display_name: Option<String>,
-		version: Option<String>,
-	) -> Self {
+	pub fn new(enabled: bool, priority: u32, display_name: String, version: String) -> Self {
 		Self {
 			enabled,
 			priority,
@@ -487,7 +480,7 @@ impl Profile {
 				message: "failed to read into buffer for load order",
 				source,
 			})?;
-		info!("load order read into buffer");	
+		info!("load order read into buffer");
 		let mut load_order: Vec<_> = toml::from_str::<LoadOrder>(&buffer)
 			.map_err(|source| crate::error::TomlDeserialize {
 				message: "failed to deserialize load order",
@@ -538,63 +531,11 @@ where
 				info!("mods directory created");
 			}
 
-			let mut discovered_mods = Vec::new();
-			for entry in mods_path.read_dir().unwrap().flatten() {
-				let entry_path = entry.path();
-				let os_string = entry.file_name();
-				let Some(entry_name) = os_string.to_str() else {
-					warn!("failed to get name from a directory path",);
-					continue;
-				};
-				if !entry_path.is_dir() {
-					warn!("not directory, skipping \"{}\"", entry_name);
-					continue;
-				}
-				let Ok(plugin_id) = plugin::Id::try_from(entry_name) else {
-					warn!("not valid plugin id, skipping \"{}\"", entry_name);
-					continue;
-				};
-
-				let manifest_path = entry_path.join(plugin::Manifest::TOML);
-				let Ok(file) = fs::File::open(manifest_path).await else {
-					warn!(
-						"failed to open plugin manifest file, skipping \"{}\"",
-						entry_name
-					);
-					continue;
-				};
-				let mut reader = io::BufReader::new(file);
-				let mut buffer = String::new();
-				if reader.read_to_string(&mut buffer).await.is_err() {
-					warn!(
-						"failed to read plugin manifest file to buffer, skipping \"{}\"",
-						entry_name
-					);
-					continue;
-				}
-				let Ok(manifest) = toml::from_str::<plugin::Manifest>(&buffer) else {
-					warn!(
-						"failed to deserialize plugin manifest from buffer, skipping \"{}\"",
-						entry_name
-					);
-					continue;
-				};
-
-				if let Some(entry) = profile.load_order.get_mut(&plugin_id) {
-					entry.display_name = Some(manifest.plugin.name.clone());
-					entry.version = Some(manifest.plugin.version.clone());
-				}
-
-				discovered_mods.push((
-					plugin_id,
-					Some(manifest.plugin.name),
-					Some(manifest.plugin.version),
-				));
-				info!(
-					"discovered mod \"{}\"",
-					entry.file_name().display().to_string()
-				);
-			}
+			let discovered_mods =
+				plugin::Manifest::discover_mods(&mods_path).map_err(|source| crate::error::Io {
+					message: "failed to discover mods",
+					source,
+				})?;
 
 			info!("finished discovering mods");
 			discovered_mods
@@ -604,33 +545,31 @@ where
 		if !discovered_mods.is_empty() || !profile.path.join(Profile::LOAD_ORDER_TOML).is_file() {
 			if profile.load_order.is_empty() {
 				let mut new_load_order = HashMap::new();
-				for (i, (plugin_id, display_name, version)) in
-					discovered_mods.into_iter().enumerate()
-				{
-					let plugin_entry = LoadOrderEntry::new(false, i as u32, display_name, version);
-					new_load_order.insert(plugin_id, plugin_entry);
+				for (i, manifest) in discovered_mods.into_iter().enumerate() {
+					let plugin_entry =
+						LoadOrderEntry::new(false, i as u32, manifest.name, manifest.version);
+					new_load_order.insert(manifest.id, plugin_entry);
 				}
 				profile.load_order = new_load_order;
 				load_order_updated = true;
 			} else {
-				let new_plugin_ids: Vec<(plugin::Id, Option<String>, Option<String>)> =
-					discovered_mods
-						.into_iter()
-						.filter(|(plugin_id, _, _)| !profile.load_order.contains_key(plugin_id))
-						.collect();
+				let new_plugin_ids: Vec<plugin::Manifest> = discovered_mods
+					.into_iter()
+					.filter(|manifest| !profile.load_order.contains_key(&manifest.id))
+					.collect();
 				if !new_plugin_ids.is_empty() {
 					load_order_updated = true
 				}
 
-				for (plugin_id, display_name, version) in new_plugin_ids.into_iter() {
-					let id_str = plugin_id.to_string();
+				for manifest in new_plugin_ids.into_iter() {
+					let id_str = manifest.id.to_string();
 					let load_order_entry = LoadOrderEntry::new(
 						false,
 						(profile.load_order.len() + 1) as u32,
-						display_name,
-						version,
+						manifest.name,
+						manifest.version,
 					);
-					profile.load_order.insert(plugin_id, load_order_entry);
+					profile.load_order.insert(manifest.id, load_order_entry);
 					info!(
 						"added newly discovered mod to existing load order \"{}\"",
 						id_str

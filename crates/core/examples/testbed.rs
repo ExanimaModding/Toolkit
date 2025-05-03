@@ -17,25 +17,6 @@ fn main() {
 		.with_max_level(tracing::Level::DEBUG)
 		.with_writer(non_blocking)
 		.init();
-
-	testing_plugin_config();
-}
-
-#[allow(dead_code)]
-fn testing_plugin_config() {
-	let plugin = Plugin {
-		name: "dev.dea.my-mod".into(),
-		version: "0.1.0".into(),
-	};
-	let manifest = plugin::Manifest {
-		plugin,
-		..Default::default()
-	};
-	let path = PathBuf::from("./config.toml");
-	let mut writer = io::BufWriter::new(fs::File::create(path).unwrap());
-	let buffer = toml::to_string_pretty(&manifest).unwrap();
-	writer.write_all(buffer.as_bytes()).unwrap();
-	writer.flush().unwrap();
 }
 
 #[allow(dead_code)]

@@ -1,5 +1,6 @@
 #![feature(let_chains)]
 #![feature(error_generic_member_access)]
+#![feature(vec_into_raw_parts)]
 #![doc = include_str!("../README.md")]
 #![deny(clippy::panic)]
 #![deny(clippy::expect_used)]

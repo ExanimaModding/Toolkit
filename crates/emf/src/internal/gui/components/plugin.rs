@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use hudhook::*;
 
-use crate::{internal::gui::Widget, plugins::manager::PluginManager};
+use crate::internal::gui::Widget;
 use emf_types::config;
 
 #[derive(Debug)]
@@ -176,7 +176,7 @@ impl Widget for PluginSettings {
 					setting.value = Some(self.inputs[i].value.clone());
 				}
 
-				PluginManager::set_info_for(&plugin.config.plugin.id, (*plugin).clone());
+				// PluginManager::set_info_for(&plugin.config.plugin.id, (*plugin).clone());
 			}
 		});
 
@@ -196,7 +196,7 @@ impl Widget for PluginSettings {
 					setting.value = Some(setting.default.clone());
 					self.inputs[i].value = setting.default.clone();
 				}
-				PluginManager::set_info_for(&plugin.config.plugin.id, (*plugin).clone());
+				// PluginManager::set_info_for(&plugin.config.plugin.id, (*plugin).clone());
 				ui.close_current_popup();
 			}
 			ui.same_line();

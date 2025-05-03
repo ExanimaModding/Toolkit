@@ -2,7 +2,7 @@ cargo-features = ["profile-rustflags"]
 
 [workspace]
 resolver = "2"
-members = ["crates/*", "bindings/rust/*", "examples/*"]
+members = ["crates/*"]
 default-members = ["crates/emtk"]
 
 [workspace.package]
@@ -20,7 +20,6 @@ license = "LGPL-3.0-or-later"
 [workspace.dependencies]
 anyhow = "1.0"
 detours-sys = { path = "./crates/detours" }
-emf-types = { path = "./crates/emf-types" }
 image = { version = "0.25", default-features = false, features = [
 	"ico",
 	"png",
