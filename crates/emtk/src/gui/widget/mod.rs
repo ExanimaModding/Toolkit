@@ -4,17 +4,16 @@
 pub mod toast;
 
 use iced::{
-	advanced,
+	Border, Color, Element, Font, Padding, Shadow, Theme, Vector, advanced,
 	widget::{
-		button as iced_button, container as iced_container, row as iced_row,
-		scrollable as iced_scrollable, text as iced_text, tooltip as iced_tooltip, Button,
-		Container, Row, Scrollable, Text, Tooltip,
+		Button, Container, Row, Scrollable, Text, Tooltip, button as iced_button,
+		container as iced_container, row as iced_row, scrollable as iced_scrollable,
+		text as iced_text, tooltip as iced_tooltip,
 	},
-	Border, Color, Element, Font, Padding, Shadow, Theme, Vector,
 };
 
 pub mod button {
-	pub use iced_button::Style;
+	pub use iced_button::{Status, Style};
 
 	use super::*;
 
@@ -274,7 +273,7 @@ pub mod icon {
 }
 
 pub mod scrollable {
-	pub use iced::widget::scrollable::{scroll_to, AbsoluteOffset, Direction, Id, Scrollbar};
+	pub use iced::widget::scrollable::{AbsoluteOffset, Direction, Id, Scrollbar, scroll_to};
 }
 
 pub fn scrollable<'a, Message: 'a>(

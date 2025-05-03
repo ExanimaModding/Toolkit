@@ -437,6 +437,7 @@ impl App {
 							buffer::Action::InstanceHistory(action) => match action {
 								instance_history::Action::Loaded => tab.loading = false,
 								instance_history::Action::Loading => tab.loading = true,
+								instance_history::Action::None => (),
 								instance_history::Action::OpenInstance(path) => {
 									let widget_id = tab.widget_id.clone();
 									return Task::perform(
