@@ -969,6 +969,7 @@ impl App {
 						};
 
 						let tab = tab_manager.tabs.remove(index);
+						tab_manager.hover = Some(tab.widget_id.clone());
 						tab_manager.tabs.insert(to_index, tab);
 						// tab_manager.focus = Some(to_index);
 					} else {
@@ -1032,6 +1033,7 @@ impl App {
 						// 	return Task::none();
 						// };
 
+						to_tab_manager.hover = Some(tab.widget_id.clone());
 						to_tab_manager.tabs.insert(to_index, tab);
 						// to_tab_manager.focus = Some(to_index);
 						return task;

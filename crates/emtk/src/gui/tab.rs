@@ -1,22 +1,22 @@
 // use std::collections::BTreeMap;
 
 use iced::{
+	Border, Element, Fill, Point, Rectangle, Shrink, Size, Task, Theme,
 	advanced::widget as iced_widget,
 	border::Radius,
 	mouse,
 	widget::{
-		container, mouse_area, opaque,
+		Space, container, mouse_area, opaque,
 		pane_grid::{self, Pane},
-		right_center, row, stack, text, Space,
+		right_center, row, stack, text,
 	},
-	Border, Element, Fill, Point, Rectangle, Shrink, Size, Task, Theme,
 };
 use iced_drop::droppable;
 
 use crate::gui::{
-	buffer::{self, instance_history::InstanceHistory, Buffer},
-	widget::{button, close_button, icon, scrollable, tooltip},
 	Root,
+	buffer::{self, Buffer, instance_history::InstanceHistory},
+	widget::{button, close_button, icon, scrollable, tooltip},
 };
 
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
