@@ -1,14 +1,14 @@
 // use std::collections::BTreeMap;
 
 use iced::{
-	Border, Element, Fill, Point, Rectangle, Shrink, Size, Task, Theme,
+	Border, Element, Fill, Padding, Point, Rectangle, Shrink, Size, Task, Theme,
 	advanced::widget as iced_widget,
 	border::Radius,
 	mouse,
 	widget::{
 		Space, container, mouse_area, opaque,
 		pane_grid::{self, Pane},
-		right_center, row, stack, text,
+		right_center, row, scrollable, stack, text,
 	},
 };
 use iced_drop::droppable;
@@ -16,7 +16,7 @@ use iced_drop::droppable;
 use crate::gui::{
 	Root,
 	buffer::{self, Buffer, instance_history::InstanceHistory},
-	widget::{button, close_button, icon, scrollable, tooltip},
+	widget::{button, close_button, icon, tooltip},
 };
 
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -248,7 +248,7 @@ impl TabManager {
 			.push(new_pane_btn)
 			.spacing(1);
 
-		scrollable(tab_elements)
+		scrollable(container(tab_elements).padding(Padding::default().bottom(10)))
 			.direction(scrollable::Direction::Horizontal(
 				scrollable::Scrollbar::default(),
 			))

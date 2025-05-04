@@ -112,16 +112,6 @@ pub mod container {
 	}
 }
 
-pub fn container<'a, Message, Theme, Renderer>(
-	content: impl Into<Element<'a, Message, Theme, Renderer>>,
-) -> Container<'a, Message, Theme, Renderer>
-where
-	Theme: iced_container::Catalog + 'a,
-	Renderer: advanced::Renderer,
-{
-	iced_container(content)
-}
-
 pub fn close_button<'a, Message>() -> Button<'a, Message> {
 	let size = 20;
 	iced_button(icon::close().size(8).center())
@@ -270,20 +260,6 @@ pub mod icon {
 	pub fn triangle_alert<'a>() -> Text<'a> {
 		lucide('\u{E810}')
 	}
-}
-
-pub mod scrollable {
-	pub use iced::widget::scrollable::{AbsoluteOffset, Direction, Id, Scrollbar, scroll_to};
-}
-
-pub fn scrollable<'a, Message: 'a>(
-	content: impl Into<Element<'a, Message>>,
-) -> Scrollable<'a, Message> {
-	iced_scrollable(iced_container(content).padding(Padding::default().bottom(10).right(10)))
-		.direction(iced_scrollable::Direction::Both {
-			vertical: iced_scrollable::Scrollbar::default(),
-			horizontal: iced_scrollable::Scrollbar::default(),
-		})
 }
 
 pub mod text {

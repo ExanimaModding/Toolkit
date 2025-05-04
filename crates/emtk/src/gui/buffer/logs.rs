@@ -1,6 +1,9 @@
-use iced::{Element, Fill};
+use iced::{
+	Element, Fill, Padding,
+	widget::{container, scrollable},
+};
 
-use crate::gui::{log, widget::scrollable, Root};
+use crate::gui::{Root, log};
 
 #[derive(Debug, Default, Clone)]
 pub struct Logs;
@@ -14,7 +17,11 @@ impl Logs {
 	pub fn view(&self, root: &Root) -> Element<Message> {
 		let content = log::view(&root.logs);
 
-		scrollable(content)
+		scrollable(container(content).padding(Padding::default().bottom(10).right(10)))
+			.direction(scrollable::Direction::Both {
+				vertical: scrollable::Scrollbar::default(),
+				horizontal: scrollable::Scrollbar::default(),
+			})
 			.anchor_bottom()
 			.width(Fill)
 			.height(Fill)

@@ -6,13 +6,13 @@ pub mod settings;
 use std::path::PathBuf;
 
 use iced::{
-	widget::{column, container, row, text},
 	Element, Fill, Padding, Task,
+	widget::{column, container, row, text},
 };
 
 use crate::gui::{
-	widget::{button, icon, tooltip},
 	Root,
+	widget::{button, icon, tooltip},
 };
 use instance::Instance;
 use instance_history::InstanceHistory;
@@ -94,13 +94,13 @@ impl Buffer {
 							})
 							.chain(Task::done(Message::Loaded)),
 					),
-				)
+				);
 			}
 			(Buffer::Instance(instance), Message::Instance(message)) => {
 				return match instance.update(message) {
 					instance::Action::Task(task) => Action::Task(task.map(Message::Instance)),
 					action => Action::Instance(action),
-				}
+				};
 			}
 			(Buffer::InstanceHistory(instance_history), Message::InstanceHistory(message)) => {
 				return match instance_history.update(message) {
@@ -136,7 +136,6 @@ impl Buffer {
 			Buffer::Logs(logs) => logs.view(root).map(Message::Logs),
 			Buffer::Settings(settings) => settings.view(root).map(Message::Settings),
 		})
-		.padding(Padding::default().top(8))
 		.style(|theme| container::Style {
 			background: Some(theme.palette().background.into()),
 			..Default::default()

@@ -9,8 +9,8 @@ use iced::{
 	Alignment, Border, Element, Fill, Font, Point, Rectangle, Renderer, Task, Theme,
 	advanced::widget as iced_widget,
 	widget::{
-		center_x, checkbox, column, container, horizontal_space, pick_list, responsive, row, text,
-		text_input,
+		center_x, checkbox, column, container, horizontal_space, pick_list, responsive, row,
+		scrollable, text, text_input,
 	},
 };
 use iced_drop::zones_on_point;
@@ -19,7 +19,7 @@ use itertools::Itertools;
 use tokio::fs;
 use tracing::{error, info};
 
-use crate::gui::widget::{button, icon, scrollable, tooltip};
+use crate::gui::widget::{button, icon, tooltip};
 
 pub mod error {
 	#[derive(Debug, thiserror::Error)]
@@ -721,7 +721,7 @@ impl Instance {
 			.into()
 		});
 
-		column![controls, table].spacing(8).into()
+		column![controls, table].spacing(8).padding([8, 0]).into()
 	}
 
 	pub fn title(&self) -> String {

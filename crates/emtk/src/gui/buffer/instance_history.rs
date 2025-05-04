@@ -5,9 +5,12 @@ use std::path::PathBuf;
 use emcore::instance::write_instance_history;
 use getset::Getters;
 use iced::{
-	Task,
+	Alignment, Task, Theme,
 	futures::future,
-	widget::{column, container, mouse_area, right_center, stack, text},
+	widget::{
+		column, container, horizontal_rule, mouse_area, responsive, right_center, scrollable,
+		stack, text,
+	},
 };
 use tokio::{
 	fs,
@@ -15,7 +18,7 @@ use tokio::{
 };
 use tracing::{error, warn};
 
-use crate::gui::widget::{button, icon, scrollable, tooltip};
+use crate::gui::widget::{button, icon, tooltip};
 
 pub enum Action {
 	Loaded,
@@ -34,7 +37,8 @@ pub struct InstanceHistory {
 
 #[derive(Debug, Clone)]
 pub enum Message {
-	HoverState(Option<usize>),
+	EnteredBtnRegion(Option<usize>),
+	ExitedBtnRegion(Option<usize>),
 	Loaded,
 	Loading,
 	NewInstance,
@@ -94,7 +98,12 @@ impl InstanceHistory {
 
 	pub fn update(&mut self, message: Message) -> Action {
 		match message {
-			Message::HoverState(hover) => self.hover = hover,
+			Message::EnteredBtnRegion(hover) => self.hover = hover,
+			Message::ExitedBtnRegion(hover) => {
+				if self.hover == hover {
+					self.hover = None
+				}
+			}
 			Message::Loaded => return Action::Loaded,
 			Message::Loading => return Action::Loading,
 			Message::NewInstance => {
@@ -120,13 +129,18 @@ impl InstanceHistory {
 				);
 			}
 			Message::OpenDirectory(path) => {
-				let _ = open::that(path).map_err(|e| error!("{}", e));
+				if path.is_dir() {
+					let _ = open::that(path).map_err(|e| error!("{}", e));
+				} else {
+					error!("path to directory does not exist");
+				}
 			}
 			Message::OpenInstance(path) => return Action::OpenInstance(path),
 			Message::Refresh(history) => {
 				self.inner = history;
 			}
 			Message::RemoveInstance(index) => {
+				dbg!(&index);
 				self.inner.remove(index);
 				let history: Vec<_> = self
 					.inner
@@ -153,95 +167,133 @@ impl InstanceHistory {
 	}
 
 	pub fn view(&self) -> Element<Message> {
-		let content = container(
-			column![
-				button("New Instance")
-					.on_press(Message::NewInstance)
+		let history_len = self.inner.len() as u32;
+		let history_btn_size = 54;
+		let control_icon_size = 18;
+		let control_btn_size = 36;
+		responsive(move |size| {
+			let content =
+				container(
+					column![tooltip(
+						button(
+							row![
+								icon::square_arrow_out_up_right()
+									.size(17)
+									.center()
+									.height(Fill),
+								text("New Instance").size(20).center().height(Fill)
+							]
+							.spacing(5)
+						)
+						.on_press(Message::NewInstance)
+						.width(Fill)
+						.height(history_btn_size),
+						text("Open file dialog"),
+						tooltip::Position::FollowCursor
+					)]
+					.extend(self.inner.iter().enumerate().rev().map(
+						|(i, (path, maybe_name))| {
+							let instance_btn = mouse_area(tooltip(
+								button(column![
+									text(if let Some(name) = maybe_name {
+										name.clone()
+									} else {
+										path.file_name().unwrap().display().to_string()
+									})
+									.size(20)
+									.center()
+									.wrapping(text::Wrapping::None),
+									text(path.display().to_string()).size(14).center().style(
+										move |theme: &Theme| {
+											let ext_palette = theme.extended_palette();
+											let color = Some(
+												if self.hover == Some(i) {
+													ext_palette.primary.base.text
+												} else {
+													ext_palette.background.base.text
+												}
+												.scale_alpha(0.5),
+											);
+											text::Style { color }
+										}
+									)
+								])
+								.on_press(Message::OpenInstance(path.clone()))
+								.width(Fill)
+								.height(history_btn_size),
+								text("Open instance"),
+								tooltip::Position::FollowCursor,
+							))
+							.on_enter(Message::EnteredBtnRegion(Some(i)))
+							.on_exit(Message::ExitedBtnRegion(Some(i)));
+
+							let history_view: Element<_> = if let Some(hover) = self.hover
+								&& hover == i
+							{
+								let open_btn = tooltip(
+									button(icon::folder_open().size(control_icon_size).center())
+										.width(control_btn_size)
+										.height(control_btn_size)
+										.on_press(Message::OpenDirectory(path.clone()))
+										.style(|theme, status| {
+											let primary = button::primary(theme, status);
+											match status {
+												button::Status::Active => button::Style {
+													background: Some(
+														theme.palette().background.into(),
+													),
+													..primary
+												},
+												_ => primary,
+											}
+										}),
+									text("Open directory in file manager"),
+									tooltip::Position::Top,
+								);
+
+								let remove_btn = tooltip(
+									button(icon::trash().size(control_icon_size).center())
+										.width(control_btn_size)
+										.height(control_btn_size)
+										.on_press(Message::RemoveInstance(i))
+										.style(|theme, status| {
+											let danger = button::danger(theme, status);
+											match status {
+												button::Status::Active => button::Style {
+													background: Some(
+														theme.palette().background.into(),
+													),
+													..danger
+												},
+												_ => danger,
+											}
+										}),
+									text("Remove from history list"),
+									tooltip::Position::Top,
+								);
+
+								let controls = row![open_btn, remove_btn].spacing(8);
+
+								// FIX: controls break hover state sync between mouse_area and button::Status::Hovered
+								stack![instance_btn, right_center(controls).padding([0, 8])].into()
+							} else {
+								instance_btn.into()
+							};
+
+							column![horizontal_rule(5), history_view,].into()
+						},
+					)),
+				);
+
+			if (history_len * (history_btn_size + 5)) as f32 >= size.height {
+				scrollable(content.padding(Padding::default().right(10)))
 					.width(Fill)
-			]
-			.extend(
-				self.inner
-					.iter()
-					.enumerate()
-					.map(|(i, (path, maybe_name))| {
-						let instance_btn = tooltip(
-							button(
-								text(if let Some(name) = maybe_name {
-									name.clone()
-								} else {
-									path.display().to_string()
-								})
-								.wrapping(text::Wrapping::None),
-							)
-							.on_press(Message::OpenInstance(path.clone()))
-							.width(Fill),
-							text(path.display().to_string()),
-							tooltip::Position::Top,
-						);
-
-						let history_view: Element<_> = if let Some(hover) = self.hover
-							&& hover == i
-						{
-							let open_btn = tooltip(
-								button(icon::folder_open().size(16).center())
-									.width(26)
-									.height(26)
-									.on_press(Message::OpenDirectory(path.clone()))
-									.style(|theme, status| {
-										let primary = button::primary(theme, status);
-										match status {
-											button::Status::Active => button::Style {
-												background: Some(theme.palette().background.into()),
-												..primary
-											},
-											_ => primary,
-										}
-									}),
-								text("Open directory in file manager"),
-								tooltip::Position::Top,
-							);
-
-							let remove_btn = tooltip(
-								button(icon::trash().size(16).center())
-									.width(26)
-									.height(26)
-									.on_press(Message::RemoveInstance(i))
-									.style(|theme, status| {
-										let danger = button::danger(theme, status);
-										match status {
-											button::Status::Active => button::Style {
-												background: Some(theme.palette().background.into()),
-												..danger
-											},
-											_ => danger,
-										}
-									}),
-								text("Remove from history"),
-								tooltip::Position::Top,
-							);
-
-							let controls = row![open_btn, remove_btn].spacing(4);
-
-							stack![instance_btn, right_center(controls).padding([0, 4])].into()
-						} else {
-							instance_btn.into()
-						};
-
-						mouse_area(history_view)
-							.on_enter(Message::HoverState(Some(i)))
-							.on_exit(Message::HoverState(None))
-							.into()
-					}),
-			)
-			.spacing(1),
-		)
-		.width(400);
-
-		container(
-			scrollable(content)
-				.direction(scrollable::Direction::Vertical(scrollable::Scrollbar::new())),
-		)
-		.center(Fill)
+					.height(Fill)
+					.into()
+			} else {
+				content.into()
+			}
+		})
 		.into()
 	}
 

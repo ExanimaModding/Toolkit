@@ -6,14 +6,14 @@ use iced::advanced::renderer;
 use iced::advanced::widget::{self, Operation, Tree};
 use iced::advanced::{Clipboard, Shell, Widget};
 use iced::time::{self, Duration, Instant};
-use iced::widget::{column, row};
+use iced::widget::{column, container, row};
 use iced::window;
-use iced::{mouse, Border};
 use iced::{
-	task, Alignment, Element, Event, Fill, Length, Point, Rectangle, Renderer, Size, Theme, Vector,
+	Alignment, Element, Event, Fill, Length, Point, Rectangle, Renderer, Size, Theme, Vector, task,
 };
+use iced::{Border, mouse};
 
-use crate::gui::widget::{button, container, icon, text};
+use crate::gui::widget::{button, icon, text};
 
 pub const DEFAULT_TIMEOUT: u64 = 10;
 
