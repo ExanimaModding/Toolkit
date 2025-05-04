@@ -9,7 +9,7 @@ default-members = ["crates/emtk"]
 # Update the version in the following files when changing the version number:
 # - ./bindings/python/emtk-py/emtk/blender/blender_manifest.toml
 # - ./crates/xtask/src/main.rs
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 authors = ["Megumin <megumin@megu.dev>", "ProffDea <deatea@riseup.net>"]
 edition = "2024"
 documentation = "https://exanimamodding.codeberg.page/Book"
