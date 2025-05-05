@@ -29,6 +29,8 @@ pub mod error {
 		ParentDir(#[from] ParentDir),
 		#[error("{0}")]
 		TomlSerialize(#[from] crate::error::TomlSerialize),
+		#[error("{0}")]
+		PluginError(#[from] crate::plugin::Error),
 	}
 
 	#[derive(Debug, thiserror::Error)]
@@ -532,10 +534,7 @@ where
 			}
 
 			let discovered_mods =
-				plugin::Manifest::discover_mods(&mods_path).map_err(|source| crate::error::Io {
-					message: "failed to discover mods",
-					source,
-				})?;
+				plugin::Manifest::discover_mods(&mods_path).map_err(error::Build::PluginError)?;
 
 			info!("finished discovering mods");
 			discovered_mods
