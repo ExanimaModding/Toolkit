@@ -1488,6 +1488,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1502,16 +1503,17 @@ dependencies = [
  "flate2",
  "hudhook",
  "image",
- "libloading",
  "libmem",
  "mlua",
  "open",
  "path-clean",
  "pelite",
  "reqwest",
+ "ron",
  "safer-ffi",
  "serde",
  "tar",
+ "thiserror 2.0.12",
  "toml",
  "tracing",
  "tracing-appender",

@@ -3,7 +3,6 @@
 pub mod bindings;
 mod framework;
 mod internal;
-mod plugins;
 
 use std::{
 	collections::HashMap,
@@ -21,7 +20,7 @@ use detours_sys::{
 	DetourTransactionCommit,
 };
 use emcore::{plugin, profile};
-use internal::utils::rpk_intercept;
+use internal::{runtime, utils::rpk_intercept};
 use pelite::pe::Pe;
 use tracing::{error, info, instrument};
 use tracing_subscriber::{Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
@@ -37,9 +36,10 @@ use crate::internal::utils::{pe64::PE64, remap_image};
 static GLOBAL: tracing_tracy::client::ProfiledAllocator<std::alloc::System> =
 	tracing_tracy::client::ProfiledAllocator::new(std::alloc::System, 100);
 
-pub(crate) static LOAD_ORDER: OnceLock<Vec<(plugin::Id, profile::LoadOrderEntry)>> =
-	OnceLock::new();
 pub(crate) static MOD_ENTRIES: OnceLock<HashMap<String, HashMap<String, PathBuf>>> =
+	OnceLock::new();
+
+pub(crate) static LOAD_ORDER: OnceLock<Vec<(plugin::Id, profile::LoadOrderEntry)>> =
 	OnceLock::new();
 
 /// When tracing is initialized for logging, the guard to the log file is stored
@@ -134,29 +134,18 @@ unsafe extern "C" fn main() {
 		.map_err(|e| error!("{}", e))
 		.expect("load order contents must be valid UTF-8");
 
-	// TODO: reimplement load order
-	// let load_order: Vec<_> = toml::from_str::<profile::LoadOrder>(&buffer)
-	// 	.expect("load order contents must be valid toml and structure")
-	// 	.into_iter()
-	// 	.filter(|(id, entry)| {
-	// 		if !entry.enabled {
-	// 			return false;
-	// 		}
-	// 		let Ok(mut file) =
-	// 			fs::File::open(cwd.join(id.plugin_dir().join(plugin::Manifest::TOML)))
-	// 		else {
-	// 			return false;
-	// 		};
-	// 		let mut buffer = String::new();
-	// 		let Ok(_) = file.read_to_string(&mut buffer) else {
-	// 			return false;
-	// 		};
-	// 		let Ok(_) = toml::from_str::<plugin::Manifest>(&buffer) else {
-	// 			return false;
-	// 		};
-	// 		true
-	// 	})
-	// 	.collect();
+	let mut load_order: Vec<_> = toml::from_str::<profile::LoadOrder>(&buffer)
+		.expect("load order contents must be valid toml and structure")
+		.into_iter()
+		.filter(|(_id, entry)| {
+			if !entry.enabled {
+				return false;
+			}
+			true
+		})
+		.collect();
+
+	load_order.sort_by(|(_, a), (_, b)| a.priority.cmp(&b.priority));
 
 	let native_packages: Vec<_> = cwd
 		.read_dir()
@@ -174,32 +163,51 @@ unsafe extern "C" fn main() {
 		.collect();
 
 	let mut custom_packages: HashMap<String, HashMap<String, PathBuf>> = HashMap::new();
-	// for name in native_packages {
-	// 	let mut mod_entries: HashMap<String, PathBuf> = HashMap::new();
-	// 	for (id, _) in load_order.iter() {
-	// 		let loose_files_path = id.packages_dir().join(&name);
-	// 		if let Ok(foreign_dir) = fs::read_dir(cwd.join(loose_files_path)) {
-	// 			let entries: Vec<_> = foreign_dir.filter_map(Result::ok).collect();
-	// 			entries.iter().for_each(|entry| {
-	// 				mod_entries.insert(entry.file_name().display().to_string(), entry.path());
-	// 			});
-	// 		} else {
-	// 			continue;
-	// 		}
-	// 	}
-	// 	custom_packages.insert(name, mod_entries);
-	// }
+
+	for name in native_packages {
+		let mut mod_entries: HashMap<String, PathBuf> = HashMap::new();
+		for (id, _) in load_order.iter() {
+			let loose_files_path = id.packages_dir().join(&name);
+			if let Ok(foreign_dir) = fs::read_dir(cwd.join(loose_files_path)) {
+				let entries: Vec<_> = foreign_dir.filter_map(Result::ok).collect();
+				entries.iter().for_each(|entry| {
+					mod_entries.insert(entry.file_name().display().to_string(), entry.path());
+				});
+			} else {
+				continue;
+			}
+		}
+		custom_packages.insert(name, mod_entries);
+	}
 
 	MOD_ENTRIES.set(custom_packages).unwrap();
-	// LOAD_ORDER.set(load_order).unwrap();
+
+	LOAD_ORDER.set(load_order).unwrap();
 
 	info!("Main Hook Running");
 
 	// Redirect FS calls to the EMTK cache directory.
 	// fs_redirector::register_hooks();
 
-	if !LOAD_ORDER.get().unwrap().is_empty() {
+	let load_order = LOAD_ORDER.get().unwrap();
+
+	if !load_order.is_empty() {
 		unsafe { rpk_intercept::register_hooks() };
+
+		// Initialize all the plugins first
+		for (id, _) in load_order.iter() {
+			let Ok(_) = runtime::registry::PluginRegistry::load_plugin(&id.to_string()) else {
+				continue;
+			};
+		}
+
+		// Then go through and call onstart() on every plugin
+		for (id, _) in load_order.iter() {
+			let Ok(_) = runtime::registry::PluginRegistry::start(&id.to_string()) else {
+				error!("Failed to start plugin: {}", id);
+				continue;
+			};
+		}
 	}
 
 	match env::set_current_dir(cwd) {

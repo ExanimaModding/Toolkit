@@ -1,14 +1,15 @@
 use std::{
 	env,
-	ffi::{self, CStr, CString},
+	ffi::{self, CString},
 	fmt::{Display, Formatter},
-	io,
+	mem,
 	path::PathBuf,
 	sync::OnceLock,
 };
 
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
+use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
 use super::Instance;
 
@@ -22,7 +23,15 @@ pub enum Error {
 	#[error("id, {0}, must be in reverse domain name notation")]
 	InvalidId(String),
 	#[error("failed to decode manifest property '{0}'")]
-	DecodeError(&'static str),
+	DecodeError(String),
+	#[error("DLL {0} not found")]
+	DllNotFound(String),
+	#[error("DLL {0} does not export {1}")]
+	DllExportNotFound(String, String),
+	#[error("failed to get plugin list")]
+	PluginListError,
+	#[error("invalid pathbuf provided")]
+	InvalidPathBuf,
 }
 
 /// An ID represented in [reverse domain name notation] and should be stored
@@ -66,7 +75,6 @@ pub enum Error {
 /// ```
 #[must_use]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
-#[repr(C)]
 pub struct Id(String);
 
 impl Id {
@@ -161,11 +169,9 @@ pub struct Conflicts {
 	version: String,
 }
 
-#[derive(Debug)]
-#[repr(C)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Manifest {
 	pub id: Id,
-	pub path: String,
 	pub name: String,
 	pub version: String,
 	pub author: String,
@@ -173,262 +179,72 @@ pub struct Manifest {
 	pub conflicts: Vec<Id>,
 }
 
-#[derive(Debug)]
-#[repr(C)]
-pub struct SizedString {
-	pub ptr: *mut ffi::c_char,
-	pub len: usize,
-}
-
-impl TryFrom<SizedString> for String {
-	type Error = Error;
-
-	fn try_from(value: SizedString) -> Result<Self, Self::Error> {
-		if value.ptr.is_null() {
-			return Err(Error::DecodeError("string"));
-		}
-
-		let bytes = unsafe { std::slice::from_raw_parts(value.ptr as _, value.len) };
-
-		let Ok(string) = std::str::from_utf8(bytes) else {
-			return Err(Error::DecodeError("string"));
-		};
-
-		Ok(string.to_string())
-	}
-}
-
-impl TryFrom<String> for SizedString {
-	type Error = Error;
-
-	fn try_from(value: String) -> Result<Self, Self::Error> {
-		let bytes = value.into_bytes();
-
-		let (ptr, len, _) = bytes.into_raw_parts();
-
-		Ok(Self { ptr: ptr as _, len })
-	}
-}
-
-#[derive(Debug)]
-#[repr(C)]
-pub struct CManifest {
-	pub id: SizedString,
-	pub path: SizedString,
-	pub name: SizedString,
-	pub version: SizedString,
-	pub author: SizedString,
-	pub dependencies: *mut SizedString,
-	pub dependencies_count: usize,
-	pub dependencies_capacity: usize,
-	pub conflicts: *mut SizedString,
-	pub conflicts_count: usize,
-	pub conflicts_capacity: usize,
-}
-
-impl TryFrom<CManifest> for Manifest {
-	type Error = Error;
-
-	fn try_from(value: CManifest) -> Result<Self, Self::Error> {
-		let Ok(id) = String::try_from(value.id) else {
-			return Err(Error::DecodeError("id"));
-		};
-		let Ok(id) = Id::try_from(id.clone()) else {
-			return Err(Error::InvalidId(id));
-		};
-		let Ok(path) = String::try_from(value.path) else {
-			return Err(Error::DecodeError("path"));
-		};
-		let Ok(name) = String::try_from(value.name) else {
-			return Err(Error::DecodeError("name"));
-		};
-		let Ok(version) = String::try_from(value.version) else {
-			return Err(Error::DecodeError("version"));
-		};
-		let Ok(author) = String::try_from(value.author) else {
-			return Err(Error::DecodeError("author"));
-		};
-
-		let dependencies: Vec<Id> = if value.dependencies.is_null() {
-			Vec::new()
-		} else {
-			unsafe {
-				Vec::from_raw_parts(
-					value.dependencies,
-					value.dependencies_count,
-					value.dependencies_capacity,
-				)
-				.into_iter()
-				.filter_map(|ptr| String::try_from(ptr).ok())
-				.filter_map(|id_str| Id::try_from(id_str).ok())
-				.collect()
-			}
-		};
-		println!("meow");
-
-		let conflicts: Vec<Id> = if value.conflicts.is_null() {
-			Vec::new()
-		} else {
-			unsafe {
-				Vec::from_raw_parts(
-					value.conflicts,
-					value.conflicts_count,
-					value.conflicts_capacity,
-				)
-				.into_iter()
-				.map(|ptr| String::try_from(ptr))
-				.flatten()
-				.filter_map(|id_str| Id::try_from(id_str).ok())
-				.collect()
-			}
-		};
-
-		println!("Done without crashing 1");
-
-		Ok(Self {
-			id,
-			path,
-			name,
-			version,
-			author,
-			dependencies,
-			conflicts,
-		})
-	}
-}
-
-impl TryFrom<Manifest> for CManifest {
-	type Error = Error;
-
-	fn try_from(value: Manifest) -> Result<Self, Self::Error> {
-		let Ok(id) = SizedString::try_from(value.id.to_string()) else {
-			return Err(Error::DecodeError("id"));
-		};
-		let Ok(path) = SizedString::try_from(value.path) else {
-			return Err(Error::DecodeError("path"));
-		};
-		let Ok(name) = SizedString::try_from(value.name) else {
-			return Err(Error::DecodeError("name"));
-		};
-		let Ok(version) = SizedString::try_from(value.version) else {
-			return Err(Error::DecodeError("version"));
-		};
-		let Ok(author) = SizedString::try_from(value.author) else {
-			return Err(Error::DecodeError("author"));
-		};
-
-		let dependencies: Vec<SizedString> = value
-			.dependencies
-			.into_iter()
-			.map(|id| SizedString::try_from(id.to_string()).unwrap())
-			.collect();
-
-		let (dependencies, dependencies_len, dependencies_cap) = if dependencies.is_empty() {
-			(std::ptr::null_mut(), 0, 0)
-		} else {
-			dependencies.into_raw_parts()
-		};
-
-		let conflicts: Vec<SizedString> = value
-			.conflicts
-			.into_iter()
-			.map(|id| SizedString::try_from(id.to_string()).unwrap())
-			.collect();
-
-		let (conflicts, conflicts_len, conflicts_cap) = if conflicts.is_empty() {
-			(std::ptr::null_mut(), 0, 0)
-		} else {
-			conflicts.into_raw_parts()
-		};
-
-		Ok(Self {
-			id,
-			path,
-			name,
-			version,
-			author,
-			dependencies,
-			dependencies_count: dependencies_len,
-			dependencies_capacity: dependencies_cap,
-			conflicts,
-			conflicts_count: conflicts_len,
-			conflicts_capacity: conflicts_cap,
-		})
-	}
-}
-
-#[repr(C)]
-pub struct GetPluginListResponse {
-	pub plugins: *mut CManifest,
-	pub count: usize,
-}
-
-// #[link(name = "emf.dll")]
-// unsafe extern "C" {
-// 	fn EMF_GetPluginList(mods_dir: *const ffi::c_char) -> *mut GetPluginListResponse;
-// }
-
 #[allow(non_camel_case_types)]
-type EMF_GetPluginList =
-	unsafe extern "C" fn(mods_dir: *const ffi::c_char) -> *mut GetPluginListResponse;
+type EMF_GetPluginList = unsafe extern "C" fn(mods_dir: *const ffi::c_char) -> *mut ffi::c_char;
 
 impl Manifest {
-	pub fn discover_mods(mods_dir: &PathBuf) -> Result<Vec<Manifest>, io::Error> {
-		static EMF_DLL: OnceLock<Option<libloading::Library>> = OnceLock::new();
-		#[cfg(debug_assertions)]
-		EMF_DLL.get_or_init(|| unsafe {
-			env::set_var("RUST_LIBLOADING", "1");
-			let lib = libloading::Library::new("deps/emf.dll").ok();
-			env::remove_var("RUST_LIBLOADING");
-			lib
-		});
-		#[cfg(not(debug_assertions))]
-		EMF_DLL.get_or_init(|| unsafe {
-			env::set_var("RUST_LIBLOADING", "1");
-			let lib = libloading::Library::new("emf.dll").ok();
-			env::remove_var("RUST_LIBLOADING");
-			lib
+	pub fn discover_mods(mods_dir: &PathBuf) -> Result<Vec<Manifest>, Error> {
+		static GET_PLUGIN_LIST: OnceLock<Result<EMF_GetPluginList, Error>> = OnceLock::new();
+
+		GET_PLUGIN_LIST.get_or_init(|| {
+			// We set this so that the DllMain doesn't try to hook when running from EMTK.
+			unsafe { env::set_var("RUST_LIBLOADING", "1") };
+
+			#[cfg(debug_assertions)]
+			let h_module = unsafe { LoadLibraryA(c"deps/emf.dll".as_ptr() as _) };
+			#[cfg(not(debug_assertions))]
+			let h_module = unsafe { LoadLibraryA(c"emf.dll".as_ptr() as _) };
+
+			// Remove it after DllMain is called, to make sure EMTK can still inject EMF properly later.
+			unsafe { env::remove_var("RUST_LIBLOADING") };
+
+			if h_module.is_null() {
+				return Err(Error::DllNotFound("emf.dll".to_string()));
+			}
+
+			let get_plugin_list =
+				unsafe { GetProcAddress(h_module, c"EMF_GetPluginList".as_ptr() as _) };
+
+			let Some(get_plugin_list) = get_plugin_list else {
+				return Err(Error::DllExportNotFound(
+					"emf.dll".to_string(),
+					"EMF_GetPluginList".to_string(),
+				));
+			};
+
+			let get_plugin_list: EMF_GetPluginList = unsafe { mem::transmute(get_plugin_list) };
+
+			Ok(get_plugin_list)
 		});
 
-		let Some(Some(lib)) = EMF_DLL.get() else {
-			return Err(io::Error::new(io::ErrorKind::Other, "emf.dll not found!"));
+		let Ok(get_plugin_list) = GET_PLUGIN_LIST.get().unwrap() else {
+			return Err(Error::PluginListError);
 		};
-
-		let get_plugin_list: libloading::Symbol<EMF_GetPluginList> =
-			unsafe { lib.get(b"EMF_GetPluginList\0").unwrap() };
 
 		let Some(mods_dir) = mods_dir.to_str() else {
-			return Err(io::Error::new(
-				io::ErrorKind::InvalidData,
-				"mods_dir is not a valid string!",
-			));
+			return Err(Error::InvalidPathBuf);
 		};
 
-		let mods_dir = CString::new(mods_dir).map_err(io::Error::from)?;
+		let mods_dir = CString::new(mods_dir).map_err(|_| Error::InvalidPathBuf)?;
 		let mods_dir = mods_dir.as_ptr();
 
 		let response = unsafe { get_plugin_list(mods_dir) };
 
 		if response.is_null() {
-			return Err(io::Error::new(
-				io::ErrorKind::Other,
-				"EMF_GetPluginList returned a null pointer!",
-			));
+			return Err(Error::PluginListError);
 		}
 
-		let response = unsafe { Box::from_raw(response) };
+		// Take ownership of the memory first with Box, then convert to CString
+		let boxed_response = unsafe { Box::from_raw(response as *mut ffi::c_char) };
+		let response = unsafe { ffi::CString::from_raw(Box::into_raw(boxed_response)) };
 
-		let plugins =
-			unsafe { Vec::from_raw_parts(response.plugins, response.count, response.count) };
+		let Ok(response) = response.to_str() else {
+			return Err(Error::PluginListError);
+		};
 
-		dbg!(&plugins);
-
-		let plugins: Vec<Result<Manifest, Error>> =
-			plugins.into_iter().map(Manifest::try_from).collect();
-
-		dbg!("done 2");
-
-		let plugins = plugins.into_iter().flatten().collect();
+		let Ok(plugins): Result<Vec<Manifest>, _> = ron::from_str(response) else {
+			return Err(Error::PluginListError);
+		};
 
 		Ok(plugins)
 	}
