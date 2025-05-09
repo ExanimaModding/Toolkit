@@ -1406,7 +1406,7 @@ dependencies = [
 
 [[package]]
 name = "demo-plugin"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "emf-rs",
  "tracing",
@@ -1440,7 +1440,7 @@ checksum = "c2ea6706d74fca54e15f1d40b5cf7fe7f764aaec61352a9fcec58fe27e042fc8"
 
 [[package]]
 name = "detours-sys"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "bindgen",
  "cc",
@@ -1600,7 +1600,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "emcore"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "bon",
  "criterion",
@@ -1622,7 +1622,7 @@ dependencies = [
 
 [[package]]
 name = "emf"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "ansi_term",
  "anyhow",
@@ -1652,7 +1652,7 @@ dependencies = [
 
 [[package]]
 name = "emf-rs"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "anyhow",
  "emf-rs-macros",
@@ -1663,7 +1663,7 @@ dependencies = [
 
 [[package]]
 name = "emf-rs-macros"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1672,7 +1672,7 @@ dependencies = [
 
 [[package]]
 name = "emf-sys"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "emf-types",
  "safer-ffi",
@@ -1684,7 +1684,7 @@ dependencies = [
 
 [[package]]
 name = "emf-types"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "safer-ffi",
  "serde",
@@ -1692,7 +1692,7 @@ dependencies = [
 
 [[package]]
 name = "emtk"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "clap",
  "detours-sys",
@@ -1701,7 +1701,7 @@ dependencies = [
  "getset",
  "iced",
  "iced_drop",
- "iced_table",
+ "iced_table 0.13.0 (git+https://github.com/ProffDea/iced_table.git?branch=dev)",
  "image",
  "itertools 0.14.0",
  "open",
@@ -2293,7 +2293,7 @@ dependencies = [
 
 [[package]]
 name = "godhand"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "emf-types",
  "safer-ffi",
@@ -2303,7 +2303,7 @@ dependencies = [
 
 [[package]]
 name = "godmode"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 dependencies = [
  "emf-types",
  "safer-ffi",
@@ -2715,6 +2715,15 @@ dependencies = [
  "iced_futures",
  "raw-window-handle",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "iced_table"
+version = "0.13.0"
+dependencies = [
+ "iced_core",
+ "iced_drop",
+ "iced_widget",
 ]
 
 [[package]]
@@ -7348,7 +7357,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.3"
 
 [[package]]
 name = "xz2"

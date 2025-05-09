@@ -487,23 +487,26 @@ impl Profile {
 				message: "failed to read into buffer for load order",
 				source,
 			})?;
-		info!("load order read into buffer");
-		let mut load_order: LoadOrder =
-			toml::from_str(&buffer).map_err(|source| crate::error::TomlDeserialize {
+		info!("load order read into buffer");	
+		let mut load_order: Vec<_> = toml::from_str::<LoadOrder>(&buffer)
+			.map_err(|source| crate::error::TomlDeserialize {
 				message: "failed to deserialize load order",
 				source,
-			})?;
+			})?
+			.into_iter()
+			.collect();
 		info!("load order deserialized from buffer");
 
 		// ensure removal of gaps in load order priority
-		load_order
-			.clone()
-			.iter()
-			.sorted_by(|(_, a), (_, b)| a.priority.cmp(&b.priority))
+		load_order.sort_by(|(_, a), (_, b)| a.priority.cmp(&b.priority));
+		let load_order: HashMap<_, _> = load_order
+			.into_iter()
 			.enumerate()
-			.for_each(|(i, (id, _))| {
-				load_order.get_mut(id).unwrap().priority = i as _;
-			});
+			.map(|(i, (id, mut entry))| {
+				entry.priority = i as _;
+				(id, entry)
+			})
+			.collect();
 
 		Ok(load_order)
 	}
