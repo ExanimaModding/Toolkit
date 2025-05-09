@@ -25,7 +25,6 @@ iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = 
 iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", branch = "dev" }
 iced_table = { git = "https://github.com/ProffDea/iced_table.git", branch = "dev" }
 image.workspace = true
-itertools.workspace = true
 open.workspace = true
 rfd = "0.15"
 serde.workspace = true

@@ -6,7 +6,6 @@ use std::{
 
 use bon::Builder;
 use getset::Getters;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use tokio::{
 	fs,

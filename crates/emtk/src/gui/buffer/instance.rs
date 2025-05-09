@@ -15,7 +15,6 @@ use iced::{
 };
 use iced_drop::zones_on_point;
 use iced_table::table;
-use itertools::Itertools;
 use tokio::fs;
 use tracing::{error, info};
 
@@ -228,9 +227,10 @@ impl Table {
 	/// Fills the table's rows with the current profile's load order. This can be
 	/// used in combination with `Instance::refresh` to fully update the load order.
 	pub fn refresh(&mut self, load_order: profile::LoadOrder) -> &mut Self {
+		let mut load_order: Vec<_> = load_order.into_iter().collect();
+		load_order.sort_by(|(_, a), (_, b)| a.priority.cmp(&b.priority));
 		self.rows = load_order
 			.into_iter()
-			.sorted_by(|(_, a), (_, b)| Ord::cmp(&a.priority, &b.priority))
 			.map(|(plugin_id, plugin)| Row {
 				widget_id: iced_widget::Id::unique(),
 				plugin_id,

@@ -25,7 +25,6 @@ image = { version = "0.25", default-features = false, features = [
 	"ico",
 	"png",
 ] }
-itertools = "0.14"
 open = "5.3"
 safer-ffi = { version = "0.1", default-features = false, features = [
 	"alloc",
