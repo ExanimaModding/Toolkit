@@ -7,6 +7,7 @@ mod widget;
 
 use std::{env, mem, path::PathBuf};
 
+use emcore::{Error, Result, TomlError};
 use getset::{Getters, WithSetters};
 use iced::widget::pane_grid;
 use iced::{
@@ -18,11 +19,8 @@ use iced::{
 };
 use iced_drop::zones_on_point;
 use serde::{Deserialize, Serialize};
-use tokio::{
-	fs,
-	io::{self, AsyncReadExt, AsyncWriteExt},
-};
-use tracing::{debug, error, info};
+use tokio::{fs, io};
+use tracing::{debug, error, info, instrument};
 
 use buffer::{
 	Buffer,
@@ -38,16 +36,6 @@ macro_rules! workspace_root {
 	($path:expr) => {
 		concat!(env!("WORKSPACE_ROOT"), $path)
 	};
-}
-
-pub mod error {
-	#[derive(Debug, thiserror::Error)]
-	pub enum Config {
-		#[error("{0}")]
-		Io(#[from] emcore::error::Io),
-		#[error("{0}")]
-		TomlSerialize(#[from] emcore::error::TomlSerialize),
-	}
 }
 
 pub(crate) static ICON: &[u8] = include_bytes!(workspace_root!("/assets/images/corro.ico"));
@@ -83,10 +71,12 @@ pub(crate) static ICON: &[u8] = include_bytes!(workspace_root!("/assets/images/c
 // 	}
 // }
 
+#[instrument(level = "trace")]
 pub fn default_theme() -> Theme {
 	Theme::Ferra
 }
 
+#[instrument(level = "trace")]
 pub fn theme_from(val: &str) -> Option<Theme> {
 	match val {
 		"Light" => Some(Theme::Light),
@@ -124,36 +114,23 @@ pub struct Config {
 impl Config {
 	/// Attempt to deserialize and return GUI settings from the toml file stored
 	/// in `emcore::DATA_DIR`.
-	async fn read_config() -> Result<Self, emcore::error::TomlDeFile> {
-		let data_dir = emcore::data_dir().ok_or(emcore::error::Io {
-			message: "failed to get app data directory",
-			source: io::Error::from(io::ErrorKind::NotFound),
-		})?;
+	#[instrument(level = "trace")]
+	async fn read_config() -> Result<Self> {
+		let data_dir = emcore::data_dir()
+			.ok_or(io::Error::new(
+				io::ErrorKind::NotFound,
+				"path does not exist",
+			))
+			.map_err(Error::msg("failed to get app data directory"))?;
 		let config_path = data_dir.join(App::TOML);
 
-		let file = fs::File::open(&config_path)
+		let buffer = fs::read_to_string(config_path)
 			.await
-			.map_err(|source| emcore::error::Io {
-				message: "failed to open gui config file",
-				source,
-			})?;
-		info!("gui config file opened");
-
-		let mut reader = io::BufReader::new(file);
-		let mut buffer = String::new();
-		reader
-			.read_to_string(&mut buffer)
-			.await
-			.map_err(|source| emcore::error::Io {
-				message: "failed to read into buffer for gui config",
-				source,
-			})?;
+			.map_err(Error::msg("failed to read into buffer for gui config"))?;
 		info!("gui config file read into buffer");
-		let gui_config =
-			toml::from_str(&buffer).map_err(|source| emcore::error::TomlDeserialize {
-				message: "failed to deserialize gui config from buffer",
-				source,
-			})?;
+		let gui_config = toml::from_str(&buffer)
+			.map_err(TomlError::from)
+			.map_err(Error::msg("failed to deserialize gui config from buffer"))?;
 		info!("gui config deserialized from buffer");
 
 		Ok(gui_config)
@@ -168,41 +145,25 @@ impl Config {
 	///
 	/// Errors may be returned according to:
 	///
-	/// - `tokio::fs::File::create`
+	/// - `emcore::data_dir`
 	/// - `toml::to_string`
-	/// - `tokio::io::BufWriter::write_all`
-	/// - `tokio::io::BufWriter::flush`
-	pub async fn write_config(self) -> Result<Self, error::Config> {
+	/// - `tokio::fs::write`
+	#[instrument(level = "trace")]
+	pub async fn write_config(self) -> Result<Self> {
 		let toml_path = emcore::data_dir()
 			.map(|p| p.join(App::TOML))
-			.ok_or(emcore::error::Io {
-				message: "failed to get app data directory",
-				source: io::Error::from(io::ErrorKind::NotFound),
-			})?;
-		let file = fs::File::create(toml_path)
-			.await
-			.map_err(|source| emcore::error::Io {
-				message: "failed to create gui config file",
-				source,
-			})?;
-		info!("gui config file created");
-		let buffer = toml::to_string(&self).map_err(|source| emcore::error::TomlSerialize {
-			message: "failed to serialize gui config into buffer",
-			source,
-		})?;
+			.ok_or(io::Error::new(
+				io::ErrorKind::NotFound,
+				"path does not exist",
+			))
+			.map_err(Error::msg("failed to find app data directory"))?;
+		let buffer = toml::to_string(&self)
+			.map_err(TomlError::from)
+			.map_err(Error::msg("failed to serialize gui config into buffer"))?;
 		info!("gui config serialized to buffer");
-		let mut writer = io::BufWriter::new(file);
-		writer
-			.write_all(buffer.as_bytes())
+		fs::write(toml_path, buffer)
 			.await
-			.map_err(|source| emcore::error::Io {
-				message: "failed to write gui config buffer into file",
-				source,
-			})?;
-		writer.flush().await.map_err(|source| emcore::error::Io {
-			message: "failed to flush gui config buffer into file",
-			source,
-		})?;
+			.map_err(Error::msg("failed to write gui config buffer into file"))?;
 		info!("finished writing gui config to file");
 
 		Ok(self)
@@ -210,6 +171,7 @@ impl Config {
 }
 
 impl Default for Config {
+	#[instrument(level = "trace")]
 	fn default() -> Self {
 		Theme::default();
 		Self {
@@ -229,6 +191,7 @@ pub struct Root {
 }
 
 impl Root {
+	#[instrument(level = "trace")]
 	fn new() -> (Self, Task<Message>) {
 		let config_exists = emcore::data_dir().map(|p| p.join(App::TOML).is_file());
 		let task = if let Some(is_file) = config_exists
@@ -246,6 +209,7 @@ impl Root {
 }
 
 impl Default for Root {
+	#[instrument(level = "trace")]
 	fn default() -> Self {
 		Self {
 			config: Config::default(),
@@ -263,6 +227,7 @@ pub enum Hotkey {
 	RefreshTab,
 }
 
+#[derive(Debug)]
 pub struct App {
 	focus: Pane,
 	tab_managers: pane_grid::State<TabManager>,
@@ -286,6 +251,7 @@ impl App {
 	/// specifically. This is a child of `emcore::DATA_DIR`.
 	pub const TOML: &'static str = "gui.toml";
 
+	#[instrument(level = "trace")]
 	pub(super) fn run() -> iced::Result {
 		let image = image::load_from_memory(ICON).unwrap();
 		let icon =
@@ -306,6 +272,7 @@ impl App {
 			.run()
 	}
 
+	#[instrument(level = "trace")]
 	fn new() -> (Self, Task<Message>) {
 		let (root, root_task) = Root::new();
 		let (tab_manager, buffer_task) = TabManager::new();
@@ -323,6 +290,7 @@ impl App {
 		)
 	}
 
+	#[instrument(level = "trace")]
 	fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
 			Message::ClosedToast(index) => {
@@ -397,10 +365,7 @@ impl App {
 								let _ = fs::remove_file(lock_path)
 									.await
 									.map(|_| info!("instance's lock file removed"))
-									.map_err(|source| emcore::error::Io {
-										message: "failed to remove instance's lock file",
-										source,
-									})
+									.map_err(Error::msg("failed to remove instance's lock file"))
 									.map_err(|e| error!("{}", e));
 							}
 						})
@@ -491,7 +456,7 @@ impl App {
 								return Task::perform(
 									async { Instance::new().await },
 									move |result| match result {
-										Ok(new_instance) => (
+										Some(new_instance) => (
 											Message::ReplaceBuffer(
 												pane,
 												widget_id,
@@ -499,8 +464,8 @@ impl App {
 											),
 											Task::none(),
 										),
-										Err(e) => {
-											error!("{}", e);
+										None => {
+											error!("failed to find last used instance in history");
 											let (instance_history, task) = InstanceHistory::new();
 											(
 												Message::ReplaceBuffer(
@@ -645,10 +610,9 @@ impl App {
 									let _ = fs::remove_file(lock_path)
 										.await
 										.map(|_| info!("instance's lock file removed"))
-										.map_err(|source| emcore::error::Io {
-											message: "failed to remove instance's lock file",
-											source,
-										})
+										.map_err(Error::msg(
+											"failed to remove instance's lock file",
+										))
 										.map_err(|e| error!("{}", e));
 								}
 							})
@@ -859,10 +823,9 @@ impl App {
 										let _ = fs::remove_file(lock_path)
 											.await
 											.map(|_| info!("instance's lock file removed"))
-											.map_err(|source| emcore::error::Io {
-												message: "failed to remove instance's lock file",
-												source,
-											})
+											.map_err(Error::msg(
+												"failed to remove instance's lock file",
+											))
 											.map_err(|e| error!("{}", e));
 									}
 								})
@@ -1048,6 +1011,7 @@ impl App {
 		Task::none()
 	}
 
+	#[instrument(level = "trace")]
 	fn view(&self) -> Element<Message> {
 		let pane_grid: Element<_> = pane_grid(&self.tab_managers, |pane, tab, _is_maximized| {
 			let title_bar = pane_grid::TitleBar::new({
@@ -1081,6 +1045,7 @@ impl App {
 			.into()
 	}
 
+	#[instrument(level = "trace")]
 	fn subscription(&self) -> Subscription<Message> {
 		let logs = Subscription::run(log::stream).map(Message::Log);
 
@@ -1103,6 +1068,7 @@ impl App {
 		Subscription::batch([logs, events])
 	}
 
+	#[instrument(level = "trace")]
 	fn title(&self) -> String {
 		let mut title = format!("Exanima Modding Toolkit v{}", env!("CARGO_PKG_VERSION"));
 
@@ -1120,6 +1086,7 @@ impl App {
 		title
 	}
 
+	#[instrument(level = "trace")]
 	fn theme(&self) -> Theme {
 		self.root.theme.clone()
 	}

@@ -1,5 +1,6 @@
 use std::{
 	collections::HashMap,
+	fmt,
 	path::{Path, PathBuf},
 	time::UNIX_EPOCH,
 };
@@ -7,76 +8,13 @@ use std::{
 use bon::Builder;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
-use tokio::{
-	fs,
-	io::{self, AsyncReadExt, AsyncWriteExt},
-};
-use tracing::{info, warn};
+use tokio::{fs, io};
+use tracing::{info, instrument, warn};
 
-use crate::prelude::*;
+use crate::{Error, Result, TomlError, prelude::*};
 
 pub mod prelude {
 	pub use crate::profile::{self, Profile};
-}
-
-pub mod error {
-	#[derive(Debug, thiserror::Error)]
-	pub enum Build {
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-		#[error("{0}")]
-		ParentDir(#[from] ParentDir),
-		#[error("{0}")]
-		TomlSerialize(#[from] crate::error::TomlSerialize),
-	}
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum Builder {
-		#[error("{0}")]
-		LoadOrder(#[from] LoadOrderDe),
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-	}
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum CacheBuildCheck {
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-		#[error("{0}")]
-		ParentDir(#[from] ParentDir),
-		#[error("{0}")]
-		RonFile(#[from] crate::error::RonFile),
-		#[error("{0}")]
-		Time(#[from] crate::error::Time),
-	}
-
-	#[derive(Debug, thiserror::Error)]
-	#[error("{0}")]
-	pub struct InvalidParentDir(pub &'static str);
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum LoadOrderDe {
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-		#[error("{0}")]
-		TomlDeserialize(#[from] crate::error::TomlDeserialize),
-	}
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum LoadOrderSer {
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-		#[error("{0}")]
-		TomlSerialize(#[from] crate::error::TomlSerialize),
-	}
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum ParentDir {
-		#[error("{0}")]
-		InvalidParentDir(#[from] InvalidParentDir),
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-	}
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Default, Deserialize, Serialize)]
@@ -90,6 +28,7 @@ pub struct LoadOrderEntry {
 }
 
 impl LoadOrderEntry {
+	#[instrument(level = "trace")]
 	pub fn new(
 		enabled: bool,
 		priority: u32,
@@ -118,6 +57,7 @@ pub type LoadOrder = HashMap<plugin::Id, LoadOrderEntry>;
 /// There should be at least one profile called *Default*. Profiles will be stored in a *profiles*
 /// directory.
 #[derive(Default, Clone, Debug, Builder, Getters)]
+#[builder(derive(Debug))]
 #[builder(state_mod(vis = "pub(crate)"))]
 #[builder(start_fn(vis = ""))]
 #[builder(finish_fn(name = build_internal, vis = ""))]
@@ -149,20 +89,17 @@ impl Profile {
 	/// `Profile::CACHE_BUILD_DIR`.
 	pub const LOAD_ORDER_RON: &str = "load_order.ron";
 
-	pub async fn with_path(
-		path: impl Into<PathBuf>,
-	) -> Result<ProfileBuilder<profile_builder::SetLoadOrder>, error::Builder> {
+	#[instrument(level = "trace")]
+	pub async fn with_path<P: Into<PathBuf> + fmt::Debug>(
+		path: P,
+	) -> Result<ProfileBuilder<profile_builder::SetLoadOrder>> {
 		let path = path.into();
 		crate::ensure_dir(&path)
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create profile directory",
-				source,
-			})?;
-		let path = path.canonicalize().map_err(|source| crate::error::Io {
-			message: "failed to canonicalize path to profile",
-			source,
-		})?;
+			.map_err(Error::msg("failed to create profile directory"))?;
+		let path = path
+			.canonicalize()
+			.map_err(Error::msg("failed to canonicalize path to profile"))?;
 
 		let dummy_profile = Self {
 			path,
@@ -185,131 +122,99 @@ impl Profile {
 	///
 	/// Errors may be returned according to:
 	///
-	/// - `tokio::fs::File::create`
 	/// - `toml::to_string`
-	/// - `tokio::io::BufWriter::write_all`
-	/// - `tokio::io::BufWriter::flush`
-	pub async fn set_load_order(
-		&mut self,
-		load_order: LoadOrder,
-	) -> Result<&mut Self, error::LoadOrderSer> {
-		let file = fs::File::create(self.path.join(Self::LOAD_ORDER_TOML))
-			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create profile's load order file",
-				source,
-			})?;
-		info!("profile's load order file created");
-		let buffer =
-			toml::to_string(&load_order).map_err(|source| crate::error::TomlSerialize {
-				message: "failed to serialize profile's load order into buffer",
-				source,
-			})?;
+	/// - `tokio::fs::write`
+	#[instrument(level = "trace")]
+	pub async fn set_load_order(&mut self, load_order: LoadOrder) -> Result<&mut Self> {
+		let buffer = toml::to_string(&load_order)
+			.map_err(TomlError::from)
+			.map_err(Error::msg(
+				"failed to serialize profile's load order into buffer",
+			))?;
 		info!("profile's load order serialized to buffer");
-		let mut writer = io::BufWriter::new(file);
-		writer
-			.write_all(buffer.as_bytes())
+		fs::write(self.path.join(Self::LOAD_ORDER_TOML), buffer)
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to write profile's load order buffer into file",
-				source,
-			})?;
-		writer.flush().await.map_err(|source| crate::error::Io {
-			message: "failed to flush profile's load order buffer into file",
-			source,
-		})?;
+			.map_err(Error::msg(
+				"failed to write profile's load order buffer into file",
+			))?;
 		info!("finished writing profile's load order to file");
 
 		self.load_order = load_order;
 		Ok(self)
 	}
 
-	pub async fn game_dir(&self) -> Result<PathBuf, error::ParentDir> {
-		let Some(mods_path) = self.path.ancestors().nth(3) else {
-			return Err(error::InvalidParentDir(
-				"failed to validate path to instance's game directory",
+	#[instrument(level = "trace")]
+	pub async fn game_dir(&self) -> Result<PathBuf> {
+		let mods_path = self
+			.path
+			.ancestors()
+			.nth(3)
+			.ok_or(io::Error::new(
+				io::ErrorKind::Other,
+				"index out of bounds in path's list of ancestors",
+			))
+			.map_err(Error::msg(
+				"failed to get path to instance's game directory",
 			))?;
-		};
 
 		crate::ensure_dir(mods_path)
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create game directory",
-				source,
-			})?;
+			.map_err(Error::msg("failed to create game directory"))?;
 
 		Ok(mods_path.into())
 	}
 
-	pub async fn mods_dir(&self) -> Result<PathBuf, error::ParentDir> {
+	#[instrument(level = "trace")]
+	pub async fn mods_dir(&self) -> Result<PathBuf> {
 		let mods_path = self.game_dir().await?.join(Instance::MODS_DIR);
 
 		crate::ensure_dir(&mods_path)
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create mods directory",
-				source,
-			})?;
+			.map_err(|e| Error::new(e, "failed to create mods directory"))?;
 
 		Ok(mods_path)
 	}
 
-	pub async fn cache_dir(&self) -> io::Result<PathBuf> {
+	#[instrument(level = "trace")]
+	pub async fn cache_dir(&self) -> Result<PathBuf> {
 		let dir = self.path.join(Self::CACHE_DIR);
-		crate::ensure_dir(&dir).await?;
+		crate::ensure_dir(&dir)
+			.await
+			.map_err(|e| Error::new(e, "failed to create profile's cache directory"))?;
 		Ok(dir)
 	}
 
-	pub async fn cache_build_dir(&self) -> io::Result<PathBuf> {
+	#[instrument(level = "trace")]
+	pub async fn cache_build_dir(&self) -> Result<PathBuf> {
 		let dir = self.cache_dir().await?.join(Self::CACHE_BUILD_DIR);
-		crate::ensure_dir(&dir).await?;
+		crate::ensure_dir(&dir)
+			.await
+			.map_err(|e| Error::new(e, "failed to create profile's cache build directory"))?;
 		Ok(dir)
 	}
 
 	/// Return a result to the timestamp of mod files
-	pub async fn cache_build_metadata(
-		&self,
-	) -> Result<crate::cache::Metadata, crate::error::RonFile> {
-		let cache_build_dir = self.cache_build_dir().await.map_err(|source| {
-			crate::error::RonFile::Io(crate::error::Io {
-				message: "failed to create cache build directory",
-				source,
-			})
-		})?;
+	#[instrument(level = "trace")]
+	pub async fn cache_build_metadata(&self) -> Result<crate::cache::Metadata> {
+		let cache_build_dir = self.cache_build_dir().await?;
 		let metadata_path = cache_build_dir.join(crate::cache::METADATA_RON);
 		if !metadata_path.is_file() {
 			return Ok(crate::cache::Metadata::new());
 		};
-		let file = fs::File::open(metadata_path).await.map_err(|source| {
-			crate::error::RonFile::Io(crate::error::Io {
-				message: "failed to open cache build metadata file",
-				source,
-			})
-		})?;
-		info!("cache build metadata file opened");
-		let mut reader = io::BufReader::new(file);
-		let mut buffer = String::new();
-		reader.read_to_string(&mut buffer).await.map_err(|source| {
-			crate::error::RonFile::Io(crate::error::Io {
-				message: "failed to read into buffer for cache build metadata",
-				source,
-			})
-		})?;
+		let buffer = fs::read_to_string(metadata_path)
+			.await
+			.map_err(|e| Error::new(e, "failed to read into buffer for cache build metadata"))?;
 		info!("cache build metadata read into buffer");
 		let metadata = crate::cache::deserialize_metadata(
-			&mut ron::de::Deserializer::from_str(&buffer).map_err(|source| {
-				crate::error::RonFile::Ron(crate::error::Ron {
-					message: "failed to create deserializer for cache build metadata from buffer",
-					source: source.into(),
-				})
-			})?,
+			&mut ron::de::Deserializer::from_str(&buffer)
+				.map_err(ron::Error::from)
+				.map_err(Error::msg(
+					"failed to create deserializer for cache build metadata from buffer",
+				))?,
 		)
-		.map_err(|source| {
-			crate::error::RonFile::Ron(crate::error::Ron {
-				message: "failed to deserialize cache build metadata from buffer",
-				source,
-			})
-		})?;
+		.map_err(Error::msg(
+			"failed to deserialize cache build metadata from buffer",
+		))?;
 		info!("cache build metadata deserialized from buffer");
 
 		Ok(metadata)
@@ -317,32 +222,22 @@ impl Profile {
 
 	/// Return a result to true if a mod hasn't changed according to the metadata
 	/// file else return false.
-	pub async fn is_cache_build_valid(&self) -> Result<bool, error::CacheBuildCheck> {
+	#[instrument(level = "trace")]
+	pub async fn is_cache_build_valid(&self) -> Result<bool> {
 		/// Recursion in a mod directory is used to support loose-files.
-		async fn is_mod_valid(
-			metadata: &mut crate::cache::Metadata,
-			dir: &Path,
-		) -> Result<bool, error::CacheBuildCheck> {
-			let mut read_dir = fs::read_dir(dir).await.map_err(|source| crate::error::Io {
-				message: "failed to read mod directory entries",
-				source,
-			})?;
-			while let Some(entry) =
-				read_dir
-					.next_entry()
-					.await
-					.map_err(|source| crate::error::Io {
-						message: "failed to read next entry in mod directory",
-						source,
-					})? {
-				let entry_path =
-					entry
-						.path()
-						.canonicalize()
-						.map_err(|source| crate::error::Io {
-							message: "failed to find path to a mod asset",
-							source,
-						})?;
+		async fn is_mod_valid(metadata: &mut crate::cache::Metadata, dir: &Path) -> Result<bool> {
+			let mut read_dir = fs::read_dir(dir)
+				.await
+				.map_err(Error::msg("failed to read mod directory entries"))?;
+			while let Some(entry) = read_dir
+				.next_entry()
+				.await
+				.map_err(Error::msg("failed to read next entry in mod directory"))?
+			{
+				let entry_path = entry
+					.path()
+					.canonicalize()
+					.map_err(Error::msg("failed to find path to a mod asset"))?;
 
 				if entry_path.is_dir() {
 					// recurse into directory
@@ -358,21 +253,17 @@ impl Profile {
 						return Ok(false);
 					};
 
-					let file_timestamp = fs::metadata(&entry_path).await
-						.map_err(|source| crate::error::Io {
-							message: "failed to read metadata of mod asset",
-							source,
-						})?
+					let file_timestamp = fs::metadata(&entry_path)
+						.await
+						.map_err(Error::msg("failed to read metadata of mod asset"))?
 						.modified()
-						.map_err(|source| crate::error::Io {
-							message: "failed to get modified date time metadata of mod asset",
-							source,
-						})?
+						.map_err(Error::msg(
+							"failed to get modified date time metadata of mod asset",
+						))?
 						.duration_since(UNIX_EPOCH)
-						.map_err(|source| crate::error::Time {
-							message: "failed to get the unix epoch timestamp of the mod asset's modified date time metadata",
-							source,
-						})?
+						.map_err(Error::msg(
+							"failed to get the unix epoch timestamp of the mod asset's modified date time metadata",
+						))?
 						.as_secs();
 					if *metadata_timestamp != file_timestamp {
 						// either exanima or a mod updated, build cache
@@ -391,21 +282,14 @@ impl Profile {
 
 		// check vanilla game files
 		let game_dir = self.game_dir().await?;
-		let mut read_game_dir =
-			fs::read_dir(game_dir)
-				.await
-				.map_err(|source| crate::error::Io {
-					message: "failed to read game directory entries",
-					source,
-				})?;
-		while let Some(entry) =
-			read_game_dir
-				.next_entry()
-				.await
-				.map_err(|source| crate::error::Io {
-					message: "failed to read next entry in game directory",
-					source,
-				})? {
+		let mut read_game_dir = fs::read_dir(game_dir)
+			.await
+			.map_err(Error::msg("failed to read game directory entries"))?;
+		while let Some(entry) = read_game_dir
+			.next_entry()
+			.await
+			.map_err(Error::msg("failed to read next entry in game directory"))?
+		{
 			let entry_path = entry.path();
 			if entry_path.is_file()
 				&& let Some(extension_os) = entry_path.extension()
@@ -429,10 +313,9 @@ impl Profile {
 				warn!("mod isn't a directory, skipped \"{}\"", plugin_id);
 				continue;
 			}
-			let mod_dir = mod_dir.canonicalize().map_err(|source| crate::error::Io {
-				message: "failed to find path for mod directory",
-				source,
-			})?;
+			let mod_dir = mod_dir
+				.canonicalize()
+				.map_err(Error::msg("failed to find path for mod directory"))?;
 			if !is_mod_valid(&mut metadata, &mod_dir).await? {
 				return Ok(false);
 			};
@@ -451,47 +334,26 @@ impl Profile {
 	///
 	/// Errors may be returned according to:
 	///
-	/// - `tokio::fs::File::open`
 	/// - `tokio::fs::File::create_new`
-	/// - `tokio::io::BufReader::read_to_string`
+	/// - `tokio::fs::read_to_string`
 	/// - `toml::from_str`
-	pub async fn read_load_order(&self) -> Result<LoadOrder, error::LoadOrderDe> {
+	#[instrument(level = "trace")]
+	pub async fn read_load_order(&self) -> Result<LoadOrder> {
 		let load_order_path = self.path.join(Profile::LOAD_ORDER_TOML);
-		let file = if load_order_path.is_file() {
-			let file =
-				fs::File::open(&load_order_path)
-					.await
-					.map_err(|source| crate::error::Io {
-						message: "failed to open load order file",
-						source,
-					})?;
-			info!("load order file opened");
-			file
-		} else {
-			let file = fs::File::create_new(load_order_path)
+		if !load_order_path.is_file() {
+			fs::File::create_new(&load_order_path)
 				.await
-				.map_err(|source| crate::error::Io {
-					message: "failed to create new load order file",
-					source,
-				})?;
-			info!("load order file created");
-			file
-		};
-		let mut reader = io::BufReader::new(file);
-		let mut buffer = String::new();
-		reader
-			.read_to_string(&mut buffer)
+				.map_err(Error::msg("failed to create new load order file"))?;
+			info!("load order file created")
+		}
+		let buffer = fs::read_to_string(load_order_path)
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to read into buffer for load order",
-				source,
-			})?;
-		info!("load order read into buffer");	
+			.map_err(Error::msg("failed to read into buffer for load order"))?;
+		info!("load order read into buffer");
+
 		let mut load_order: Vec<_> = toml::from_str::<LoadOrder>(&buffer)
-			.map_err(|source| crate::error::TomlDeserialize {
-				message: "failed to deserialize load order",
-				source,
-			})?
+			.map_err(TomlError::from)
+			.map_err(Error::msg("failed to deserialize load order"))?
 			.into_iter()
 			.collect();
 		info!("load order deserialized from buffer");
@@ -515,7 +377,8 @@ impl<S> ProfileBuilder<S>
 where
 	S: profile_builder::State,
 {
-	pub async fn build(self) -> Result<Profile, error::Build>
+	#[instrument(level = "trace")]
+	pub async fn build(self) -> Result<Profile>
 	where
 		S: profile_builder::IsComplete,
 	{
@@ -530,10 +393,7 @@ where
 			if !mods_path.is_dir() {
 				fs::create_dir_all(&mods_path)
 					.await
-					.map_err(|source| crate::error::Io {
-						message: "failed to create mods directory",
-						source,
-					})?;
+					.map_err(Error::msg("failed to create mods directory"))?;
 				info!("mods directory created");
 			}
 
@@ -554,23 +414,14 @@ where
 					continue;
 				};
 
-				let manifest_path = entry_path.join(plugin::Manifest::TOML);
-				let Ok(file) = fs::File::open(manifest_path).await else {
-					warn!(
-						"failed to open plugin manifest file, skipping \"{}\"",
-						entry_name
-					);
-					continue;
-				};
-				let mut reader = io::BufReader::new(file);
-				let mut buffer = String::new();
-				if reader.read_to_string(&mut buffer).await.is_err() {
+				let Ok(buffer) = fs::read_to_string(entry_path.join(plugin::Manifest::TOML)).await
+				else {
 					warn!(
 						"failed to read plugin manifest file to buffer, skipping \"{}\"",
 						entry_name
 					);
 					continue;
-				}
+				};
 				let Ok(manifest) = toml::from_str::<plugin::Manifest>(&buffer) else {
 					warn!(
 						"failed to deserialize plugin manifest from buffer, skipping \"{}\"",
@@ -639,36 +490,15 @@ where
 		}
 
 		if load_order_updated {
-			// TODO: due to delicate procedure, back up file first before writing
-			// FIX: consider an alternative to fs::File::create() due to docs mentioning truncating file contents
-			// maybe write to a temp file and overwrite original file on success?
-			let file = fs::File::create(profile.path.join(Profile::LOAD_ORDER_TOML))
-				.await
-				.map_err(|source| crate::error::Io {
-					message: "failed to create load order file",
-					source,
-				})?;
-			info!("load order file created");
-			let buffer = toml::to_string(&profile.load_order).map_err(|source| {
-				crate::error::TomlSerialize {
-					message: "failed to serialize load order into buffer",
-					source,
-				}
-			})?;
+			let buffer = toml::to_string(&profile.load_order)
+				.map_err(TomlError::from)
+				.map_err(Error::msg("failed to serialize load order into buffer"))?;
 			info!("load order serialized to buffer");
 
-			let mut writer = io::BufWriter::new(file);
-			writer
-				.write_all(buffer.as_bytes())
+			// TODO: write to temp file and perform move operation to overwrite load order file
+			fs::write(profile.path.join(Profile::LOAD_ORDER_TOML), buffer)
 				.await
-				.map_err(|source| crate::error::Io {
-					message: "failed to write load order buffer into file",
-					source,
-				})?;
-			writer.flush().await.map_err(|source| crate::error::Io {
-				message: "failed to flush load order buffer into file",
-				source,
-			})?;
+				.map_err(Error::msg("failed to write load order buffer into file"))?;
 			info!("finished writing update to load order file");
 		}
 

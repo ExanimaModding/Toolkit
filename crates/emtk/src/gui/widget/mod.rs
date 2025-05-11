@@ -4,11 +4,10 @@
 pub mod toast;
 
 use iced::{
-	Border, Color, Element, Font, Padding, Shadow, Theme, Vector, advanced,
+	Border, Color, Element, Font, Shadow, Theme, Vector,
 	widget::{
-		Button, Container, Row, Scrollable, Text, Tooltip, button as iced_button,
-		container as iced_container, row as iced_row, scrollable as iced_scrollable,
-		text as iced_text, tooltip as iced_tooltip,
+		Button, Row, Text, Tooltip, button as iced_button, container as iced_container,
+		row as iced_row, scrollable as iced_scrollable, text as iced_text, tooltip as iced_tooltip,
 	},
 };
 

@@ -12,6 +12,7 @@ use iced::{
 	},
 };
 use iced_drop::droppable;
+use tracing::instrument;
 
 use crate::gui::{
 	Root,
@@ -30,6 +31,7 @@ pub struct Tab {
 }
 
 impl Tab {
+	#[instrument(level = "trace")]
 	pub fn new(buffer: Buffer) -> Self {
 		Self {
 			widget_id: iced_widget::Id::unique(),
@@ -100,6 +102,7 @@ pub enum Message {
 }
 
 impl TabManager {
+	#[instrument(level = "trace")]
 	pub fn new() -> (Self, Task<buffer::Message>) {
 		let (instance_history, task) = InstanceHistory::new();
 		let tab = Tab::new(instance_history.into());
@@ -133,6 +136,7 @@ impl TabManager {
 	// 	})
 	// }
 
+	#[instrument(level = "trace")]
 	pub fn view_header(
 		&self,
 		_tabs: &pane_grid::State<TabManager>,
@@ -255,6 +259,7 @@ impl TabManager {
 			.into()
 	}
 
+	#[instrument(level = "trace")]
 	pub fn view(
 		&self,
 		_tabs: &pane_grid::State<TabManager>,

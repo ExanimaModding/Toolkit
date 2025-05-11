@@ -2,6 +2,7 @@ use iced::{
 	Element, Fill, Padding,
 	widget::{container, scrollable},
 };
+use tracing::instrument;
 
 use crate::gui::{Root, log};
 
@@ -12,8 +13,10 @@ pub struct Logs;
 pub enum Message {}
 
 impl Logs {
+	#[instrument(level = "trace")]
 	pub fn update(&mut self, _message: Message) {}
 
+	#[instrument(level = "trace")]
 	pub fn view(&self, root: &Root) -> Element<Message> {
 		let content = log::view(&root.logs);
 
@@ -28,6 +31,7 @@ impl Logs {
 			.into()
 	}
 
+	#[instrument(level = "trace")]
 	pub fn title(&self) -> String {
 		"Logs".to_string()
 	}

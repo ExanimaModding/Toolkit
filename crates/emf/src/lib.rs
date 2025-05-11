@@ -22,7 +22,7 @@ use detours_sys::{
 use emcore::{plugin, profile};
 use internal::utils::rpk_intercept;
 use pelite::pe::Pe;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 use tracing_subscriber::{Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
@@ -83,6 +83,7 @@ unsafe extern "stdcall" fn DllMain(
 	1
 }
 
+#[instrument(level = "trace")]
 unsafe extern "C" fn main() {
 	#[cfg(debug_assertions)]
 	tracing_tracy::client::Client::start();
@@ -230,11 +231,13 @@ unsafe extern "C" fn main() {
 
 // The following function is only necessary for the header generation.
 #[cfg(feature = "headers")] // c.f. the `Cargo.toml` section
+#[instrument(level = "trace")]
 pub fn generate_headers() -> ::std::io::Result<()> {
 	::safer_ffi::headers::builder().to_file("emf.h")?.generate()
 }
 
 /// tracing filter
+#[instrument(level = "trace")]
 pub fn env_filter() -> tracing_subscriber::EnvFilter {
 	tracing_subscriber::EnvFilter::builder()
 		.from_env()

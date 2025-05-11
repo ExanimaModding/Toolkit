@@ -1,10 +1,10 @@
 use std::{env, io};
 
 use iced::{
-	widget::{column, container, pick_list, row, text},
 	Alignment, Element, Fill, Theme,
+	widget::{column, container, pick_list, row, text},
 };
-use tracing::error;
+use tracing::{error, instrument};
 
 use super::Root;
 use crate::gui::{
@@ -28,6 +28,7 @@ pub enum Message {
 }
 
 impl Settings {
+	#[instrument(level = "trace")]
 	pub fn update(&mut self, message: Message) -> Action {
 		match message {
 			Message::OpenAppDataDir => {
@@ -43,6 +44,7 @@ impl Settings {
 		Action::None
 	}
 
+	#[instrument(level = "trace")]
 	pub fn view(&self, root: &Root) -> Element<Message> {
 		let theme_picker = column![text("Theme").size(20), self.theme_picker(root)];
 
@@ -68,6 +70,7 @@ impl Settings {
 			.into()
 	}
 
+	#[instrument(level = "trace")]
 	fn theme_picker(&self, root: &Root) -> Element<Message> {
 		let default_theme = default_theme();
 		let theme_picker = pick_list(
@@ -82,6 +85,7 @@ impl Settings {
 		}
 	}
 
+	#[instrument(level = "trace")]
 	pub fn title(&self) -> String {
 		"Settings".to_string()
 	}

@@ -3,30 +3,29 @@ use std::{borrow::BorrowMut, env, ffi::CString, io, mem::MaybeUninit, ptr};
 use detours_sys::{
 	_PROCESS_INFORMATION, _STARTUPINFOA, BOOL, DWORD, DetourCreateProcessWithDllExA, HANDLE,
 };
+use emcore::{Error, Result};
+use tracing::instrument;
 
 /// Inject a DLL into a target process.
 ///
 /// # Safety
 ///
 /// This function is unsafe because it is injecting a DLL into a live process.
-pub(crate) unsafe fn inject(dll_path: &str, target_exe: &str) -> Result<(), emcore::error::Io> {
-	let binding = CString::new(target_exe).map_err(|source| emcore::error::Io {
-		message: "failed to create new C string for the target executable",
-		source: source.into(),
-	})?;
+#[instrument(level = "trace")]
+pub(crate) unsafe fn inject(dll_path: &str, target_exe: &str) -> Result<()> {
+	let binding = CString::new(target_exe).map_err(Error::msg(
+		"failed to create new C string for the target executable",
+	))?;
 	let mut target_exe = binding.as_c_str();
-	let dll_path = CString::new(dll_path).map_err(|source| emcore::error::Io {
-		message: "failed to create new C string for the dll path",
-		source: source.into(),
-	})?;
+	let dll_path = CString::new(dll_path)
+		.map_err(Error::msg("failed to create new C string for the dll path"))?;
 
 	let mut process_info: _PROCESS_INFORMATION = unsafe { MaybeUninit::zeroed().assume_init() };
 	let mut startup_info: _STARTUPINFOA = unsafe { MaybeUninit::zeroed().assume_init() };
 
-	let mut curr_exe_path = env::current_exe().map_err(|source| emcore::error::Io {
-		message: "failed to get the path to the currently running executable file",
-		source,
-	})?;
+	let mut curr_exe_path = env::current_exe().map_err(Error::msg(
+		"failed to get the path to the currently running executable file",
+	))?;
 	curr_exe_path.pop();
 
 	unsafe {
@@ -47,10 +46,10 @@ pub(crate) unsafe fn inject(dll_path: &str, target_exe: &str) -> Result<(), emco
 
 		if result == 0 {
 			eprintln!("CreateProcessA failed: {}", result);
-			return Err(emcore::error::Io {
-				message: "failed to create process with dll from detours",
-				source: io::Error::last_os_error(),
-			});
+			return Err(Error::new(
+				io::Error::last_os_error(),
+				"failed to create process with dll from detours",
+			));
 		}
 
 		ResumeThread(process_info.hThread as _);

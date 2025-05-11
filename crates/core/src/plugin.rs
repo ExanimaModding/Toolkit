@@ -5,6 +5,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use super::Instance;
 
@@ -68,6 +69,7 @@ impl Id {
 	/// - Is empty
 	/// - Starts or ends with '-' or '.'
 	/// - Not alphanumeric (exceptions: '-', '.')
+	#[instrument(level = "trace")]
 	pub fn is_valid(id: &str) -> bool {
 		if id.is_empty()
 			|| id.starts_with(['-', '.'])
@@ -83,16 +85,19 @@ impl Id {
 	}
 
 	/// Helper that returns a path to this plugin's directory
+	#[instrument(level = "trace")]
 	pub fn plugin_dir(&self) -> PathBuf {
 		PathBuf::from(Instance::MODS_DIR).join(self.to_string())
 	}
 
 	/// Helper that returns a path to this plugin's assets directory.
+	#[instrument(level = "trace")]
 	pub fn assets_dir(&self) -> PathBuf {
 		self.plugin_dir().join(Instance::ASSETS_DIR)
 	}
 
 	/// Helper that returns a path to this plugin's game assets directory.
+	#[instrument(level = "trace")]
 	pub fn packages_dir(&self) -> PathBuf {
 		self.assets_dir().join(Instance::PACKAGES_DIR)
 	}
@@ -101,6 +106,7 @@ impl Id {
 impl TryFrom<&str> for Id {
 	type Error = Error;
 
+	#[instrument(level = "trace")]
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		if !Id::is_valid(value) {
 			return Err(Error::InvalidId(value.into()));
@@ -111,12 +117,14 @@ impl TryFrom<&str> for Id {
 }
 
 impl From<Id> for String {
+	#[instrument(level = "trace")]
 	fn from(value: Id) -> Self {
 		value.0
 	}
 }
 
 impl Display for Id {
+	#[instrument(level = "trace", skip(f))]
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", self.0)
 	}

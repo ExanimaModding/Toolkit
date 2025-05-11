@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use emcore::instance::write_instance_history;
 use getset::Getters;
 use iced::{
-	Alignment, Task, Theme,
+	Task, Theme,
 	futures::future,
 	widget::{
 		column, container, horizontal_rule, mouse_area, responsive, right_center, scrollable,
@@ -16,7 +16,7 @@ use tokio::{
 	fs,
 	io::{self, AsyncReadExt},
 };
-use tracing::{error, warn};
+use tracing::{error, instrument, warn};
 
 use crate::gui::widget::{button, icon, tooltip};
 
@@ -49,6 +49,7 @@ pub enum Message {
 }
 
 impl InstanceHistory {
+	#[instrument(level = "trace")]
 	pub fn new() -> (Self, Task<Message>) {
 		let task = Task::done(Message::Loading)
 			.chain(Task::perform(
@@ -96,6 +97,7 @@ impl InstanceHistory {
 		)
 	}
 
+	#[instrument(level = "trace")]
 	pub fn update(&mut self, message: Message) -> Action {
 		match message {
 			Message::EnteredBtnRegion(hover) => self.hover = hover,
@@ -166,6 +168,7 @@ impl InstanceHistory {
 		Action::None
 	}
 
+	#[instrument(level = "trace")]
 	pub fn view(&self) -> Element<Message> {
 		let history_len = self.inner.len() as u32;
 		let history_btn_size = 54;
@@ -297,6 +300,7 @@ impl InstanceHistory {
 		.into()
 	}
 
+	#[instrument(level = "trace")]
 	pub fn title(&self) -> String {
 		"Instance History".to_string()
 	}

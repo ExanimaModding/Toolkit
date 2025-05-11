@@ -1,4 +1,4 @@
-use std::{fmt::Debug, io, sync::OnceLock};
+use std::{fmt::Debug, io};
 
 use iced::{
 	Element,
@@ -6,16 +6,15 @@ use iced::{
 	stream::channel,
 	widget::{Column, text},
 };
-use tracing_subscriber::{Layer, fmt::MakeWriter, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing::instrument;
+use tracing_subscriber::{fmt::MakeWriter, prelude::*, util::SubscriberInitExt};
 
-/// When tracing is initialized for logging, the guard to the log file is stored
-/// here to ensure tracing keeps writing to the log file.
-pub(crate) static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> =
-	OnceLock::new();
+use crate::{TRACING_GUARD, add_directive, env_filter};
 
 #[derive(Debug, Clone)]
 pub struct Event(pub Vec<(String, Option<tracing::Level>)>);
 
+#[instrument(level = "trace")]
 pub fn view<'a, Message: 'a>(events: &[Event]) -> Element<'a, Message> {
 	Column::with_children(
 		events
@@ -25,6 +24,7 @@ pub fn view<'a, Message: 'a>(events: &[Event]) -> Element<'a, Message> {
 	.into()
 }
 
+#[instrument(level = "trace")]
 pub fn stream() -> impl Stream<Item = Event> {
 	channel(0, |tx: mpsc::Sender<Event>| async move {
 		let file_appender =
@@ -32,25 +32,42 @@ pub fn stream() -> impl Stream<Item = Event> {
 		let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
 		TRACING_GUARD.set(guard).unwrap();
 
+		let filter = env_filter();
+		let filter = add_directive(filter, "emtk=debug");
+		let filter = add_directive(filter, "emcore=debug");
+
+		let appender_filter = env_filter();
+		let appender_filter = add_directive(appender_filter, "emtk=debug");
+		let appender_filter = add_directive(appender_filter, "emcore=debug");
+
 		let subscriber = tracing_subscriber::registry()
-			.with(tracing_subscriber::fmt::layer().with_filter(crate::env_filter()))
+			.with(tracing_subscriber::fmt::layer().with_filter(filter))
 			.with(
 				tracing_subscriber::fmt::layer()
 					.with_ansi(false)
 					.with_writer(non_blocking)
-					.with_filter(crate::env_filter()),
-			)
-			.with(
-				tracing_subscriber::fmt::layer()
-					.with_writer(Writer::new(tx))
-					.with_ansi(false)
-					.with_filter(crate::env_filter()),
+					.with_filter(appender_filter),
 			);
 
 		#[cfg(debug_assertions)]
-		let subscriber = subscriber.with(tracing_tracy::TracyLayer::default());
+		let subscriber = {
+			let tracy_filter = env_filter();
+			let tracy_filter = add_directive(tracy_filter, "emtk=trace");
+			let tracy_filter = add_directive(tracy_filter, "emcore=trace");
+			subscriber.with(tracing_tracy::TracyLayer::default().with_filter(tracy_filter))
+		};
 
-		subscriber.init();
+		let gui_filter = env_filter();
+		let gui_filter = add_directive(gui_filter, "emtk=debug");
+		let gui_filter = add_directive(gui_filter, "emcore=debug");
+		let subscriber = subscriber.with(
+			tracing_subscriber::fmt::layer()
+				.with_writer(Writer::new(tx))
+				.with_ansi(false)
+				.with_filter(gui_filter),
+		);
+
+		subscriber.init()
 	})
 }
 

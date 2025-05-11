@@ -13,12 +13,12 @@ use tokio::{
 // 	self,
 // 	terminal::{EnterAlternateScreen, LeaveAlternateScreen},
 // };
-use tracing::info;
+use tracing::{info, instrument};
 // use tracing_indicatif::IndicatifLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Layer};
+use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// The Exanima Modding CLI
-#[derive(Parser)]
+#[derive(Debug, Parser)]
 #[command(version, arg_required_else_help = true)]
 pub(super) struct App {
 	#[command(subcommand)]
@@ -34,6 +34,7 @@ pub(super) struct App {
 }
 
 impl App {
+	#[instrument(level = "trace")]
 	pub(super) async fn run(&self) {
 		// let file_appender = tracing_appender::rolling::never(
 		// 	std::path::absolute(PathBuf::from("./")).unwrap(),
@@ -68,7 +69,7 @@ impl App {
 	}
 }
 
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum AppCommands {
 	/// Manage instances
 	Instance {
@@ -83,6 +84,7 @@ enum AppCommands {
 }
 
 impl AppCommands {
+	#[instrument(level = "trace")]
 	async fn run(&self) {
 		match self {
 			AppCommands::Instance { command } => command.run().await,
@@ -91,7 +93,7 @@ impl AppCommands {
 }
 
 /// Manage instances
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum InstanceCommands {
 	Launch,
 	/// Print out a history of imported instances
@@ -119,6 +121,7 @@ enum InstanceCommands {
 }
 
 impl InstanceCommands {
+	#[instrument(level = "trace")]
 	async fn run(&self) {
 		match self {
 			InstanceCommands::Launch => self.launch().await,
@@ -129,6 +132,7 @@ impl InstanceCommands {
 		}
 	}
 
+	#[instrument(level = "trace")]
 	async fn launch(&self) {
 		let instance_history = instance::history().await.unwrap();
 		let instance_path = instance_history.last().unwrap();
@@ -148,6 +152,7 @@ impl InstanceCommands {
 	/// ```sh
 	/// $ emtk instance list
 	/// ```
+	#[instrument(level = "trace")]
 	async fn list(&self) {
 		let instance_history = instance::history().await.unwrap();
 		for path in instance_history.iter().rev() {
@@ -160,6 +165,7 @@ impl InstanceCommands {
 	/// ```sh
 	/// $ emtk instance import "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Exanima"
 	/// ```
+	#[instrument(level = "trace")]
 	async fn import(&self, path: &str) {
 		let path = PathBuf::from(path);
 		Instance::with_path(path).unwrap().build().await.unwrap();
@@ -168,7 +174,7 @@ impl InstanceCommands {
 }
 
 /// Manage instance mods
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum ModCommands {
 	/// Print out README of a mod by their plugin ID
 	Info { id: String },
@@ -177,6 +183,7 @@ enum ModCommands {
 }
 
 impl ModCommands {
+	#[instrument(level = "trace")]
 	async fn run(&self) {
 		match self {
 			ModCommands::Info { id } => self.info(id).await,
@@ -189,6 +196,7 @@ impl ModCommands {
 	/// ```sh
 	/// emtk instance mod info com.example.my-mod
 	/// ```
+	#[instrument(level = "trace")]
 	async fn info(&self, maybe_id: &str) {
 		let skin = termimad::MadSkin::default();
 		let plugin_id = plugin::Id::try_from(maybe_id).unwrap();
@@ -238,6 +246,7 @@ impl ModCommands {
 	/// ```sh
 	/// $ emtk instance mod list
 	/// ```
+	#[instrument(level = "trace")]
 	async fn list(&self) {
 		let instance_history = instance::history().await.unwrap();
 		let instance_path = instance_history.last().unwrap();
@@ -267,7 +276,7 @@ impl ModCommands {
 }
 
 /// Manage instance profiles
-#[derive(Subcommand)]
+#[derive(Debug, Subcommand)]
 enum ProfileCommands {
 	/// Create a new profile
 	Create,
@@ -281,6 +290,7 @@ enum ProfileCommands {
 }
 
 impl ProfileCommands {
+	#[instrument(level = "trace")]
 	async fn run(&self) {
 		match self {
 			ProfileCommands::Create => self.create(),
@@ -289,14 +299,17 @@ impl ProfileCommands {
 		}
 	}
 
+	#[instrument(level = "trace")]
 	fn create(&self) {
 		todo!("profile create wip");
 	}
 
+	#[instrument(level = "trace")]
 	fn delete(&self, _force: bool) {
 		todo!("profile delete wip");
 	}
 
+	#[instrument(level = "trace")]
 	async fn list(&self) {
 		let instance_history = instance::history().await.unwrap();
 		let instance_path = instance_history.last().unwrap();

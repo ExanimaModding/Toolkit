@@ -9,6 +9,7 @@ use iced::{
 	Element, Fill, Padding, Task,
 	widget::{column, container, row, text},
 };
+use tracing::instrument;
 
 use crate::gui::{
 	Root,
@@ -43,24 +44,28 @@ pub enum Buffer {
 }
 
 impl From<Instance> for Buffer {
+	#[instrument(level = "trace")]
 	fn from(value: Instance) -> Self {
 		Buffer::Instance(Box::new(value))
 	}
 }
 
 impl From<InstanceHistory> for Buffer {
+	#[instrument(level = "trace")]
 	fn from(value: InstanceHistory) -> Self {
 		Buffer::InstanceHistory(Box::new(value))
 	}
 }
 
 impl From<Logs> for Buffer {
+	#[instrument(level = "trace")]
 	fn from(value: Logs) -> Self {
 		Buffer::Logs(Box::new(value))
 	}
 }
 
 impl From<Settings> for Buffer {
+	#[instrument(level = "trace")]
 	fn from(value: Settings) -> Self {
 		Buffer::Settings(Box::new(value))
 	}
@@ -83,6 +88,7 @@ pub enum Message {
 }
 
 impl Buffer {
+	#[instrument(level = "trace")]
 	pub fn update(&mut self, message: Message) -> Action {
 		match (self, message) {
 			(_, Message::ImportInstanceDialog) => {
@@ -127,6 +133,7 @@ impl Buffer {
 		Action::None
 	}
 
+	#[instrument(level = "trace")]
 	pub fn view(&self, root: &Root) -> Element<Message> {
 		let content = container(match self {
 			Buffer::Instance(instance) => instance.view().map(Message::Instance),
@@ -144,6 +151,7 @@ impl Buffer {
 		column![self.controls(), content].spacing(8).into()
 	}
 
+	#[instrument(level = "trace")]
 	fn controls(&self) -> Element<Message> {
 		let icon_size = 20;
 		let btn_size = 38;
@@ -196,6 +204,7 @@ impl Buffer {
 		.into()
 	}
 
+	#[instrument(level = "trace")]
 	pub fn title(&self) -> String {
 		match self {
 			Buffer::Instance(instance) => instance.title(),

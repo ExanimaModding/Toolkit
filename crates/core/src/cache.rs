@@ -1,6 +1,7 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use serde::{Deserialize, Deserializer};
+use tracing::instrument;
 
 pub const METADATA_RON: &str = "metadata.ron";
 
@@ -10,6 +11,7 @@ pub type Metadata = HashMap<PathBuf, u64>;
 
 /// `PathBuf` can not be deserialized from ron so we deserialize the path as a
 /// `String` then map it into `PathBuf`
+#[instrument(level = "trace", skip(deserializer))]
 pub fn deserialize_metadata<'de, D>(deserializer: D) -> Result<Metadata, D::Error>
 where
 	D: Deserializer<'de>,
@@ -33,7 +35,7 @@ mod tests {
 	};
 
 	use pretty_assertions::assert_eq;
-	use tempfile::{tempdir, Builder};
+	use tempfile::{Builder, tempdir};
 
 	use crate::cache::deserialize_metadata;
 

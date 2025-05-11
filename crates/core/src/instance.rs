@@ -1,137 +1,63 @@
-use std::{path::PathBuf, process};
+use std::{fmt, path::PathBuf, process};
 
 use bon::Builder;
 use getset::{Getters, MutGetters};
 use serde::{Deserialize, Serialize};
-use tokio::{
-	fs,
-	io::{self, AsyncReadExt, AsyncWriteExt},
-};
-use tracing::{error, info, warn};
+use tokio::{fs, io};
+use tracing::{error, info, instrument, warn};
 
-use crate::prelude::*;
+use crate::{Error, Result, TomlError, prelude::*};
 
 pub mod prelude {
-	pub use crate::instance::{self, Instance, InstanceHistory};
-}
-
-pub mod error {
-	use crate::prelude::*;
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum Build {
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-		#[error("{0}")]
-		Locked(&'static str),
-		#[error("{0}")]
-		ProfileBuilder(#[from] profile::error::Builder),
-		#[error("{0}")]
-		ProfileBuild(#[from] profile::error::Build),
-		#[error("{0}")]
-		TomlDeserialize(#[from] crate::error::TomlDeserialize),
-	}
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum Builder {
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-	}
-
-	#[derive(Debug, thiserror::Error)]
-	pub enum Settings {
-		#[error("{0}")]
-		Io(#[from] crate::error::Io),
-		#[error("{0}")]
-		TomlSerialize(#[from] crate::error::TomlSerialize),
-	}
+	pub use crate::instance::{self, Instance};
 }
 
 pub type InstanceHistory = Vec<PathBuf>;
 
 /// Return a result to the instance history
-pub async fn history() -> Result<InstanceHistory, crate::error::RonFile> {
+#[instrument(level = "trace")]
+pub async fn history() -> Result<InstanceHistory> {
 	let history_file_path = crate::cache_dir()
 		.await
-		.map_err(|source| crate::error::Io {
-			message: "failed to create cache directory",
-			source,
-		})?
+		.map_err(Error::msg("failed to create cache directory"))?
 		.join(Instance::HISTORY_CACHE_RON);
 
-	let file = if history_file_path.is_file() {
-		let file = fs::File::open(&history_file_path)
+	if !history_file_path.is_file() {
+		fs::File::create_new(&history_file_path)
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to open instance history file",
-				source,
-			})?;
-		info!("instance history file opened");
-		file
-	} else {
-		let file = fs::File::create_new(history_file_path)
-			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create new instance history file",
-				source,
-			})?;
+			.map_err(Error::msg("failed to create new instance history file"))?;
 		info!("instance history file created");
-		file
-	};
-
-	let mut reader = io::BufReader::new(file);
-	let mut buffer = String::new();
-	reader
-		.read_to_string(&mut buffer)
+	}
+	let buffer = fs::read_to_string(history_file_path)
 		.await
-		.map_err(|source| crate::error::Io {
-			message: "failed to read into buffer for instance history",
-			source,
-		})?;
+		.map_err(Error::msg(
+			"failed to read into buffer for instance history",
+		))?;
 	info!("instance history file read into buffer");
-	let instance_history = ron::from_str(&buffer).map_err(|source| crate::error::Ron {
-		message: "failed to deserialize instance history from buffer",
-		source: source.into(),
-	})?;
+	let instance_history = ron::from_str(&buffer)
+		.map_err(ron::Error::from)
+		.map_err(Error::msg(
+			"failed to deserialize instance history from buffer",
+		))?;
 	info!("instance history deserialized from buffer");
 
 	Ok(instance_history)
 }
 
-pub async fn write_instance_history(
-	instance_history: &[PathBuf],
-) -> Result<(), crate::error::RonFile> {
+#[instrument(level = "trace")]
+pub async fn write_instance_history(instance_history: &[PathBuf]) -> Result<()> {
 	let history_file_path = crate::cache_dir()
 		.await
-		.map_err(|source| crate::error::Io {
-			message: "failed to create cache directory",
-			source,
-		})?
+		.map_err(Error::msg("failed to create cache directory"))?
 		.join(Instance::HISTORY_CACHE_RON);
 
-	let file = fs::File::create(history_file_path)
-		.await
-		.map_err(|source| crate::error::Io {
-			message: "failed to create instance history file",
-			source,
-		})?;
-	let mut writer = io::BufWriter::new(file);
 	let buffer = ron::ser::to_string_pretty(instance_history, ron::ser::PrettyConfig::default())
-		.map_err(|source| crate::error::Ron {
-			message: "failed to serialize instance history into buffer",
-			source,
-		})?;
-	writer
-		.write_all(buffer.as_bytes())
+		.map_err(Error::msg(
+			"failed to serialize instance history into buffer",
+		))?;
+	let _ = fs::write(history_file_path, buffer)
 		.await
-		.map_err(|source| crate::error::Io {
-			message: "failed to write into instance history file",
-			source,
-		})?;
-	writer.flush().await.map_err(|source| crate::error::Io {
-		message: "failed to flush buffer into instance history file",
-		source,
-	})?;
+		.map_err(Error::msg("failed to write into instance history file"));
 	info!("instance history recorded to file");
 
 	Ok(())
@@ -148,6 +74,7 @@ pub struct Settings {
 /// implements compatibility for this use case and one can be built from any
 /// compatible game directory of Exanima.
 #[derive(Debug, Clone, Builder, Getters, MutGetters)]
+#[builder(derive(Debug))]
 #[builder(start_fn(vis = ""))]
 #[builder(finish_fn(name = build_internal, vis = ""))]
 pub struct Instance {
@@ -248,18 +175,15 @@ impl Instance {
 	/// - `path` doesn't exist
 	/// - **Exanima.exe** does not exist within the directory `path` points to
 	/// - another process locked the instance and is currently using it
-	pub fn with_path(path: impl Into<PathBuf>) -> Result<InstanceBuilder, error::Builder> {
+	#[instrument(level = "trace")]
+	pub fn with_path<P: Into<PathBuf> + fmt::Debug>(path: P) -> Result<InstanceBuilder> {
 		let path: PathBuf = path.into();
-		let path = path.canonicalize().map_err(|source| crate::error::Io {
-			message: "failed to find path for instance",
-			source,
-		})?;
+		let path = path
+			.canonicalize()
+			.map_err(Error::msg("failed to find path for instance"))?;
 		path.join("Exanima.exe")
 			.canonicalize()
-			.map_err(|source| crate::error::Io {
-				message: "failed to find game executable file",
-				source,
-			})?;
+			.map_err(Error::msg("failed to find game executable file"))?;
 
 		Ok(Self::builder(path))
 	}
@@ -295,54 +219,26 @@ impl Instance {
 	/// Errors may be returned according to:
 	///
 	/// - `ron::ser::to_string`
-	/// - `Instance::create_cache_dir`
-	/// - `tokio::fs::File::open`
-	/// - `tokio::fs::File::create`
-	/// - `tokio::io::BufWriter::write_all`
-	/// - `tokio::io::BufWriter::flush`
-	pub async fn set_profile(
-		&mut self,
-		profile: Profile,
-	) -> Result<&mut Self, crate::error::RonFile> {
+	/// - `Instance::cache_dir`
+	/// - `tokio::fs::write`
+	#[instrument(level = "trace")]
+	pub async fn set_profile(&mut self, profile: Profile) -> Result<&mut Self> {
 		self.profile = profile;
 
-		let buffer =
-			ron::ser::to_string(self.profile.path()).map_err(|source| crate::error::Ron {
-				message: "failed to serialize path to profile into buffer",
-				source,
-			})?;
+		let buffer = ron::ser::to_string(self.profile.path()).map_err(Error::msg(
+			"failed to serialize path to profile into buffer",
+		))?;
+		info!("profile path serialized into buffer");
 
 		let file_path = self
 			.cache_dir()
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create cache directory",
-				source,
-			})?
+			.map_err(Error::msg("failed to create cache directory"))?
 			.join(Self::RECENT_PROFILE_RON);
 
-		let file = match fs::File::create(&file_path).await {
-			Ok(file) => file,
-			Err(source) => {
-				return Err(crate::error::Io {
-					message: "failed to create cache file for profile path",
-					source,
-				})?
-			}
-		};
-
-		let mut writer = io::BufWriter::new(file);
-		writer
-			.write_all(buffer.as_bytes())
-			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to write buffer containing profile path into cache file",
-				source,
-			})?;
-		writer.flush().await.map_err(|source| crate::error::Io {
-			message: "failed to flush buffer containing profile path into cache file",
-			source,
-		})?;
+		fs::write(file_path, buffer).await.map_err(Error::msg(
+			"failed to write buffer containing profile path into cache file",
+		))?;
 		info!("profile path cached to file");
 
 		Ok(self)
@@ -357,56 +253,41 @@ impl Instance {
 	///
 	/// Errors may be returned according to:
 	///
-	/// - `Instance::data_dir`
-	/// - `tokio::fs::File::create`
 	/// - `toml::to_string`
-	/// - `tokio::io::BufWriter::write_all`
-	/// - `tokio::io::BufWriter::flush`
-	pub async fn set_settings(&mut self, settings: Settings) -> Result<&mut Self, error::Settings> {
-		let file = fs::File::create(
+	/// - `Instance::data_dir`
+	/// - `tokio::fs::write`
+	#[instrument(level = "trace")]
+	pub async fn set_settings(&mut self, settings: Settings) -> Result<&mut Self> {
+		let buffer = toml::to_string(&settings)
+			.map_err(TomlError::from)
+			.map_err(Error::msg(
+				"failed to serialize instance settings into buffer",
+			))?;
+		info!("instance settings serialized to buffer");
+		fs::write(
 			self.data_dir()
 				.await
-				.map_err(|source| crate::error::Io {
-					message: "could not find instance data directory",
-					source,
-				})?
-				.join(Self::TOML),
+				.map_err(Error::msg("could not find instance data directory"))?,
+			buffer,
 		)
 		.await
-		.map_err(|source| crate::error::Io {
-			message: "failed to create instance settings file",
-			source,
-		})?;
-		info!("instance settings file created");
-		let buffer = toml::to_string(&settings).map_err(|source| crate::error::TomlSerialize {
-			message: "failed to serialize instance settings into buffer",
-			source,
-		})?;
-		info!("instance settings serialized to buffer");
-		let mut writer = io::BufWriter::new(file);
-		writer
-			.write_all(buffer.as_bytes())
-			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to write instance settings buffer into file",
-				source,
-			})?;
-		writer.flush().await.map_err(|source| crate::error::Io {
-			message: "failed to flush instance settings buffer into file",
-			source,
-		})?;
+		.map_err(Error::msg(
+			"failed to write instance settings buffer into file",
+		))?;
 		info!("finished writing instance settings to file");
 
 		self.settings = settings;
 		Ok(self)
 	}
 
+	#[instrument(level = "trace")]
 	pub async fn data_dir(&self) -> io::Result<PathBuf> {
 		let dir = self.path.join(Self::DATA_DIR);
 		crate::ensure_dir(&dir).await?;
 		Ok(dir)
 	}
 
+	#[instrument(level = "trace")]
 	pub async fn mods_dir(&self) -> io::Result<PathBuf> {
 		let dir = self.path.join(Self::MODS_DIR);
 		crate::ensure_dir(&dir).await?;
@@ -417,18 +298,21 @@ impl Instance {
 	///
 	/// To get a list of paths of all profiles for the current instance, see
 	/// [`Instance::profile_dirs`].
+	#[instrument(level = "trace")]
 	pub async fn profiles_dir(&self) -> io::Result<PathBuf> {
 		let dir = self.data_dir().await?.join(Self::PROFILES_DIR);
 		crate::ensure_dir(&dir).await?;
 		Ok(dir)
 	}
 
+	#[instrument(level = "trace")]
 	pub async fn cache_dir(&self) -> io::Result<PathBuf> {
 		let dir = self.data_dir().await?.join(Self::CACHE_DIR);
 		crate::ensure_dir(&dir).await?;
 		Ok(dir)
 	}
 
+	#[instrument(level = "trace")]
 	pub async fn cache_build_dir(&self) -> io::Result<PathBuf> {
 		let dir = self.cache_dir().await?.join(Self::CACHE_BUILD_DIR);
 		crate::ensure_dir(&dir).await?;
@@ -440,6 +324,7 @@ impl Instance {
 	///
 	/// To get the path to `Instance::PROFILES_DIR`, see
 	/// [`Instance::profiles_dir`].
+	#[instrument(level = "trace")]
 	pub async fn profile_dirs(&self) -> io::Result<Vec<PathBuf>> {
 		let profiles_dir = self.profiles_dir().await?;
 		let mut profile_paths = Vec::new();
@@ -460,12 +345,14 @@ where
 {
 	/// Tells the `InstanceBuilder` to ignore any lock file at the instance path
 	/// thus allowing an `Instance` to be built forcefully.
+	#[instrument(level = "trace")]
 	pub fn force(mut self) -> Self {
 		self.force = true;
 		self
 	}
 
-	pub async fn build(self) -> Result<Instance, error::Build>
+	#[instrument(level = "trace")]
+	pub async fn build(self) -> Result<Instance>
 	where
 		S: instance_builder::IsComplete,
 	{
@@ -496,56 +383,29 @@ where
 		let data_dir = instance
 			.data_dir()
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "could not find instance data directory",
-				source,
-			})?;
+			.map_err(Error::msg("could not find instance data directory"))?;
 
-		let file = fs::File::create(data_dir.join(Instance::LOCK))
-			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create lock file for instance",
-				source,
-			})?;
-		info!("instance's lock file created");
-		let mut writer = io::BufWriter::new(file);
-		writer
-			.write_all(process::id().to_string().as_bytes())
-			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to write process ID to instance's lock file",
-				source,
-			})?;
-		writer.flush().await.map_err(|source| crate::error::Io {
-			message: "failed to flush buffer into instance's lock file",
-			source,
-		})?;
-		info!("process id recorded to instance's lock file");
+		fs::write(
+			data_dir.join(Instance::LOCK),
+			process::id().to_string().as_bytes(),
+		)
+		.await
+		.map_err(Error::msg(
+			"failed to write process ID to instance's lock file",
+		))?;
+		info!("process ID recorded to instance's lock file");
 
 		let settings_path = data_dir.join(Instance::TOML);
 		instance.settings = if settings_path.is_file() {
-			let file = fs::File::open(settings_path)
+			let buffer = fs::read_to_string(settings_path)
 				.await
-				.map_err(|source| crate::error::Io {
-					message: "failed to open instance settings file",
-					source,
-				})?;
-			info!("instance settings file opened");
-			let mut reader = io::BufReader::new(file);
-			let mut buffer = String::new();
-			reader
-				.read_to_string(&mut buffer)
-				.await
-				.map_err(|source| crate::error::Io {
-					message: "failed to read instance settings into buffer",
-					source,
-				})?;
+				.map_err(Error::msg("failed to read instance settings into buffer"))?;
 			info!("instance settings file read into buffer");
-			let settings =
-				toml::from_str(&buffer).map_err(|source| crate::error::TomlDeserialize {
-					message: "failed to deserialize instance settings from buffer",
-					source,
-				})?;
+			let settings = toml::from_str(&buffer)
+				.map_err(TomlError::from)
+				.map_err(Error::msg(
+					"failed to deserialize instance settings from buffer",
+				))?;
 			info!("instance settings deserialized from buffer");
 			settings
 		} else {
@@ -556,77 +416,54 @@ where
 		let cache_dir = instance
 			.cache_dir()
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create cache directory",
-				source,
-			})?;
+			.map_err(Error::msg("failed to create cache directory"))?;
 		let recent_profile_cache_path = cache_dir.join(Instance::RECENT_PROFILE_RON);
 		let profiles_dir = instance
 			.profiles_dir()
 			.await
-			.map_err(|source| crate::error::Io {
-				message: "failed to create profiles directory",
-				source,
-			})?;
+			.map_err(Error::msg("failed to create profiles directory"))?;
 
 		let default_profile_dir = profiles_dir.join(Instance::DEFAULT_PROFILE_DIR);
-		let profile_dir = {
-			// TODO: refactor if else nesting?
-			if let Ok(file) = fs::File::open(&recent_profile_cache_path).await {
-				info!("cache file of profile path opened");
-				let mut reader = io::BufReader::new(file);
-				let mut buffer = String::new();
-
-				if reader.read_to_string(&mut buffer).await.is_ok() {
-					match ron::from_str::<String>(&buffer) {
-						Ok(contents) => {
-							let maybe_valid_path = PathBuf::from(contents);
-							if let Some(parent) = maybe_valid_path.parent()
-								&& parent == profiles_dir
-							{
-								info!("cached profile path is valid");
-								maybe_valid_path
-							} else {
-								warn!("cached profile path is invalid, using default path instead");
-								default_profile_dir.clone()
-							}
+		let default_profile_dir = default_profile_dir.as_path();
+		let profile_dir = fs::read_to_string(recent_profile_cache_path)
+			.await
+			.map(move |buffer| {
+				ron::from_str::<String>(&buffer)
+					.map(move |maybe_path| {
+						let maybe_path = PathBuf::from(maybe_path);
+						if let Some(parent) = maybe_path.parent()
+							&& parent == profiles_dir
+						{
+							maybe_path
+						} else {
+							warn!("cached profile path is invalid, using default path instead");
+							default_profile_dir.to_path_buf()
 						}
-						Err(_) => {
-							warn!("failed to deserialize cached profile path from buffer, using default path instead");
-							default_profile_dir.clone()
-						}
-					}
-				} else {
-					warn!("failed to read cached profile path into buffer, using default path instead");
-					default_profile_dir.clone()
-				}
-			} else {
-				warn!("failed to open cache file for profile path, using default path instead");
-				default_profile_dir.clone()
-			}
-		};
+					})
+					.map_err(ron::Error::from)
+					.map_err(Error::msg(
+						"failed to deserialize cached profile path from buffer, using default path instead",
+					))
+					.map_err(|e| warn!("{e}"))
+					.unwrap_or(default_profile_dir.to_path_buf())
+			})
+			.map_err(Error::msg(
+				"failed to read cached profile path into buffer, using default path instead",
+			))
+			.map_err(|e| warn!("{e}"))
+			.unwrap_or(default_profile_dir.to_path_buf());
 
-		if let Err(e) = instance
+		let _ = instance
 			.set_profile(Profile::with_path(&profile_dir).await?.build().await?)
 			.await
-		{
-			error!("{}", e);
-		};
+			.map_err(|e| error!("{e}"));
 
 		// attempt to record this instance to a history file
 		{
-			let Ok(instance_history) = history().await.or_else(|e| match e {
-				crate::error::RonFile::Ron(e) => {
-					warn!(e.message);
-					Ok(InstanceHistory::new())
-				}
-				crate::error::RonFile::Io(e) => {
-					warn!(e.message);
-					Err(e.source)
-				}
-			}) else {
-				return Ok(instance);
-			};
+			let instance_history = history()
+				.await
+				.map_err(|e| warn!("{e}"))
+				.unwrap_or_default();
 			let mut instance_history = if !instance_history.is_empty() {
 				// deduplicate any old paths
 				instance_history
@@ -638,17 +475,9 @@ where
 			};
 			instance_history.push(instance.path.clone());
 
-			if let Err(e) = write_instance_history(&instance_history).await {
-				match e {
-					crate::error::RonFile::Ron(e) => {
-						warn!(e.message);
-					}
-					crate::error::RonFile::Io(e) => {
-						warn!(e.message);
-					}
-				}
-				return Ok(instance);
-			};
+			let _ = write_instance_history(&instance_history)
+				.await
+				.map_err(|e| warn!("{e}"));
 		}
 
 		Ok(instance)
@@ -657,9 +486,9 @@ where
 
 #[cfg(test)]
 mod tests {
-	use tempfile::{tempdir, NamedTempFile, TempDir};
+	use tempfile::{NamedTempFile, TempDir, tempdir};
 
-	use crate::prelude::*;
+	use crate::{Error, ErrorKind, prelude::*};
 
 	/// Prevent `instance::Builder::Io` error when calling `Instance::with_path()`
 	fn dummy_exanima_exe(tempdir: &TempDir) -> NamedTempFile {
@@ -685,11 +514,13 @@ mod tests {
 		let data_dir = instance.path.join(Instance::DATA_DIR);
 		let cache_dir = data_dir.join(Instance::CACHE_DIR);
 
-		assert!(crate::cache_dir()
-			.await
-			.unwrap()
-			.join(Instance::HISTORY_CACHE_RON)
-			.is_file());
+		assert!(
+			crate::cache_dir()
+				.await
+				.unwrap()
+				.join(Instance::HISTORY_CACHE_RON)
+				.is_file()
+		);
 		assert!(data_dir.is_dir());
 		assert!(instance.path.join(Instance::MODS_DIR).is_dir());
 		assert!(cache_dir.is_dir());
@@ -697,11 +528,13 @@ mod tests {
 		assert!(cache_dir.join(Instance::RECENT_PROFILE_RON).is_file());
 		assert!(data_dir.join(Instance::PROFILES_DIR).is_dir());
 		assert!(instance.profile.path().is_dir());
-		assert!(instance
-			.profile
-			.path()
-			.join(Profile::LOAD_ORDER_TOML)
-			.is_file());
+		assert!(
+			instance
+				.profile
+				.path()
+				.join(Profile::LOAD_ORDER_TOML)
+				.is_file()
+		);
 	}
 
 	#[test]
@@ -710,17 +543,17 @@ mod tests {
 
 		assert!(matches!(
 			Instance::with_path("").err().unwrap(),
-			instance::error::Builder::Io(crate::error::Io {
+			Error {
+				kind: ErrorKind::Io { .. },
 				message: _,
-				source: _
-			})
+			},
 		));
 		assert!(matches!(
 			Instance::with_path(cwd.path()).err().unwrap(),
-			instance::error::Builder::Io(crate::error::Io {
+			Error {
+				kind: ErrorKind::Io { .. },
 				message: _,
-				source: _
-			})
+			}
 		));
 	}
 
