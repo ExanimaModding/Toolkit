@@ -1,43 +1,48 @@
 use std::{
 	ffi::{self, CStr},
-	io,
+	fs, io,
 	path::PathBuf,
+	ptr,
 };
 
-use emcore::plugin::Manifest;
+use emcore::plugin::{self, Manifest};
 use mlua::Table;
+use tracing::{error, instrument, trace, warn};
 
 use crate::internal::runtime;
 
+#[instrument(level = "trace")]
 #[unsafe(no_mangle)]
-pub extern "C" fn EMF_GetPluginList(mods_dir: *mut ffi::c_char) -> *mut ffi::c_char {
+pub extern "C" fn EmfGetPluginList(mods_dir: *mut ffi::c_char) -> *mut ffi::c_char {
 	if mods_dir.is_null() {
-		return std::ptr::null_mut();
+		return ptr::null_mut();
 	}
 
 	let Ok(mods_dir) = unsafe { CStr::from_ptr(mods_dir) }.to_str() else {
-		return std::ptr::null_mut();
+		return ptr::null_mut();
 	};
 
 	let mods_dir = PathBuf::from(mods_dir);
 
 	let Ok(plugins) = locate_plugins(mods_dir) else {
-		return std::ptr::null_mut();
+		return ptr::null_mut();
 	};
 
 	let Ok(response) = ron::to_string(&plugins) else {
-		return std::ptr::null_mut();
+		return ptr::null_mut();
 	};
 
 	let Ok(response) = ffi::CString::new(response) else {
-		return std::ptr::null_mut();
+		return ptr::null_mut();
 	};
 
 	response.into_raw()
 }
 
-pub fn locate_plugins(mods_dir: PathBuf) -> Result<Vec<Manifest>, io::Error> {
-	if !mods_dir.exists() {
+#[instrument(level = "trace")]
+pub fn locate_plugins(mods_dir: PathBuf) -> Result<Vec<(plugin::Id, Manifest)>, io::Error> {
+	trace!("{:#?}", &mods_dir);
+	if !mods_dir.is_dir() {
 		return Err(io::Error::new(
 			io::ErrorKind::NotFound,
 			"mods directory does not exist",
@@ -45,40 +50,57 @@ pub fn locate_plugins(mods_dir: PathBuf) -> Result<Vec<Manifest>, io::Error> {
 	}
 
 	let mut plugins = Vec::new();
-
-	for entry in std::fs::read_dir(mods_dir).unwrap() {
-		let entry = entry.unwrap();
-		if entry.file_type().unwrap().is_dir() {
+	for entry in fs::read_dir(mods_dir)?.flatten() {
+		trace!("{:#?}", &entry);
+		if let Ok(file_type) = entry.file_type()
+			&& file_type.is_dir()
+		{
 			let config_path = entry.path().join("plugin.lua");
 			if config_path.exists() {
-				let plugin_id = entry.file_name();
-				let Some(plugin_id) = plugin_id.to_str() else {
-					continue;
-				};
-
-				let Ok(plugin_str) = std::fs::read_to_string(config_path) else {
+				let entry_name = entry.file_name().display().to_string();
+				let Ok(plugin_id) = plugin::Id::try_from(entry_name).map_err(|e| warn!("{}", e))
+				else {
 					continue;
 				};
 
 				// Run this in it's own lua runtime to prevent any conflicts with other plugins.
 				let lua = mlua::Lua::new();
 
-				let Ok(exports): Result<Table, _> = lua.load(&plugin_str).eval() else {
+				let Ok(buffer) = fs::read_to_string(config_path).map_err(|_| {
+					error!("failed to read into buffer for lua file at {}", plugin_id)
+				}) else {
+					continue;
+				};
+				let Ok(exports): Result<Table, _> = lua.load(&buffer).eval().map_err(|_| {
+					error!(
+						"failed to evaluate buffer as lua source code at {}",
+						plugin_id
+					)
+				}) else {
 					continue;
 				};
 
-				let Ok(manifest) = exports.get::<Table>("manifest") else {
+				let Ok(manifest) = exports.get::<Table>("manifest").map_err(|_| {
+					error!(
+						"failed to get manifest from lua source code at {}",
+						plugin_id
+					)
+				}) else {
 					continue;
 				};
 
-				let Ok(manifest) = runtime::registry::parse_manifest(plugin_id, manifest) else {
+				let Ok(manifest) =
+					runtime::registry::parse_manifest(&plugin_id.to_string(), manifest)
+						.map_err(|e| error!("{}", e))
+				else {
 					continue;
 				};
 
-				plugins.push(manifest);
+				plugins.push((plugin_id, manifest));
 			}
 		}
 	}
+	trace!("{:#?}", &plugins);
 
 	Ok(plugins)
 }

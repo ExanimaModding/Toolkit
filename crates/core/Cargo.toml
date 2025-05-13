@@ -12,6 +12,7 @@ license.workspace = true
 name = "emcore"
 
 [dependencies]
+anyhow.workspace = true
 bon = "3.3"
 dirs = "6.0"
 getset = "0.1"

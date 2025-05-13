@@ -203,8 +203,8 @@ unsafe extern "C" fn main() {
 
 		// Then go through and call onstart() on every plugin
 		for (id, _) in load_order.iter() {
-			let Ok(_) = runtime::registry::PluginRegistry::start(&id.to_string()) else {
-				error!("Failed to start plugin: {}", id);
+			let Ok(_) = runtime::registry::PluginRegistry::start(id).map_err(|e| error!("{}", e))
+			else {
 				continue;
 			};
 		}

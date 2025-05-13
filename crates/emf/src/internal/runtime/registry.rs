@@ -4,34 +4,21 @@ use std::{
 	sync::{Arc, LazyLock, Mutex, OnceLock},
 };
 
-use emcore::plugin::Manifest;
+use emcore::{Error, Result, plugin};
 use mlua::{Function, Lua, Table, Value, Variadic};
+use tracing::instrument;
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-	#[error("Invalid plugin ID '{0}'")]
-	InvalidId(String),
-	#[error("No plugin.lua for plugin '{0}'")]
-	NoPluginLuaFile(String),
-	#[error("{0}")]
-	PluginCrashed(#[from] mlua::Error),
-	#[error("Plugin '{0}' had no returned table")]
-	NoTableReturned(String),
-	#[error("Failed to get manifest from plugin")]
-	Manifest,
-	#[error("Missing key '{0}' in manifest for plugin '{1}")]
-	MissingManifestKey(String, String),
-}
+use crate::runtime;
 
 #[derive(Debug, Clone)]
 pub struct PluginRegistry {
-	plugins: HashMap<String, Plugin>,
+	plugins: HashMap<plugin::Id, Plugin>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Plugin {
 	#[allow(unused)]
-	manifest: Manifest,
+	manifest: plugin::Manifest,
 	onstart: Option<Function>,
 	/// TODO: Implement this
 	onstop: Option<Function>,
@@ -39,82 +26,107 @@ pub struct Plugin {
 }
 
 impl PluginRegistry {
-	fn register_plugin(&mut self, name: String, plugin: Plugin) {
-		self.plugins.insert(name, plugin);
+	#[instrument(level = "trace")]
+	fn register_plugin(&mut self, id: plugin::Id, plugin: Plugin) {
+		self.plugins.insert(id, plugin);
 	}
 
-	pub fn get_plugin(&self, name: &str) -> Option<Plugin> {
-		self.plugins.get(name).cloned()
-	}
-
-	pub fn start(id: &str) -> Result<(), Error> {
+	#[instrument(level = "trace")]
+	pub fn start(id: &plugin::Id) -> Result<()> {
 		let plugin = REGISTRY
 			.lock()
 			.unwrap()
-			.get_plugin(id)
-			.ok_or(Error::InvalidId(id.to_string()))?;
+			.plugins
+			.get(id)
+			.cloned()
+			.ok_or(runtime::Error::UnregisteredId(id.to_string()))
+			.map_err(Error::msg("failed to get plugin from registry"))?;
 		if let Some(onstart) = &plugin.onstart {
-			onstart.call::<()>(())?;
+			onstart
+				.call::<()>(())
+				.map_err(runtime::Error::from)
+				.map_err(Error::msg("failed to call lua plugin's onstart function"))?;
 		}
 		Ok(())
 	}
 
-	pub fn stop(id: &str) -> Result<(), Error> {
+	#[instrument(level = "trace")]
+	pub fn stop(id: &plugin::Id) -> Result<()> {
 		let plugin = REGISTRY
 			.lock()
 			.unwrap()
-			.get_plugin(id)
-			.ok_or(Error::InvalidId(id.to_string()))?;
+			.plugins
+			.get(id)
+			.cloned()
+			.ok_or(runtime::Error::UnregisteredId(id.to_string()))
+			.map_err(Error::msg("failed to get plugin from registry"))?;
 		if let Some(onstop) = &plugin.onstop {
-			onstop.call::<()>(())?;
+			onstop
+				.call::<()>(())
+				.map_err(runtime::Error::from)
+				.map_err(Error::msg("failed to call lua plugin's onstop function"))?;
 		}
 		Ok(())
 	}
 
-	pub fn load_plugin(plugin_name: &str) -> Result<(), Error> {
+	#[instrument(level = "trace")]
+	pub fn load_plugin(plugin_name: &str) -> Result<()> {
+		let id = plugin::Id::try_from(plugin_name)
+			.map_err(Error::msg("failed to get id while loading plugin"))?;
 		let lua = &*LUA;
 
 		// TODO: Improve this
-		let cwd = env::current_exe().expect("Failed to get current executable");
-		let cwd = cwd.parent().expect("Failed to get current directory");
+		let cwd =
+			env::current_exe().map_err(Error::msg("failed to get current executable path"))?;
+		let cwd = cwd
+			.parent()
+			.expect("failed to get current working directory");
 
-		let plugin_str = fs::read_to_string(cwd.join(format!("mods/{}/plugin.lua", plugin_name)))
-			.map_err(|_| Error::NoPluginLuaFile(plugin_name.to_string()))?;
+		let buffer = fs::read_to_string(cwd.join(format!("mods/{}/plugin.lua", plugin_name)))
+			.map_err(Error::msg("failed to read into buffer for lua file"))?;
 
-		let environment = lua.create_table().expect("Failed to create lua table");
+		let environment = lua
+			.create_table()
+			.map_err(runtime::Error::from)
+			.map_err(Error::msg("failed to create lua table"))?;
 
 		for global in lua.globals().pairs::<String, Value>() {
 			if let Ok((key, value)) = global {
 				environment
 					.set(key, value)
-					.expect("Failed to set global in lua table");
+					.map_err(runtime::Error::from)
+					.map_err(Error::msg("failed to set global in lua table"))?;
 			}
 		}
 
 		let response: Option<Table> = lua
-			.load(&plugin_str)
+			.load(&buffer)
 			.set_environment(environment.clone())
 			.eval()
-			.map_err(Error::PluginCrashed)?;
+			.map_err(runtime::Error::from)
+			.map_err(Error::msg("failed to evaluate buffer as lua source code"))?;
 
-		let Some(response) = response else {
-			return Err(Error::NoTableReturned(plugin_name.to_string()));
-		};
+		let response = response
+			.ok_or(runtime::Error::NoTableReturned(plugin_name.to_string()))
+			.map_err(Error::msg("failed to get lua table"))?;
 
 		let manifest = {
 			let table = response
 				.get::<Table>("manifest")
-				.map_err(|_| Error::Manifest)?;
+				.map_err(runtime::Error::from)
+				.map_err(Error::msg("failed to get manifest from plugin"))?;
 
-			parse_manifest(plugin_name, table)?
+			parse_manifest(plugin_name, table).map_err(Error::msg("failed to parse manifest"))?
 		};
 
-		let exports: Option<Table> = response.get("exports").ok();
-
+		let exports = response.get("exports").ok();
 		let onstart = response.get("onstart").ok();
 		let onstop = response.get("onstop").ok();
 
-		environment.set("_G", environment.clone())?;
+		environment
+			.set("_G", environment.clone())
+			.map_err(runtime::Error::from)
+			.map_err(Error::msg("failed to set lua environment variable"))?;
 
 		let plugin = Plugin {
 			manifest,
@@ -123,10 +135,7 @@ impl PluginRegistry {
 			onstop,
 		};
 
-		REGISTRY
-			.lock()
-			.unwrap()
-			.register_plugin(plugin_name.to_string(), plugin);
+		REGISTRY.lock().unwrap().register_plugin(id, plugin);
 
 		Ok(())
 	}
@@ -159,8 +168,9 @@ fn lua_hook_require(lua: &Lua) {
 			lua.create_function(|_, name: String| {
 				if name.starts_with("plugin:") {
 					let name = name.strip_prefix("plugin:").unwrap();
+					let id = plugin::Id::try_from(name).unwrap();
 
-					if let Some(plugin) = REGISTRY.lock().unwrap().get_plugin(name) {
+					if let Some(plugin) = REGISTRY.lock().unwrap().plugins.get(&id).cloned() {
 						if let Some(exports) = plugin.exports {
 							Ok(Value::Table(exports))
 						} else {
@@ -231,11 +241,14 @@ fn lua_hook_print(lua: &Lua) {
 		.expect("FATAL ERROR: Failed to set Lua io.write function.");
 }
 
-pub fn parse_manifest(plugin_name: &str, table: Table) -> Result<Manifest, Error> {
+pub fn parse_manifest(
+	plugin_name: &str,
+	table: Table,
+) -> std::result::Result<plugin::Manifest, runtime::Error> {
 	macro_rules! manifest_key {
 		($manifest:ident, $name:ident, $type:ty) => {{
 			let Ok($name) = $manifest.get::<$type>(stringify!($name)) else {
-				return Err(Error::MissingManifestKey(
+				return Err(runtime::Error::MissingManifestKey(
 					stringify!($name).to_string(),
 					plugin_name.to_string(),
 				));
@@ -244,9 +257,6 @@ pub fn parse_manifest(plugin_name: &str, table: Table) -> Result<Manifest, Error
 		}};
 	}
 
-	let Ok(id) = emcore::plugin::Id::try_from(plugin_name) else {
-		return Err(Error::InvalidId(plugin_name.to_string()));
-	};
 	let name = manifest_key!(table, name, String);
 	let version = manifest_key!(table, version, String);
 	let author = manifest_key!(table, author, String);
@@ -256,8 +266,8 @@ pub fn parse_manifest(plugin_name: &str, table: Table) -> Result<Manifest, Error
 	let dependencies = dependencies
 		.unwrap_or_default()
 		.into_iter()
-		.map(emcore::plugin::Id::try_from)
-		.collect::<Result<Vec<_>, _>>()
+		.map(plugin::Id::try_from)
+		.collect::<std::result::Result<Vec<_>, _>>()
 		.unwrap();
 
 	let conflicts = table.get::<Option<Vec<String>>>("conflicts").unwrap();
@@ -265,12 +275,11 @@ pub fn parse_manifest(plugin_name: &str, table: Table) -> Result<Manifest, Error
 	let conflicts = conflicts
 		.unwrap_or_default()
 		.into_iter()
-		.map(emcore::plugin::Id::try_from)
-		.collect::<Result<Vec<_>, _>>()
+		.map(plugin::Id::try_from)
+		.collect::<std::result::Result<Vec<_>, _>>()
 		.unwrap();
 
-	Ok(Manifest {
-		id,
+	Ok(plugin::Manifest {
 		name,
 		version,
 		author,

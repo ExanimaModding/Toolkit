@@ -15,6 +15,7 @@ use std::{
 	borrow::Cow,
 	ffi, fmt,
 	path::{Path, PathBuf},
+	str,
 	time::SystemTimeError,
 };
 
@@ -31,6 +32,30 @@ pub mod prelude {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
+/// Errors related to the core crate.
+#[derive(Debug, thiserror::Error)]
+#[error("{source}")]
+pub enum CoreError {
+	Plugin {
+		#[from]
+		source: plugin::Error,
+		backtrace: Backtrace,
+	},
+}
+
+/// Errors related to serializing and deserializing from/to files.
+#[derive(Debug, thiserror::Error)]
+#[error("{source}")]
+pub enum SerdeError {
+	Ron {
+		#[from]
+		source: ron::Error,
+		backtrace: Backtrace,
+	},
+	#[error(transparent)]
+	Toml(#[from] TomlError),
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("{source}")]
 pub enum TomlError {
@@ -42,6 +67,32 @@ pub enum TomlError {
 	Serialize {
 		#[from]
 		source: toml::ser::Error,
+		backtrace: Backtrace,
+	},
+}
+
+/// Errors related to the rust's standard library.
+#[derive(Debug, thiserror::Error)]
+#[error("{source}")]
+pub enum StdError {
+	Io {
+		#[from]
+		source: std::io::Error,
+		backtrace: Backtrace,
+	},
+	Nul {
+		#[from]
+		source: ffi::NulError,
+		backtrace: Backtrace,
+	},
+	Time {
+		#[from]
+		source: SystemTimeError,
+		backtrace: Backtrace,
+	},
+	Utf8 {
+		#[from]
+		source: str::Utf8Error,
 		backtrace: Backtrace,
 	},
 }
@@ -76,31 +127,79 @@ impl Error {
 	}
 }
 
+/// The source of truth of the types of errors that are involved in the core
+/// crate.
 #[derive(Debug, thiserror::Error)]
 #[error("{source}")]
 pub enum ErrorKind {
-	Io {
-		#[from]
-		source: io::Error,
-		backtrace: Backtrace,
-	},
-	Nul {
-		#[from]
-		source: ffi::NulError,
-		backtrace: Backtrace,
-	},
-	Ron {
-		#[from]
-		source: ron::Error,
-		backtrace: Backtrace,
-	},
-	Time {
-		#[from]
-		source: SystemTimeError,
-		backtrace: Backtrace,
-	},
+	/// Errors related to the core crate. If the error comes from a third party
+	/// crate, a new enum variant should be created in [`ErrorKind`].
 	#[error(transparent)]
-	Toml(#[from] TomlError),
+	Core(#[from] CoreError),
+	/// Errors related to serializing and deserializing from/to files.
+	#[error(transparent)]
+	Serde(#[from] SerdeError),
+	/// Errors related to the rust's standard library.
+	#[error(transparent)]
+	Std(#[from] StdError),
+	/// Convenient public interface for application code. The core crate shouldn't
+	/// use this and instead should create a new enum variant in [`CoreError`].
+	#[error(transparent)]
+	Other(#[from] anyhow::Error),
+}
+
+impl From<plugin::Error> for ErrorKind {
+	fn from(value: plugin::Error) -> Self {
+		ErrorKind::Core(CoreError::from(value))
+	}
+}
+
+impl From<ron::Error> for ErrorKind {
+	fn from(value: ron::Error) -> Self {
+		ErrorKind::Serde(SerdeError::from(value))
+	}
+}
+
+impl From<ron::de::SpannedError> for ErrorKind {
+	fn from(value: ron::de::SpannedError) -> Self {
+		ErrorKind::Serde(SerdeError::from(ron::Error::from(value)))
+	}
+}
+
+impl From<toml::de::Error> for ErrorKind {
+	fn from(value: toml::de::Error) -> Self {
+		ErrorKind::Serde(SerdeError::Toml(TomlError::from(value)))
+	}
+}
+
+impl From<toml::ser::Error> for ErrorKind {
+	fn from(value: toml::ser::Error) -> Self {
+		ErrorKind::Serde(SerdeError::Toml(TomlError::from(value)))
+	}
+}
+
+impl From<std::io::Error> for ErrorKind {
+	fn from(value: std::io::Error) -> Self {
+		ErrorKind::Std(StdError::from(value))
+	}
+}
+
+impl From<ffi::NulError> for ErrorKind {
+	fn from(value: ffi::NulError) -> Self {
+		ErrorKind::Std(StdError::from(value))
+	}
+}
+
+impl From<SystemTimeError> for ErrorKind {
+	fn from(value: SystemTimeError) -> Self {
+		ErrorKind::Std(StdError::from(value))
+	}
+}
+
+impl From<str::Utf8Error> for ErrorKind {
+	fn from(value: str::Utf8Error) -> Self {
+		ErrorKind::Std(StdError::from(value))
+	}
 }
 
 /// The name of the directory responsible for storing the application's data

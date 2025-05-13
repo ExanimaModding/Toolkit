@@ -9,9 +9,9 @@ use bon::Builder;
 use getset::Getters;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
-use tracing::{info, instrument, warn};
+use tracing::{info, instrument, trace, warn};
 
-use crate::{Error, Result, TomlError, prelude::*};
+use crate::{Error, Result, prelude::*};
 
 pub mod prelude {
 	pub use crate::profile::{self, Profile};
@@ -21,8 +21,10 @@ pub mod prelude {
 pub struct LoadOrderEntry {
 	pub enabled: bool,
 	pub priority: u32,
-	pub display_name: String,
-	pub version: String,
+	#[serde(skip)]
+	pub display_name: Option<String>,
+	#[serde(skip)]
+	pub version: Option<String>,
 }
 
 impl LoadOrderEntry {
@@ -124,11 +126,9 @@ impl Profile {
 	/// - `tokio::fs::write`
 	#[instrument(level = "trace")]
 	pub async fn set_load_order(&mut self, load_order: LoadOrder) -> Result<&mut Self> {
-		let buffer = toml::to_string(&load_order)
-			.map_err(TomlError::from)
-			.map_err(Error::msg(
-				"failed to serialize profile's load order into buffer",
-			))?;
+		let buffer = toml::to_string(&load_order).map_err(Error::msg(
+			"failed to serialize profile's load order into buffer",
+		))?;
 		info!("profile's load order serialized to buffer");
 		fs::write(self.path.join(Self::LOAD_ORDER_TOML), buffer)
 			.await
@@ -350,7 +350,6 @@ impl Profile {
 		info!("load order read into buffer");
 
 		let mut load_order: Vec<_> = toml::from_str::<LoadOrder>(&buffer)
-			.map_err(TomlError::from)
 			.map_err(Error::msg("failed to deserialize load order"))?
 			.into_iter()
 			.collect();
@@ -395,42 +394,53 @@ where
 				info!("mods directory created");
 			}
 
-			let discovered_mods = plugin::Manifest::discover_mods(&mods_path)
-				.map_err(Error::msg("failed to discover mods"))?;
+			let discovered_mods = plugin::Manifest::discover_mods(&mods_path)?;
+
+			for (plugin_id, manifest) in discovered_mods.iter() {
+				if let Some(entry) = profile.load_order.get_mut(plugin_id) {
+					entry.display_name = Some(manifest.name.clone());
+					entry.version = Some(manifest.version.clone());
+				}
+			}
 
 			info!("finished discovering mods");
 			discovered_mods
 		};
+		trace!("{discovered_mods:#?}");
 
 		let mut load_order_updated = false;
 		if !discovered_mods.is_empty() || !profile.path.join(Profile::LOAD_ORDER_TOML).is_file() {
 			if profile.load_order.is_empty() {
 				let mut new_load_order = HashMap::new();
-				for (i, manifest) in discovered_mods.into_iter().enumerate() {
-					let plugin_entry =
-						LoadOrderEntry::new(false, i as u32, manifest.name, manifest.version);
-					new_load_order.insert(manifest.id, plugin_entry);
+				for (i, (plugin_id, manifest)) in discovered_mods.into_iter().enumerate() {
+					let plugin_entry = LoadOrderEntry::new(
+						false,
+						i as u32,
+						Some(manifest.name),
+						Some(manifest.version),
+					);
+					new_load_order.insert(plugin_id, plugin_entry);
 				}
 				profile.load_order = new_load_order;
 				load_order_updated = true;
 			} else {
-				let new_plugin_ids: Vec<plugin::Manifest> = discovered_mods
+				let new_plugin_ids: Vec<(plugin::Id, plugin::Manifest)> = discovered_mods
 					.into_iter()
-					.filter(|manifest| !profile.load_order.contains_key(&manifest.id))
+					.filter(|(plugin_id, _)| !profile.load_order.contains_key(plugin_id))
 					.collect();
 				if !new_plugin_ids.is_empty() {
 					load_order_updated = true
 				}
 
-				for manifest in new_plugin_ids.into_iter() {
-					let id_str = manifest.id.to_string();
+				for (plugin_id, manifest) in new_plugin_ids.into_iter() {
+					let id_str = plugin_id.to_string();
 					let load_order_entry = LoadOrderEntry::new(
 						false,
 						(profile.load_order.len() + 1) as u32,
-						manifest.name,
-						manifest.version,
+						Some(manifest.name),
+						Some(manifest.version),
 					);
-					profile.load_order.insert(manifest.id, load_order_entry);
+					profile.load_order.insert(plugin_id, load_order_entry);
 					info!(
 						"added newly discovered mod to existing load order \"{}\"",
 						id_str
@@ -441,7 +451,6 @@ where
 
 		if load_order_updated {
 			let buffer = toml::to_string(&profile.load_order)
-				.map_err(TomlError::from)
 				.map_err(Error::msg("failed to serialize load order into buffer"))?;
 			info!("load order serialized to buffer");
 

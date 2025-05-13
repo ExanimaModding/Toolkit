@@ -7,7 +7,7 @@ use iced::{
 	Border, Color, Element, Font, Shadow, Theme, Vector,
 	widget::{
 		Button, Row, Text, Tooltip, button as iced_button, container as iced_container,
-		row as iced_row, scrollable as iced_scrollable, text as iced_text, tooltip as iced_tooltip,
+		row as iced_row, text as iced_text, tooltip as iced_tooltip,
 	},
 };
 

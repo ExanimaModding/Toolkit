@@ -7,7 +7,7 @@ mod widget;
 
 use std::{env, mem, path::PathBuf};
 
-use emcore::{Error, Result, TomlError};
+use emcore::{Error, Result};
 use getset::{Getters, WithSetters};
 use iced::widget::pane_grid;
 use iced::{
@@ -129,7 +129,6 @@ impl Config {
 			.map_err(Error::msg("failed to read into buffer for gui config"))?;
 		info!("gui config file read into buffer");
 		let gui_config = toml::from_str(&buffer)
-			.map_err(TomlError::from)
 			.map_err(Error::msg("failed to deserialize gui config from buffer"))?;
 		info!("gui config deserialized from buffer");
 
@@ -158,7 +157,6 @@ impl Config {
 			))
 			.map_err(Error::msg("failed to find app data directory"))?;
 		let buffer = toml::to_string(&self)
-			.map_err(TomlError::from)
 			.map_err(Error::msg("failed to serialize gui config into buffer"))?;
 		info!("gui config serialized to buffer");
 		fs::write(toml_path, buffer)

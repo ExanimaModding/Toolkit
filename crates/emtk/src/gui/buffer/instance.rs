@@ -87,7 +87,12 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
 								line_height: text::LineHeight::Relative(1.),
 								shaping: text::Shaping::Basic,
 							}),
-						text(row.plugin.display_name.clone())
+						text(
+							row.plugin
+								.display_name
+								.clone()
+								.unwrap_or(row.plugin_id.to_string())
+						)
 					],
 					text(row.plugin_id.to_string()),
 					tooltip::Position::Top,
@@ -95,7 +100,9 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
 
 				content.into()
 			}
-			ColumnKind::Version => text(row.plugin.version.clone()).into(),
+			ColumnKind::Version => {
+				text(row.plugin.version.clone().unwrap_or("? ? ?".to_string())).into()
+			}
 			ColumnKind::Priority => text(row.plugin.priority).into(),
 		};
 
@@ -365,7 +372,14 @@ impl Instance {
 				{
 					row.plugin.enabled = enabled;
 					plugin.enabled = enabled;
-					info!("{} set to {}", plugin.display_name.clone(), plugin.enabled)
+					info!(
+						"{} set to {}",
+						plugin
+							.display_name
+							.clone()
+							.unwrap_or(row.plugin_id.to_string()),
+						plugin.enabled
+					)
 				} else {
 					error!(
 						"failed to toggle entry #{} to {}, doing nothing",

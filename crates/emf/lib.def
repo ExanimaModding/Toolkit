@@ -1,7 +1,7 @@
 LIBRARY
 EXPORTS
 	DetourFinishHelperProcess @1
-	EMF_GetPluginList @3
+	EmfGetPluginList @3
 ;
 ;	scan_memory @2
 ;	read_bytes @3

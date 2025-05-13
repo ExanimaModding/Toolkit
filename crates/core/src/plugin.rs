@@ -11,27 +11,22 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 
-use super::Instance;
+use super::{Instance, Result};
 
 pub mod prelude {
 	pub use crate::plugin::{self, Plugin};
 }
 
-#[derive(PartialEq, Eq, Hash, Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
-	/// Contains the Id that caused the error
-	#[error("id, {0}, must be in reverse domain name notation")]
+	#[error("{0} is not valid reverse domain name notation")]
 	InvalidId(String),
-	#[error("failed to decode manifest property '{0}'")]
-	DecodeError(String),
-	#[error("DLL {0} not found")]
+	#[error("Dll {0} not found")]
 	DllNotFound(String),
-	#[error("DLL {0} does not export {1}")]
+	#[error("Dll {0} does not export {1}")]
 	DllExportNotFound(String, String),
 	#[error("failed to get plugin list")]
 	PluginListError,
-	#[error("invalid pathbuf provided")]
-	InvalidPathBuf,
 }
 
 /// An ID represented in [reverse domain name notation] and should be stored
@@ -51,13 +46,10 @@ pub enum Error {
 ///
 /// let my_plugin_id = match plugin::Id::try_from("com.example.my-mod") {
 ///     Ok(id) => id,
-///     Err(e) => match e {
-///         plugin::Error::InvalidId(_invalid_id) => {
-///             // handle invalid id here
-///             // _invalid_id would be "com.example.my-mod" in this case
-///             return;
-///         },
-///         _ => return,
+///     Err(_invalid_id) => {
+///         // handle invalid id here
+///         // _invalid_id would be "com.example.my-mod" in this case
+///         return;
 ///     },
 /// };
 /// ```
@@ -121,7 +113,7 @@ impl TryFrom<&str> for Id {
 	type Error = Error;
 
 	#[instrument(level = "trace")]
-	fn try_from(value: &str) -> Result<Self, Self::Error> {
+	fn try_from(value: &str) -> std::result::Result<Self, Error> {
 		if !Id::is_valid(value) {
 			return Err(Error::InvalidId(value.into()));
 		}
@@ -133,7 +125,7 @@ impl TryFrom<&str> for Id {
 impl TryFrom<String> for Id {
 	type Error = Error;
 
-	fn try_from(value: String) -> Result<Self, Self::Error> {
+	fn try_from(value: String) -> std::result::Result<Self, Error> {
 		Self::try_from(value.as_str())
 	}
 }
@@ -171,8 +163,10 @@ pub struct Conflicts {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Manifest {
-	pub id: Id,
+	/// The display name of the plugin
 	pub name: String,
+	/// The version of the plugin. Semantic versioning will be best practice in the
+	/// format major, minor, patch, a.k.a. 0.1.0
 	pub version: String,
 	pub author: String,
 	pub dependencies: Vec<Id>,
@@ -180,11 +174,13 @@ pub struct Manifest {
 }
 
 #[allow(non_camel_case_types)]
-type EMF_GetPluginList = unsafe extern "C" fn(mods_dir: *const ffi::c_char) -> *mut ffi::c_char;
+type EmfGetPLuginList = unsafe extern "C" fn(mods_dir: *const ffi::c_char) -> *mut ffi::c_char;
 
 impl Manifest {
-	pub fn discover_mods(mods_dir: &PathBuf) -> Result<Vec<Manifest>, Error> {
-		static GET_PLUGIN_LIST: OnceLock<Result<EMF_GetPluginList, Error>> = OnceLock::new();
+	// PERF: emf being loaded into memory may be slowing initialization
+	#[instrument(level = "trace")]
+	pub fn discover_mods(mods_dir: &PathBuf) -> Result<Vec<(Id, Manifest)>> {
+		static GET_PLUGIN_LIST: OnceLock<Result<EmfGetPLuginList>> = OnceLock::new();
 
 		GET_PLUGIN_LIST.get_or_init(|| {
 			// We set this so that the DllMain doesn't try to hook when running from EMTK.
@@ -199,54 +195,57 @@ impl Manifest {
 			unsafe { env::remove_var("RUST_LIBLOADING") };
 
 			if h_module.is_null() {
-				return Err(Error::DllNotFound("emf.dll".to_string()));
+				return Err(crate::Error::new(
+					Error::DllNotFound("emf.dll".to_string()),
+					"failed to get Dll",
+				));
 			}
 
 			let get_plugin_list =
-				unsafe { GetProcAddress(h_module, c"EMF_GetPluginList".as_ptr() as _) };
+				unsafe { GetProcAddress(h_module, c"EmfGetPluginList".as_ptr() as _) };
 
 			let Some(get_plugin_list) = get_plugin_list else {
-				return Err(Error::DllExportNotFound(
-					"emf.dll".to_string(),
-					"EMF_GetPluginList".to_string(),
+				return Err(crate::Error::new(
+					Error::DllExportNotFound("emf.dll".to_string(), "EmfGetPluginList".to_string()),
+					"failed to get plugin list",
 				));
 			};
 
-			let get_plugin_list: EMF_GetPluginList = unsafe { mem::transmute(get_plugin_list) };
+			let get_plugin_list: EmfGetPLuginList = unsafe { mem::transmute(get_plugin_list) };
 
 			Ok(get_plugin_list)
 		});
 
 		let Ok(get_plugin_list) = GET_PLUGIN_LIST.get().unwrap() else {
-			return Err(Error::PluginListError);
+			return Err(crate::Error::new(
+				Error::PluginListError,
+				"failed to get plugin list",
+			));
 		};
 
-		let Some(mods_dir) = mods_dir.to_str() else {
-			return Err(Error::InvalidPathBuf);
-		};
-
-		let mods_dir = CString::new(mods_dir).map_err(|_| Error::InvalidPathBuf)?;
+		let mods_dir = CString::new(mods_dir.display().to_string()).map_err(crate::Error::msg(
+			"failed to create new C string for mods directory",
+		))?;
 		let mods_dir = mods_dir.as_ptr();
 
 		let response = unsafe { get_plugin_list(mods_dir) };
 
 		if response.is_null() {
-			return Err(Error::PluginListError);
+			return Err(crate::Error::new(
+				Error::PluginListError,
+				"failed to get plugin list",
+			));
 		}
 
 		// Take ownership of the memory first with Box, then convert to CString
 		let boxed_response = unsafe { Box::from_raw(response as *mut ffi::c_char) };
 		let response = unsafe { ffi::CString::from_raw(Box::into_raw(boxed_response)) };
 
-		let Ok(response) = response.to_str() else {
-			return Err(Error::PluginListError);
-		};
+		let response = response.to_str().map_err(crate::Error::msg(
+			"failed to convert plugin list into string",
+		))?;
 
-		let Ok(plugins): Result<Vec<Manifest>, _> = ron::from_str(response) else {
-			return Err(Error::PluginListError);
-		};
-
-		Ok(plugins)
+		ron::from_str(response).map_err(crate::Error::msg("failed to get plugin list"))
 	}
 }
 

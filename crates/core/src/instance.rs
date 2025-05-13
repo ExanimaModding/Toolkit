@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
 use tracing::{error, info, instrument, warn};
 
-use crate::{Error, Result, TomlError, prelude::*};
+use crate::{Error, Result, prelude::*};
 
 pub mod prelude {
 	pub use crate::instance::{self, Instance};
@@ -258,11 +258,9 @@ impl Instance {
 	/// - `tokio::fs::write`
 	#[instrument(level = "trace")]
 	pub async fn set_settings(&mut self, settings: Settings) -> Result<&mut Self> {
-		let buffer = toml::to_string(&settings)
-			.map_err(TomlError::from)
-			.map_err(Error::msg(
-				"failed to serialize instance settings into buffer",
-			))?;
+		let buffer = toml::to_string(&settings).map_err(Error::msg(
+			"failed to serialize instance settings into buffer",
+		))?;
 		info!("instance settings serialized to buffer");
 		fs::write(
 			self.data_dir()
@@ -401,11 +399,9 @@ where
 				.await
 				.map_err(Error::msg("failed to read instance settings into buffer"))?;
 			info!("instance settings file read into buffer");
-			let settings = toml::from_str(&buffer)
-				.map_err(TomlError::from)
-				.map_err(Error::msg(
-					"failed to deserialize instance settings from buffer",
-				))?;
+			let settings = toml::from_str(&buffer).map_err(Error::msg(
+				"failed to deserialize instance settings from buffer",
+			))?;
 			info!("instance settings deserialized from buffer");
 			settings
 		} else {
