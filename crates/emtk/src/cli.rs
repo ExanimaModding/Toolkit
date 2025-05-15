@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use emcore::prelude::*;
+use emcore::{add_directive, env_filter, prelude::*};
 use tokio::{
 	fs,
 	io::{self, AsyncReadExt},
@@ -15,7 +15,7 @@ use tokio::{
 // };
 use tracing::{info, instrument};
 // use tracing_indicatif::IndicatifLayer;
-use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// The Exanima Modding CLI
 #[derive(Debug, Parser)]
@@ -48,11 +48,15 @@ impl App {
 		}
 
 		if self.verbose {
+			let filter = env_filter();
+			let filter = add_directive(filter, "emtk=debug");
+			let filter = add_directive(filter, "emf=debug");
+
 			tracing_subscriber::registry()
 				.with(
-					tracing_subscriber::fmt::layer()
+					fmt::layer()
 						// .with_writer(indicatif_layer.get_stderr_writer())
-						.with_filter(crate::env_filter()),
+						.with_filter(filter),
 				)
 				// .with(indicatif_layer)
 				// .with(

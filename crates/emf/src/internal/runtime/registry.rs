@@ -4,7 +4,10 @@ use std::{
 	sync::{Arc, LazyLock, Mutex, OnceLock},
 };
 
-use emcore::{Error, Result, plugin};
+use emcore::{
+	Error, Result,
+	plugin::{self, Manifest},
+};
 use mlua::{Function, Lua, Table, Value, Variadic};
 use tracing::instrument;
 
@@ -82,7 +85,7 @@ impl PluginRegistry {
 			.parent()
 			.expect("failed to get current working directory");
 
-		let buffer = fs::read_to_string(cwd.join(format!("mods/{}/plugin.lua", plugin_name)))
+		let buffer = fs::read_to_string(cwd.join(format!("mods/{plugin_name}/{}", plugin::LUA)))
 			.map_err(Error::msg("failed to read into buffer for lua file"))?;
 
 		let environment = lua
@@ -99,29 +102,32 @@ impl PluginRegistry {
 			}
 		}
 
-		let response: Option<Table> = lua
+		let maybe_lua_table: Option<Table> = lua
 			.load(&buffer)
 			.set_environment(environment.clone())
 			.eval()
 			.map_err(runtime::Error::from)
-			.map_err(Error::msg("failed to evaluate buffer as lua source code"))?;
+			.map_err(Error::msg(format!(
+				"failed to evaluate {} as lua source code",
+				plugin::LUA
+			)))?;
 
-		let response = response
+		let lua_table = maybe_lua_table
 			.ok_or(runtime::Error::NoTableReturned(plugin_name.to_string()))
 			.map_err(Error::msg("failed to get lua table"))?;
 
 		let manifest = {
-			let table = response
+			let manifest_table = lua_table
 				.get::<Table>("manifest")
 				.map_err(runtime::Error::from)
 				.map_err(Error::msg("failed to get manifest from plugin"))?;
 
-			parse_manifest(plugin_name, table).map_err(Error::msg("failed to parse manifest"))?
+			parse_manifest(plugin_name, manifest_table)?
 		};
 
-		let exports = response.get("exports").ok();
-		let onstart = response.get("onstart").ok();
-		let onstop = response.get("onstop").ok();
+		let exports = lua_table.get("exports").ok();
+		let onstart = lua_table.get("onstart").ok();
+		let onstop = lua_table.get("onstop").ok();
 
 		environment
 			.set("_G", environment.clone())
@@ -241,43 +247,67 @@ fn lua_hook_print(lua: &Lua) {
 		.expect("FATAL ERROR: Failed to set Lua io.write function.");
 }
 
-pub fn parse_manifest(
-	plugin_name: &str,
-	table: Table,
-) -> std::result::Result<plugin::Manifest, runtime::Error> {
-	macro_rules! manifest_key {
-		($manifest:ident, $name:ident, $type:ty) => {{
-			let Ok($name) = $manifest.get::<$type>(stringify!($name)) else {
-				return Err(runtime::Error::MissingManifestKey(
-					stringify!($name).to_string(),
-					plugin_name.to_string(),
-				));
-			};
-			$name
-		}};
-	}
+pub fn parse_manifest(plugin_name: &str, table: Table) -> Result<plugin::Manifest> {
+	let name = table
+		.get(Manifest::NAME)
+		.map_err(runtime::Error::from)
+		.map_err(Error::msg(format!(
+			"failed to get {} from {}'s manifest",
+			Manifest::NAME,
+			plugin_name
+		)))?;
+	let version = table
+		.get(Manifest::VERSION)
+		.map_err(runtime::Error::from)
+		.map_err(Error::msg(format!(
+			"failed to get {} from {}'s manifest",
+			Manifest::VERSION,
+			plugin_name
+		)))?;
+	let author = table
+		.get(Manifest::AUTHOR)
+		.map_err(runtime::Error::from)
+		.map_err(Error::msg(format!(
+			"failed to get {} from {}'s manifest",
+			Manifest::AUTHOR,
+			plugin_name
+		)))?;
 
-	let name = manifest_key!(table, name, String);
-	let version = manifest_key!(table, version, String);
-	let author = manifest_key!(table, author, String);
-
-	let dependencies = table.get::<Option<Vec<String>>>("dependencies").unwrap();
+	let dependencies = table
+		.get::<Option<Vec<String>>>(Manifest::DEPENDENCIES)
+		.map_err(runtime::Error::from)
+		.map_err(Error::msg(format!(
+			"failed to get {}'s dependencies",
+			plugin_name
+		)))?;
 
 	let dependencies = dependencies
 		.unwrap_or_default()
 		.into_iter()
 		.map(plugin::Id::try_from)
 		.collect::<std::result::Result<Vec<_>, _>>()
-		.unwrap();
+		.map_err(Error::msg(format!(
+			"failed to collect {}'s dependencies",
+			plugin_name
+		)))?;
 
-	let conflicts = table.get::<Option<Vec<String>>>("conflicts").unwrap();
+	let conflicts = table
+		.get::<Option<Vec<String>>>(Manifest::CONFLICTS)
+		.map_err(runtime::Error::from)
+		.map_err(Error::msg(format!(
+			"failed to get {}'s conflicts",
+			plugin_name
+		)))?;
 
 	let conflicts = conflicts
 		.unwrap_or_default()
 		.into_iter()
 		.map(plugin::Id::try_from)
 		.collect::<std::result::Result<Vec<_>, _>>()
-		.unwrap();
+		.map_err(Error::msg(format!(
+			"failed to collect {}'s conflicts",
+			plugin_name
+		)))?;
 
 	Ok(plugin::Manifest {
 		name,

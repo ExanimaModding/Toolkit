@@ -19,10 +19,10 @@ use detours_sys::{
 	DetourAttach, DetourIsHelperProcess, DetourRestoreAfterWith, DetourTransactionBegin,
 	DetourTransactionCommit,
 };
-use emcore::{plugin, profile};
+use emcore::{add_directive, env_filter, plugin, profile};
 use internal::{runtime, utils::rpk_intercept};
 use pelite::pe::Pe;
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 use tracing_subscriber::{Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
@@ -90,35 +90,7 @@ unsafe extern "stdcall" fn DllMain(
 
 #[instrument(level = "trace")]
 unsafe extern "C" fn main() {
-	#[cfg(debug_assertions)]
-	tracing_tracy::client::Client::start();
-
-	let maybe_data_dir = emcore::data_dir();
-	ansi_term::enable_ansi_support().unwrap();
-	let subscriber = tracing_subscriber::registry().with(fmt::layer().with_filter(env_filter()));
-
-	#[cfg(debug_assertions)]
-	let subscriber = subscriber.with(tracing_tracy::TracyLayer::default());
-
-	if let Some(data_dir) = maybe_data_dir {
-		let log_dir = data_dir.join(emcore::LOG_DIR);
-		if !log_dir.is_dir() {
-			fs::create_dir_all(&log_dir).unwrap();
-		}
-		let file_appender = tracing_appender::rolling::hourly(log_dir, "emf.log");
-		let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-		TRACING_GUARD.set(guard).unwrap();
-		subscriber
-			.with(
-				fmt::layer()
-					.with_ansi(false)
-					.with_writer(non_blocking)
-					.with_filter(env_filter()),
-			)
-			.init();
-	} else {
-		subscriber.init();
-	}
+	subscribe();
 
 	let mut cwd = env::current_exe().unwrap();
 	cwd.pop();
@@ -252,11 +224,44 @@ pub fn generate_headers() -> ::std::io::Result<()> {
 	::safer_ffi::headers::builder().to_file("emf.h")?.generate()
 }
 
-/// tracing filter
-#[instrument(level = "trace")]
-pub fn env_filter() -> tracing_subscriber::EnvFilter {
-	tracing_subscriber::EnvFilter::builder()
-		.from_env()
-		.unwrap()
-		.add_directive("emf=debug".parse().unwrap())
+pub(crate) fn subscribe() {
+	#[cfg(debug_assertions)]
+	tracing_tracy::client::Client::start();
+
+	let maybe_data_dir = emcore::data_dir();
+	ansi_term::enable_ansi_support().unwrap();
+	let filter = env_filter();
+	let filter = add_directive(filter, "emf=debug");
+	let subscriber = tracing_subscriber::registry().with(fmt::layer().with_filter(filter));
+
+	#[cfg(debug_assertions)]
+	let subscriber = {
+		let tracy_filter = env_filter();
+		let tracy_filter = add_directive(tracy_filter, "emf=trace");
+		subscriber.with(tracing_tracy::TracyLayer::default().with_filter(tracy_filter))
+	};
+
+	if let Some(data_dir) = maybe_data_dir {
+		let log_dir = data_dir.join(emcore::LOG_DIR);
+		if !log_dir.is_dir() {
+			fs::create_dir_all(&log_dir).unwrap();
+		}
+		let file_appender = tracing_appender::rolling::hourly(log_dir, "emf.log");
+		let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+		let _ = TRACING_GUARD.set(guard).map_err(|_| {
+			warn!("attempted to set a tracing guard to an already initialized subscriber")
+		});
+		let appender_filter = env_filter();
+		let appender_filter = add_directive(appender_filter, "emf=debug");
+		subscriber
+			.with(
+				fmt::layer()
+					.with_ansi(false)
+					.with_writer(non_blocking)
+					.with_filter(appender_filter),
+			)
+			.init();
+	} else {
+		subscriber.init();
+	}
 }

@@ -32,12 +32,7 @@ hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef
 ], default-features = false }
 image.workspace = true
 libmem = { version = "5.0.4", default-features = false, features = ["static"] }
-mlua = { version = "0.10.3", features = [
-	"luajit",
-	"macros",
-	"send",
-	"vendored",
-] }
+mlua = { version = "0.10", features = ["luajit", "macros", "send", "vendored"] }
 open.workspace = true
 path-clean = "1.0"
 pelite = "0.10"

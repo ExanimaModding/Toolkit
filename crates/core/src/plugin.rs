@@ -14,8 +14,12 @@ use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryA};
 use super::{Instance, Result};
 
 pub mod prelude {
-	pub use crate::plugin::{self, Plugin};
+	pub use crate::plugin;
 }
+
+/// The name of the file used as the entry point to lua scripting for the
+/// plugin.
+pub static LUA: &str = "plugin.lua";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -65,7 +69,6 @@ pub enum Error {
 ///     plugin::Id::try_from("com.example.mymod").unwrap()
 /// )
 /// ```
-#[must_use]
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct Id(String);
 
@@ -75,7 +78,6 @@ impl Id {
 	/// - Is empty
 	/// - Starts or ends with '-' or '.'
 	/// - Not alphanumeric (exceptions: '-', '.')
-	#[instrument(level = "trace")]
 	pub fn is_valid(id: &str) -> bool {
 		if id.is_empty()
 			|| id.starts_with(['-', '.'])
@@ -91,19 +93,16 @@ impl Id {
 	}
 
 	/// Helper that returns a path to this plugin's directory
-	#[instrument(level = "trace")]
 	pub fn plugin_dir(&self) -> PathBuf {
 		PathBuf::from(Instance::MODS_DIR).join(self.to_string())
 	}
 
 	/// Helper that returns a path to this plugin's assets directory.
-	#[instrument(level = "trace")]
 	pub fn assets_dir(&self) -> PathBuf {
 		self.plugin_dir().join(Instance::ASSETS_DIR)
 	}
 
 	/// Helper that returns a path to this plugin's game assets directory.
-	#[instrument(level = "trace")]
 	pub fn packages_dir(&self) -> PathBuf {
 		self.assets_dir().join(Instance::PACKAGES_DIR)
 	}
@@ -112,7 +111,6 @@ impl Id {
 impl TryFrom<&str> for Id {
 	type Error = Error;
 
-	#[instrument(level = "trace")]
 	fn try_from(value: &str) -> std::result::Result<Self, Error> {
 		if !Id::is_valid(value) {
 			return Err(Error::InvalidId(value.into()));
@@ -131,52 +129,58 @@ impl TryFrom<String> for Id {
 }
 
 impl Display for Id {
-	#[instrument(level = "trace", skip(f))]
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", self.0)
 	}
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
-pub struct Plugin {
-	/// The display name of the plugin
-	pub name: String,
-	/// The version of the plugin. Semantic versioning will be best practice in the
-	/// format major, minor, patch, a.k.a. v0.1.0
-	pub version: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub enum Dependency {
-	Version(String),
-}
-
-// #[derive(Debug, Deserialize, Serialize)]
-// pub struct Dependency {
-// 	version: String,
-// }
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Conflicts {
-	version: String,
-}
+type EmfGetPLuginList = unsafe extern "C" fn(mods_dir: *const ffi::c_char) -> *mut ffi::c_char;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Manifest {
-	/// The display name of the plugin
+	/// The display name of the plugin associated to this manifest. This field is
+	/// not used to identify the plugin.
 	pub name: String,
-	/// The version of the plugin. Semantic versioning will be best practice in the
-	/// format major, minor, patch, a.k.a. 0.1.0
+
+	/// The version of the plugin associated to this manifest. Semantic versioning
+	/// will be best practice in the format major, minor, patch, a.k.a. 0.1.0
 	pub version: String,
+
+	/// The creator of the plugin associated to this manifest.
 	pub author: String,
+
+	/// The list of plugin Ids that the plugin associated to this manifest is
+	/// required by in order to function properly.
 	pub dependencies: Vec<Id>,
+
+	/// The list of plugin Ids that the plugin associated to this manifest is
+	/// incompatible with.
 	pub conflicts: Vec<Id>,
 }
 
-#[allow(non_camel_case_types)]
-type EmfGetPLuginList = unsafe extern "C" fn(mods_dir: *const ffi::c_char) -> *mut ffi::c_char;
-
 impl Manifest {
+	/// The name of the key responsible for storing the value to the author of the
+	/// plugin. This key is defined in the mod's [`emcore::plugin::LUA`] file.
+	pub const AUTHOR: &str = "author";
+
+	/// The name of the key responsible for storing a list of plugin ids that are
+	/// incompatible with this plugin. This key is defined in the mod's
+	/// [`emcore::plugin::LUA`] file.
+	pub const CONFLICTS: &str = "conflicts";
+
+	/// The name of the key responsible for storing a list of plugin ids that are
+	/// required by this plugin in order to function properly. This key is defined in
+	/// the mod's [`emcore::plugin::LUA`] file.
+	pub const DEPENDENCIES: &str = "dependencies";
+
+	/// The name of the key responsible for storing the value to the display name of
+	/// the plugin. This key is defined in the mod's [`emcore::plugin::LUA`] file.
+	pub const NAME: &str = "name";
+
+	/// The name of the key responsible for storing the value to the version of the
+	/// plugin. This key is defined in the mod's [`emcore::plugin::LUA`] file.
+	pub const VERSION: &str = "version";
+
 	// PERF: emf being loaded into memory may be slowing initialization
 	#[instrument(level = "trace")]
 	pub fn discover_mods(mods_dir: &PathBuf) -> Result<Vec<(Id, Manifest)>> {

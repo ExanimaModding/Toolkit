@@ -382,7 +382,7 @@ where
 		info!("building profile");
 		let mut profile = self.build_internal();
 
-		let discovered_mods = {
+		let discovered_mods: Vec<(plugin::Id, plugin::Manifest)> = {
 			info!("starting mod discovery");
 
 			let mods_path = profile.mods_dir().await?;
@@ -429,22 +429,22 @@ where
 					.filter(|(plugin_id, _)| !profile.load_order.contains_key(plugin_id))
 					.collect();
 				if !new_plugin_ids.is_empty() {
-					load_order_updated = true
-				}
+					load_order_updated = true;
 
-				for (plugin_id, manifest) in new_plugin_ids.into_iter() {
-					let id_str = plugin_id.to_string();
-					let load_order_entry = LoadOrderEntry::new(
-						false,
-						(profile.load_order.len() + 1) as u32,
-						Some(manifest.name),
-						Some(manifest.version),
-					);
-					profile.load_order.insert(plugin_id, load_order_entry);
-					info!(
-						"added newly discovered mod to existing load order \"{}\"",
-						id_str
-					);
+					for (plugin_id, manifest) in new_plugin_ids.into_iter() {
+						let id_str = plugin_id.to_string();
+						let load_order_entry = LoadOrderEntry::new(
+							false,
+							(profile.load_order.len() + 1) as u32,
+							Some(manifest.name),
+							Some(manifest.version),
+						);
+						profile.load_order.insert(plugin_id, load_order_entry);
+						info!(
+							"added newly discovered mod to existing load order \"{}\"",
+							id_str
+						);
+					}
 				}
 			};
 		}

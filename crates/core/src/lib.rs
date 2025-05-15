@@ -10,6 +10,9 @@ pub mod instance;
 pub mod plugin;
 pub mod profile;
 
+pub use instance::{Instance, InstanceHistory};
+pub use profile::Profile;
+
 use std::{
 	backtrace::Backtrace,
 	borrow::Cow,
@@ -20,11 +23,8 @@ use std::{
 };
 
 use tokio::{fs, io};
-
-pub use instance::{Instance, InstanceHistory};
-pub use plugin::Plugin;
-pub use profile::Profile;
 use tracing::instrument;
+use tracing_subscriber::{EnvFilter, filter};
 
 pub mod prelude {
 	pub use crate::{instance::prelude::*, plugin::prelude::*, profile::prelude::*};
@@ -200,6 +200,37 @@ impl From<str::Utf8Error> for ErrorKind {
 	fn from(value: str::Utf8Error) -> Self {
 		ErrorKind::Std(StdError::from(value))
 	}
+}
+
+/// Helper function to parse a string into tracing's filter [`Directive`] for
+/// logging.
+#[instrument(level = "trace")]
+fn directive(directive: &str) -> Option<filter::Directive> {
+	directive
+		.parse::<filter::Directive>()
+		.map_err(|e| {
+			eprintln!("failed to parse {directive} into directive for tracing filter: {e}")
+		})
+		.ok()
+}
+
+/// Helper function to add a filter to a tracing [`EnvFilter`] for logging.
+#[instrument(level = "trace")]
+pub fn add_directive(filter: EnvFilter, d: &str) -> EnvFilter {
+	if let Some(directive) = directive(d) {
+		filter.add_directive(directive)
+	} else {
+		filter
+	}
+}
+
+/// Helper function to return a tracing [`EnvFilter`] for logging.
+#[instrument(level = "trace")]
+pub fn env_filter() -> EnvFilter {
+	EnvFilter::builder()
+		.from_env()
+		.map_err(|e| eprintln!("failed to set filter from env, falling back to default: {e}"))
+		.unwrap_or_default()
 }
 
 /// The name of the directory responsible for storing the application's data

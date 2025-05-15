@@ -1,5 +1,6 @@
-use std::{fmt::Debug, io};
+use std::{fmt::Debug, io, sync::OnceLock};
 
+use emcore::{add_directive, env_filter};
 use iced::{
 	Element,
 	futures::{Stream, channel::mpsc},
@@ -9,7 +10,10 @@ use iced::{
 use tracing::instrument;
 use tracing_subscriber::{fmt::MakeWriter, prelude::*, util::SubscriberInitExt};
 
-use crate::{TRACING_GUARD, add_directive, env_filter};
+/// When tracing is initialized for logging, the guard to the log file is stored
+/// here to ensure tracing keeps writing to the log file.
+pub(crate) static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> =
+	OnceLock::new();
 
 #[derive(Debug, Clone)]
 pub struct Event(pub Vec<(String, Option<tracing::Level>)>);
