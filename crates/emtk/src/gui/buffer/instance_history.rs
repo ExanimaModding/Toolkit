@@ -28,7 +28,7 @@ pub enum Action {
 	Task(Task<Message>),
 }
 
-#[derive(Debug, Clone, Getters)]
+#[derive(Debug, Getters)]
 pub struct InstanceHistory {
 	hover: Option<usize>,
 	#[getset(get = "pub")]

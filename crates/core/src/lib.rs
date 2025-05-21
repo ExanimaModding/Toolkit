@@ -101,6 +101,8 @@ pub enum ErrorKind {
 	},
 	#[error(transparent)]
 	Toml(#[from] TomlError),
+	#[error(transparent)]
+	Other(#[from] anyhow::Error),
 }
 
 /// The name of the directory responsible for storing the application's data

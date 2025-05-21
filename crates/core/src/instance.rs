@@ -73,7 +73,7 @@ pub struct Settings {
 /// may be different versions of the game with different mods. The `Instance`
 /// implements compatibility for this use case and one can be built from any
 /// compatible game directory of Exanima.
-#[derive(Debug, Clone, Builder, Getters, MutGetters)]
+#[derive(Debug, Clone, Default, Builder, Getters, MutGetters)]
 #[builder(derive(Debug))]
 #[builder(start_fn(vis = ""))]
 #[builder(finish_fn(name = build_internal, vis = ""))]
@@ -89,7 +89,7 @@ pub struct Instance {
 	/// Profile the instance is currently using
 	#[getset(get = "pub", get_mut = "pub")]
 	#[builder(skip)]
-	profile: Profile,
+	pub profile: Profile,
 
 	/// Settings of the instance from `Instance::TOML`
 	#[getset(get = "pub")]
