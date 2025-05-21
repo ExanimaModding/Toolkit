@@ -3,30 +3,38 @@ use std::{
 	path::{Path, PathBuf},
 };
 
-use emcore::{Error, Result, instance, plugin, profile};
+use anyhow::anyhow;
+use emcore::{Error, TomlError, instance, plugin, profile};
 use getset::Getters;
 use iced::{
-	Alignment, Border, Element, Fill, Font, Point, Rectangle, Renderer, Task, Theme,
+	Alignment, Border, Color, Element, Fill, Font, Length, Point, Rectangle, Renderer, Shadow,
+	Task, Theme, Vector,
 	advanced::widget as iced_widget,
 	widget::{
-		center_x, checkbox, column, container, horizontal_space, pick_list, responsive, row,
-		scrollable, text, text_input,
+		Space, center_x, checkbox, column, horizontal_rule, horizontal_space, markdown, pick_list,
+		responsive, row, scrollable, text, text_editor, text_input,
 	},
 };
 use iced_drop::zones_on_point;
+use iced_split::{Direction, Split};
 use iced_table::table;
-use tokio::fs;
+use tokio::{fs, io};
 use tracing::{error, info, instrument};
 
-use crate::gui::widget::{button, icon, tooltip};
+use crate::gui::{
+	Root,
+	widget::{button, container, icon, tooltip},
+};
 
 pub enum Action {
-	None,
+	InitFailed,
 	Loaded,
 	Loading,
+	None,
 	Task(Task<Message>),
 }
 
+/// The types of columns found in the load order table.
 #[derive(Debug, Clone)]
 pub enum ColumnKind {
 	Name,
@@ -34,6 +42,7 @@ pub enum ColumnKind {
 	Priority,
 }
 
+/// The view state of each column in the load order table.
 #[derive(Debug, Clone)]
 pub struct Column {
 	kind: ColumnKind,
@@ -173,6 +182,7 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
 	}
 }
 
+/// The view state of a plugin in the load order table.
 #[derive(Debug, Clone)]
 pub struct Row {
 	widget_id: iced_widget::Id,
@@ -187,6 +197,7 @@ impl iced_table::WithId for Row {
 	}
 }
 
+/// The view state of the load order.
 #[derive(Debug, Clone)]
 pub struct Table {
 	body: scrollable::Id,
@@ -201,19 +212,7 @@ pub struct Table {
 impl Table {
 	#[instrument(level = "trace")]
 	pub fn new(instance: &emcore::Instance) -> Self {
-		let mut table = Self {
-			body: scrollable::Id::unique(),
-			columns: vec![
-				Column::new(ColumnKind::Name),
-				Column::new(ColumnKind::Version),
-				Column::new(ColumnKind::Priority),
-			],
-			focus_row: None,
-			footer: scrollable::Id::unique(),
-			header: scrollable::Id::unique(),
-			over: None,
-			rows: Vec::new(),
-		};
+		let mut table = Self::default();
 		table.refresh(instance.profile().load_order().clone());
 		table
 	}
@@ -236,6 +235,25 @@ impl Table {
 	}
 }
 
+impl Default for Table {
+	fn default() -> Self {
+		Self {
+			body: scrollable::Id::unique(),
+			columns: vec![
+				Column::new(ColumnKind::Name),
+				Column::new(ColumnKind::Version),
+				Column::new(ColumnKind::Priority),
+			],
+			focus_row: None,
+			footer: scrollable::Id::unique(),
+			header: scrollable::Id::unique(),
+			over: None,
+			rows: Vec::new(),
+		}
+	}
+}
+
+/// The different states the instance view state can be in.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum State {
 	#[default]
@@ -243,12 +261,35 @@ pub enum State {
 	ProfileForm,
 }
 
-#[derive(Debug, Clone, Getters)]
+/// The view state of a plugin in the instance's load order.
+#[derive(Debug, Default)]
+pub enum Plugin {
+	Editor(text_editor::Content),
+	Markdown(Vec<markdown::Item>),
+	#[default]
+	None,
+	Settings,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub enum MarkdownKind {
+	Changelog,
+	License,
+	#[default]
+	Readme,
+}
+
+/// The view state of the instance.
+#[derive(Debug, Getters)]
 pub struct Instance {
 	#[getset(get = "pub")]
 	inner: emcore::Instance,
+	is_plugin_fullscreen: bool,
+	markdown_kind: Option<MarkdownKind>,
+	plugin: Plugin,
 	profiles: Vec<PathBuf>,
 	profile_form_input: String,
+	split: f32,
 	state: State,
 	table: Table,
 }
@@ -260,75 +301,95 @@ pub enum Message {
 	DraggedRowCanceled,
 	DroppedRow(Point, Rectangle),
 	EntryToggled(usize, bool),
+	Init(emcore::Instance),
+	InitFailed,
 	Launch,
+	LinkClicked(markdown::Url),
 	Loaded,
 	Loading,
 	NewPlugin,
 	OverRow(Vec<(iced_widget::Id, Rectangle)>),
+	PluginClosed,
+	PluginDirectoryOpened(PathBuf),
+	PluginEditMarkdown,
+	PluginFullscreenToggled,
+	PluginMarkdownChanged(MarkdownKind, String),
+	PluginReadMarkdown(MarkdownKind),
+	PluginSettings,
+	ProfileChanged(emcore::Profile),
 	ProfileDeleted,
 	ProfileFormInputChanged(String),
 	ProfileFormSubmitted,
+	Profiles(Vec<PathBuf>),
 	ProfileSelected(String),
-	Refresh(Box<Instance>),
+	RefreshProfiles,
 	ReorderRows(Vec<(iced_widget::Id, Rectangle)>),
 	SettingsPressed,
+	SplitDragged(f32),
 	StateChanged(State),
 	TableResized,
 	TableResizing(usize, f32),
 	TableSyncHeader(scrollable::AbsoluteOffset),
+	TextEditorLoaded(String),
+	TextEditorAction(text_editor::Action),
 }
 
 impl Instance {
 	#[instrument(level = "trace")]
-	pub async fn new() -> Option<Self> {
-		let instance_history = instance::history().await.map_err(|e| error!("{e}")).ok()?;
-		let Some(instance_path) = instance_history.last() else {
-			return None;
-		};
+	pub fn new() -> (Self, Task<Message>) {
+		(
+			Self::default(),
+			Task::done(Message::Loading)
+				.chain(
+					Task::future(async move {
+						let instance_history = instance::history().await?;
+						let Some(instance_path) = instance_history.last() else {
+							return Err(Error::new(
+								anyhow!("instance history is empty"),
+								"failed to initialize instance",
+							));
+						};
 
-		let inner = emcore::Instance::with_path(instance_path)
-			.map_err(|e| error!("{e}"))
-			.ok()?
-			.build()
-			.await
-			.map_err(|e| error!("{e}"))
-			.ok()?;
-
-		let table = Table::new(&inner);
-
-		let mut instance = Self {
-			inner,
-			profiles: Vec::new(),
-			profile_form_input: String::new(),
-			state: State::default(),
-			table,
-		};
-		instance.refresh_profiles().await;
-		Some(instance)
+						emcore::Instance::with_path(instance_path)?.build().await
+					})
+					.map(|result| result.map_err(|e| error!("{}", e)))
+					.and_then(|instance| Task::done(Message::Init(instance))),
+				)
+				.chain(Task::done(Message::Loading)),
+		)
 	}
 
 	#[instrument(level = "trace")]
-	pub async fn with_path(path: &Path) -> Result<Self> {
-		let inner = emcore::Instance::with_path(path)?.build().await?;
-		let table = Table::new(&inner);
-		let mut instance = Self {
-			inner,
-			profiles: Vec::new(),
-			profile_form_input: String::new(),
-			state: State::default(),
-			table,
-		};
-		instance.refresh_profiles().await;
-		Ok(instance)
+	pub fn with_path(path: &Path) -> (Self, Task<Message>) {
+		let path = path.to_owned();
+		(
+			Self::default(),
+			Task::done(Message::Loading)
+				.chain(
+					Task::future(async move { emcore::Instance::with_path(path)?.build().await })
+						.map(|result| {
+							result
+								.map(|instance| Message::Init(instance))
+								.map_err(|e| error!("{}", e))
+								.unwrap_or(Message::InitFailed)
+						}),
+				)
+				.chain(Task::done(Message::Loaded)),
+		)
 	}
 
+	// TODO: refactor into sync function that returns (Self, Task<Message>)
 	#[instrument(level = "trace")]
 	pub async fn with_instance(inner: emcore::Instance) -> Self {
 		let table = Table::new(&inner);
 		let mut instance = Self {
 			inner,
+			is_plugin_fullscreen: false,
+			markdown_kind: None,
+			plugin: Plugin::default(),
 			profiles: Vec::new(),
 			profile_form_input: String::new(),
+			split: 0.5,
 			state: State::default(),
 			table,
 		};
@@ -339,7 +400,12 @@ impl Instance {
 	#[instrument(level = "trace")]
 	pub fn update(&mut self, message: Message) -> Action {
 		match message {
-			Message::ClickedRow(index) => self.table.focus_row = Some(index),
+			Message::ClickedRow(index) => {
+				self.table.focus_row = Some(index);
+				return Action::Task(Task::done(Message::PluginReadMarkdown(
+					MarkdownKind::default(),
+				)));
+			}
 			Message::DraggedRow(point, _bounds) => {
 				if let Some(focus) = self.table.focus_row
 					&& let Some(row) = self.table.rows.get(focus)
@@ -391,43 +457,59 @@ impl Instance {
 				}
 			}
 			Message::EntryToggled(row_index, enabled) => {
-				let mut load_order = self.inner.profile().load_order().clone();
+				let load_order = self.inner.profile.load_order_mut();
 				if let Some(row) = self.table.rows.get_mut(row_index)
 					&& let Some(plugin) = load_order.get_mut(&row.plugin_id)
 				{
 					row.plugin.enabled = enabled;
 					plugin.enabled = enabled;
-					info!(
-						"{} set to {}",
-						plugin
-							.display_name
-							.clone()
-							.unwrap_or(row.plugin_id.to_string()),
-						plugin.enabled
-					)
 				} else {
 					error!(
-						"failed to toggle entry #{} to {}, doing nothing",
-						row_index, enabled
+						"{}",
+						Error::new(
+							anyhow!("index {} does not exist in load order", row_index),
+							"failed to toggle mod",
+						)
 					);
-					return Action::None;
 				}
 
-				let mut instance = self.inner.clone();
+				let Ok(buffer) = toml::to_string(&load_order)
+					.map_err(TomlError::from)
+					.map_err(Error::msg(
+						"failed to serialize profile's load order into buffer",
+					))
+				else {
+					return Action::None;
+				};
+				info!("profile's load order serialized to buffer");
+
+				let path = self.inner.profile.path().clone();
 				return Action::Task(
-					Task::future(async move {
-						match instance.profile_mut().set_load_order(load_order).await {
-							Ok(_) => Ok(Instance::with_instance(instance).await),
-							Err(e) => {
-								error!("{}", e);
-								Err(e)
-							}
-						}
-					})
-					.and_then(|instance| Task::done(Message::Refresh(Box::new(instance))))
-					.chain(Task::done(Message::Loaded)),
+					Task::done(Message::Loading)
+						.chain(
+							Task::future(async move {
+								fs::write(path.join(emcore::Profile::LOAD_ORDER_TOML), buffer)
+									.await
+									.map_err(Error::msg(
+										"failed to write profile's load order buffer into file",
+									))
+							})
+							.map(|result| {
+								result
+									.map(|_| info!("finished writing profile's load order to file"))
+									.map_err(|e| error!("{}", e))
+							})
+							.discard(),
+						)
+						.chain(Task::done(Message::Loaded)),
 				);
 			}
+			Message::Init(instance) => {
+				self.table = Table::new(&instance);
+				self.inner = instance;
+				return Action::Task(Task::done(Message::RefreshProfiles));
+			}
+			Message::InitFailed => return Action::InitFailed,
 			Message::Launch => {
 				let profile = self.inner.profile().clone();
 				// TODO: env should be set within the launch() function to prevent forgetting to set this env
@@ -456,6 +538,20 @@ impl Instance {
 						.chain(Task::done(Message::Loaded)),
 				);
 			}
+			Message::LinkClicked(url) => {
+				return Action::Task(
+					Task::future(async move {
+						let _ = open::that_in_background(url.as_str())
+							.join()
+							.map(|r| {
+								r.map_err(Error::msg("failed to open url"))
+									.map_err(|e| error!("{}", e))
+							})
+							.map_err(|_| error!("failed to open url in background"));
+					})
+					.discard(),
+				);
+			}
 			Message::Loaded => return Action::Loaded,
 			Message::Loading => return Action::Loading,
 			Message::NewPlugin => {
@@ -466,6 +562,151 @@ impl Instance {
 					return Action::None;
 				};
 				self.table.over = Some(widget_id);
+			}
+			Message::PluginClosed => {
+				self.plugin = Plugin::None;
+				self.markdown_kind = None;
+				self.is_plugin_fullscreen = false;
+			}
+			Message::PluginDirectoryOpened(path) => {
+				return Action::Task(
+					Task::future(async move {
+						let _ = open::that_in_background(path)
+							.join()
+							.map(|r| {
+								r.map_err(Error::msg("failed to open plugin directory"))
+									.map_err(|e| error!("{}", e))
+							})
+							.map_err(|_| error!("failed to open directory in background"));
+					})
+					.discard(),
+				);
+			}
+			Message::PluginEditMarkdown => {
+				let Some(kind) = self.markdown_kind.clone() else {
+					return Action::None;
+				};
+				let rows = &self.table.rows;
+				let instance_path = self.inner.path().clone();
+				return Action::Task(
+					self.table
+						.focus_row
+						.map(move |i| rows.get(i))
+						.flatten()
+						.map(move |Row { plugin_id, .. }| {
+							let plugin_id = plugin_id.clone();
+							Task::done(Message::Loading)
+								.chain(
+									Task::future(async move {
+										let file_path = match kind {
+											MarkdownKind::Changelog => plugin_id.changelog_file(),
+											MarkdownKind::License => plugin_id.license_file(),
+											MarkdownKind::Readme => plugin_id.readme_file(),
+										};
+										fs::read_to_string(instance_path.join(file_path)).await
+									})
+									.map(|result| {
+										result
+											.map_err(Error::msg(
+												"failed to read file into buffer for text editor",
+											))
+											.map_err(|e| error!("{}", e))
+									})
+									.and_then(|buffer| {
+										Task::done(Message::TextEditorLoaded(buffer))
+									}),
+								)
+								.chain(Task::done(Message::Loaded))
+						})
+						.unwrap_or(Task::none()),
+				);
+			}
+			Message::PluginFullscreenToggled => {
+				self.is_plugin_fullscreen = !self.is_plugin_fullscreen
+			}
+			Message::PluginMarkdownChanged(kind, buffer) => {
+				self.plugin = Plugin::Markdown(markdown::parse(&buffer).collect());
+				self.markdown_kind = Some(kind);
+			}
+			Message::PluginReadMarkdown(kind) => {
+				let rows = &self.table.rows;
+				let instance_path = self.inner.path().clone();
+				return Action::Task(
+					self.table
+						.focus_row
+						.map(move |i| rows.get(i))
+						.flatten()
+						.map(move |Row { plugin_id, .. }| {
+							let plugin_id = plugin_id.clone();
+							let file_path = match kind {
+								MarkdownKind::Changelog => plugin_id.changelog_file(),
+								MarkdownKind::License => plugin_id.license_file(),
+								MarkdownKind::Readme => plugin_id.readme_file(),
+							};
+							Task::done(Message::Loading)
+								.chain(
+									Task::future(async move {
+										fs::read_to_string(instance_path.join(file_path))
+											.await
+											.map(move |buffer| (kind, buffer))
+											.map_err(Error::msg(format!(
+												"failed to read {}'s readme file",
+												plugin_id
+											)))
+											.map_err(|e| error!("{}", e))
+									})
+									.and_then(|(kind, buffer)| {
+										Task::done(Message::PluginMarkdownChanged(kind, buffer))
+									}),
+								)
+								.chain(Task::done(Message::Loaded))
+						})
+						.unwrap_or(Task::none()),
+				);
+			}
+			Message::PluginSettings => {
+				self.plugin = Plugin::Settings;
+				self.markdown_kind = None;
+			}
+			Message::ProfileChanged(profile) => {
+				self.inner.profile = profile;
+				self.table = Table::new(&self.inner);
+				let Ok(buffer) = ron::ser::to_string(self.inner.profile.path())
+					.map_err(Error::msg(
+						"failed to serialize path to profile into buffer",
+					))
+					.map_err(|e| error!("{}", e))
+				else {
+					return Action::None;
+				};
+				info!("profile path serialized into buffer");
+
+				let path = self.inner.path().clone();
+				return Action::Task(
+					Task::done(Message::Loading)
+						.chain(
+							Task::future(async move {
+								// TODO: clean up redundancy from `emcore::Instance::cache_dir`.
+								let cache_dir = path
+									.join(emcore::Instance::DATA_DIR)
+									.join(emcore::Instance::CACHE_DIR);
+								emcore::ensure_dir(&cache_dir).await?;
+
+								fs::write(
+									cache_dir.join(emcore::Instance::RECENT_PROFILE_RON),
+									buffer,
+								)
+								.await
+							})
+							.map(|result| {
+								result
+									.map(|_| info!("profile path cached to file"))
+									.map_err(|e| error!("{}", e))
+							})
+							.discard(),
+						)
+						.chain(Task::done(Message::Loaded)),
+				);
 			}
 			Message::ProfileDeleted => {
 				let path = self.inner.profile().path().clone();
@@ -478,96 +719,111 @@ impl Instance {
 								.map_err(|e| error!("{}", e))
 						})
 						.and_then(|_| {
-							Task::done(Message::ProfileSelected(
-								emcore::Instance::DEFAULT_PROFILE_DIR.to_string(),
-							))
+							Task::batch([
+								Task::done(Message::ProfileSelected(
+									emcore::Instance::DEFAULT_PROFILE_DIR.to_string(),
+								)),
+								Task::done(Message::RefreshProfiles),
+							])
 						}),
 					),
 				);
 			}
 			Message::ProfileFormInputChanged(input) => self.profile_form_input = input,
 			Message::ProfileFormSubmitted => {
-				let mut instance = self.inner.clone();
+				let path = self.inner.path().clone();
 				let profile_form_input = self.profile_form_input.clone();
 				return Action::Task(
-					Task::done(Message::Loading).chain(
-						Task::future(async move {
-							let profiles_dir = match instance.profiles_dir().await {
-								Ok(profiles_dir) => profiles_dir,
-								Err(e) => {
-									error!("{}", e);
-									return Err(());
-								}
-							};
-							let new_dir = profiles_dir.join(&profile_form_input);
-							if new_dir.is_dir() {
-								error!("Profile with name already exists");
-								return Err(());
-							}
-							let profile_builder = match emcore::Profile::with_path(new_dir).await {
-								Ok(profile_builder) => profile_builder,
-								Err(e) => {
-									error!("{}", e);
-									return Err(());
-								}
-							};
-							let profile = match profile_builder.build().await {
-								Ok(profile) => profile,
-								Err(e) => {
-									error!("{}", e);
-									return Err(());
-								}
-							};
-							if let Err(e) = instance.set_profile(profile).await {
-								error!("{}", e);
-							};
+					Task::done(Message::Loading)
+						.chain(
+							Task::future(async move {
+								// TODO: clean up redundancy from `emcore::Instance::profile_dirs`.
+								let profiles_dir = path
+									.join(emcore::Instance::DATA_DIR)
+									.join(emcore::Instance::PROFILES_DIR);
+								emcore::ensure_dir(&profiles_dir).await.map_err(Error::msg(
+									"failed to ensure profiles directory exists",
+								))?;
 
-							Ok(Instance::with_instance(instance).await)
-						})
-						.and_then(|instance| Task::done(Message::Refresh(Box::new(instance))))
+								let new_dir = profiles_dir.join(&profile_form_input);
+								if new_dir.is_dir() {
+									return Err(Error::new(
+										anyhow!("directory already exists"),
+										"failed to create profile with name",
+									));
+								}
+								emcore::Profile::with_path(new_dir).await?.build().await
+							})
+							.map(|result| result.map_err(|e| error!("{}", e)))
+							.and_then(|profile| {
+								Task::batch([
+									Task::done(Message::ProfileChanged(profile)),
+									Task::done(Message::RefreshProfiles),
+									Task::done(Message::StateChanged(State::Default)),
+								])
+							}),
+						)
 						.chain(Task::done(Message::Loaded)),
-					),
 				);
 			}
+			Message::Profiles(profile_paths) => self.profiles = profile_paths,
 			Message::ProfileSelected(name) => {
-				let mut instance = self.inner.clone();
-
+				let path = self.inner.path().clone();
 				return Action::Task(
-					Task::done(Message::Loading).chain(
-						Task::future(async move {
-							let profiles_dir = match instance.profiles_dir().await {
-								Ok(profiles_dir) => profiles_dir,
-								Err(e) => {
-									error!("{}", e);
-									return Err(());
-								}
-							};
-							let selected_dir = profiles_dir.join(name);
-							let profile_builder =
-								match emcore::Profile::with_path(selected_dir).await {
-									Ok(profile_builder) => profile_builder,
-									Err(e) => {
-										error!("{}", e);
-										return Err(());
-									}
-								};
-							let profile = match profile_builder.build().await {
-								Ok(profile) => profile,
-								Err(e) => {
-									error!("{}", e);
-									return Err(());
-								}
-							};
+					Task::done(Message::Loading)
+						.chain(
+							Task::future(async move {
+								// TODO: clean up redundancy from `emcore::Instance::profile_dirs`.
+								let profiles_dir = path
+									.join(emcore::Instance::DATA_DIR)
+									.join(emcore::Instance::PROFILES_DIR);
+								emcore::ensure_dir(&profiles_dir).await.map_err(Error::msg(
+									"failed to ensure profiles directory exists",
+								))?;
 
-							if let Err(e) = instance.set_profile(profile).await {
-								error!("{}", e);
-							};
-
-							Ok(Instance::with_instance(instance).await)
-						})
-						.and_then(|instance| Task::done(Message::Refresh(Box::new(instance))))
+								emcore::Profile::with_path(profiles_dir.join(name))
+									.await?
+									.build()
+									.await
+							})
+							.map(|result| result.map_err(|e| error!("{}", e)))
+							.and_then(|profile| Task::done(Message::ProfileChanged(profile))),
+						)
 						.chain(Task::done(Message::Loaded)),
-					),
+				);
+			}
+			Message::RefreshProfiles => {
+				let path = self.inner.path().clone();
+				return Action::Task(
+					Task::done(Message::Loading)
+						.chain(
+							Task::future(async move {
+								// TODO: clean up redundancy from `emcore::Instance::profile_dirs`.
+								let profiles_dir = path
+									.join(emcore::Instance::DATA_DIR)
+									.join(emcore::Instance::PROFILES_DIR);
+								emcore::ensure_dir(&profiles_dir).await?;
+
+								let mut profile_paths = Vec::new();
+								let mut read_profiles_dir = fs::read_dir(&profiles_dir).await?;
+								while let Some(entry) = read_profiles_dir.next_entry().await? {
+									let entry_path = entry.path();
+									if entry_path.is_dir() {
+										profile_paths.push(entry_path);
+									};
+								}
+								Ok(profile_paths)
+							})
+							.map(|result| {
+								result
+									.map_err(Error::msg::<io::Error, _>(
+										"failed to refresh profiles",
+									))
+									.map_err(|e| error!("{}", e))
+							})
+							.and_then(|profile_paths| Task::done(Message::Profiles(profile_paths))),
+						)
+						.chain(Task::done(Message::Loaded)),
 				);
 			}
 			Message::ReorderRows(zones) => {
@@ -589,46 +845,59 @@ impl Instance {
 					return Action::None;
 				};
 
-				let mut load_order = self.inner.profile().load_order().clone();
-				for (_, plugin) in load_order.iter_mut() {
-					if plugin.priority == row_index as u32 {
-						plugin.priority = to_index as u32;
-					} else if row_index < to_index
-						&& plugin.priority >= row_index as u32
-						&& plugin.priority <= to_index as u32
-						&& plugin.priority != 0
-					{
-						plugin.priority -= 1;
-					} else if row_index > to_index
-						&& plugin.priority <= row_index as u32
-						&& plugin.priority >= to_index as u32
-					{
-						plugin.priority += 1;
-					}
-				}
-
-				let mut instance = self.inner.clone();
+				self.inner
+					.profile_mut()
+					.load_order_mut()
+					.iter_mut()
+					.for_each(move |(_, plugin)| {
+						if plugin.priority == row_index as u32 {
+							plugin.priority = to_index as u32;
+						} else if row_index < to_index
+							&& plugin.priority >= row_index as u32
+							&& plugin.priority <= to_index as u32
+							&& plugin.priority != 0
+						{
+							plugin.priority -= 1;
+						} else if row_index > to_index
+							&& plugin.priority <= row_index as u32
+							&& plugin.priority >= to_index as u32
+						{
+							plugin.priority += 1;
+						}
+					});
+				self.table = Table::new(&self.inner);
+				let path = self.inner.profile.path().clone();
+				let Ok(buffer) = toml::to_string(self.inner.profile().load_order())
+					.map_err(TomlError::from)
+					.map_err(Error::msg(
+						"failed to serialize profile's load order into buffer",
+					))
+					.map_err(|e| error!("{}", e))
+				else {
+					return Action::None;
+				};
+				info!("profile's load order serialized to buffer");
 				return Action::Task(
-					Task::done(Message::Loading).chain(
-						Task::future(async move {
-							match instance.profile_mut().set_load_order(load_order).await {
-								Ok(_) => Ok(Instance::with_instance(instance).await),
-								Err(e) => {
-									error!("{}", e);
-									Err(e)
-								}
-							}
-						})
-						.and_then(|instance| Task::done(Message::Refresh(Box::new(instance))))
+					Task::done(Message::Loading)
+						.chain(
+							Task::future(async move {
+								fs::write(path.join(emcore::Profile::LOAD_ORDER_TOML), buffer).await
+							})
+							.map(|result| {
+								result
+									.map(|_| info!("finished writing profile's load order to file"))
+									.map_err(|e| error!("{}", e))
+							})
+							.discard(),
+						)
 						.chain(Task::done(Message::Loaded)),
-					),
 				);
 			}
-			Message::Refresh(instance) => *self = *instance,
 			Message::SettingsPressed => {
 				// TODO: implement instance settings
 				error!("instance settings button work in progress")
 			}
+			Message::SplitDragged(split) => self.split = split,
 			Message::StateChanged(state) => {
 				if self.state == State::ProfileForm {
 					self.profile_form_input = String::new()
@@ -651,13 +920,25 @@ impl Instance {
 					scrollable::scroll_to(self.table.footer.clone(), offset),
 				]));
 			}
+			Message::TextEditorLoaded(buffer) => {
+				let mut content = text_editor::Content::new();
+				content.perform(text_editor::Action::Edit(text_editor::Edit::Paste(
+					buffer.into(),
+				)));
+				self.plugin = Plugin::Editor(content);
+			}
+			Message::TextEditorAction(action) => {
+				if let Plugin::Editor(content) = &mut self.plugin {
+					content.perform(action);
+				}
+			}
 		}
 
 		Action::None
 	}
 
 	#[instrument(level = "trace")]
-	pub fn view(&self) -> Element<Message> {
+	pub fn view<'a>(&'a self, root: &'a Root) -> Element<'a, Message> {
 		let profile_controls: Element<_> = if self.profiles.is_empty() {
 			tooltip(
 				text("Error").style(text::danger),
@@ -722,7 +1003,23 @@ impl Instance {
 			.into()
 		});
 
-		column![controls, table].spacing(8).padding([8, 0]).into()
+		let content = column![controls, table].spacing(8).padding([8, 0]);
+
+		let plugin_content = match &self.plugin {
+			Plugin::Editor(content) => self.plugin_editor(content),
+			Plugin::Markdown(md) => self.plugin_markdown(root, md),
+			Plugin::None => return content.into(),
+			Plugin::Settings => self.plugin_settings(),
+		};
+
+		if self.is_plugin_fullscreen {
+			plugin_content
+		} else {
+			Split::new(content, plugin_content, self.split, Message::SplitDragged)
+				.direction(Direction::Horizontal)
+				.thickness(1.)
+				.into()
+		}
 	}
 
 	#[instrument(level = "trace")]
@@ -732,6 +1029,205 @@ impl Instance {
 			.name
 			.clone()
 			.unwrap_or(self.inner.path().display().to_string())
+	}
+
+	#[instrument(level = "trace")]
+	fn plugin_controls(&self) -> Element<Message> {
+		row![
+			if let Some(kind) = &self.markdown_kind
+				&& *kind == MarkdownKind::Readme
+			{
+				button(
+					row![icon::pen().center(), text("Edit").center()]
+						.align_y(Alignment::Center)
+						.spacing(6),
+				)
+				.on_press(Message::PluginEditMarkdown)
+			} else {
+				button(
+					row![icon::book_open().center(), text("README").center()]
+						.align_y(Alignment::Center)
+						.spacing(6),
+				)
+				.on_press(Message::PluginReadMarkdown(MarkdownKind::Readme))
+			},
+			if let Some(kind) = &self.markdown_kind
+				&& *kind == MarkdownKind::Changelog
+			{
+				button(
+					row![icon::pen().center(), text("Edit").center()]
+						.align_y(Alignment::Center)
+						.spacing(6),
+				)
+				.on_press(Message::PluginEditMarkdown)
+			} else {
+				button(
+					row![icon::scroll_text().center(), text("Changelog").center()]
+						.align_y(Alignment::Center)
+						.spacing(6),
+				)
+				.on_press(Message::PluginReadMarkdown(MarkdownKind::Changelog))
+			},
+			if let Some(kind) = &self.markdown_kind
+				&& *kind == MarkdownKind::License
+			{
+				button(
+					row![icon::pen().center(), text("Edit").center()]
+						.align_y(Alignment::Center)
+						.spacing(6),
+				)
+				.on_press(Message::PluginEditMarkdown)
+			} else {
+				button(
+					row![icon::scale().center(), text("License").center()]
+						.align_y(Alignment::Center)
+						.spacing(6),
+				)
+				.on_press(Message::PluginReadMarkdown(MarkdownKind::License))
+			},
+			tooltip(
+				button(icon::settings().center())
+					.on_press(Message::PluginSettings)
+					.width(31)
+					.height(31),
+				text("View plugin settings"),
+				tooltip::Position::Top,
+			),
+			horizontal_space(),
+			button(
+				if self.is_plugin_fullscreen {
+					icon::minimize()
+				} else {
+					icon::maximize()
+				}
+				.size(18)
+				.center()
+			)
+			.on_press(Message::PluginFullscreenToggled)
+			.width(31)
+			.height(31),
+			button(icon::close().size(16).center())
+				.on_press(Message::PluginClosed)
+				.width(31)
+				.height(31)
+				.style(button::danger),
+		]
+		.into()
+	}
+
+	#[instrument(level = "trace")]
+	fn plugin_editor<'a>(&'a self, content: &'a text_editor::Content) -> Element<'a, Message> {
+		column![
+			self.plugin_controls(),
+			horizontal_rule(1),
+			text_editor(content)
+				.on_action(Message::TextEditorAction)
+				.height(Fill)
+		]
+		.into()
+	}
+
+	#[instrument(level = "trace")]
+	fn plugin_markdown<'a>(
+		&'a self,
+		root: &'a Root,
+		md: &'a Vec<markdown::Item>,
+	) -> Element<'a, Message> {
+		responsive(move |size| {
+			let md_width = 896.;
+			center_x(
+				container(
+					column![
+						self.plugin_controls(),
+						horizontal_rule(1),
+						scrollable(
+							container(markdown(md, root.theme.clone()).map(Message::LinkClicked),)
+								.padding(32),
+						)
+						.width(Fill)
+						.height(Fill)
+					]
+					.width(if size.width > md_width {
+						Length::Fixed(md_width)
+					} else {
+						Fill
+					}),
+				)
+				.style(move |theme: &Theme| {
+					if size.width > md_width {
+						container::Style {
+							background: Some(theme.palette().background.into()),
+							shadow: Shadow::default(),
+							border: iced::Border {
+								color: theme.extended_palette().background.strong.color,
+								width: 1.,
+								..iced::Border::default()
+							},
+							// shadow: Shadow {
+							// 	color: Color::BLACK.scale_alpha(0.8),
+							// 	offset: Vector::default(),
+							// 	blur_radius: 8.,
+							// },
+							..container::bordered_box(theme)
+						}
+					} else {
+						container::Style::default()
+					}
+				}),
+			)
+			// .padding(4)
+			.style(move |theme: &Theme| {
+				let default = container::Style::default();
+				if size.width > md_width {
+					container::Style {
+						background: Some(
+							theme
+								.extended_palette()
+								.secondary
+								.weak
+								.color
+								.scale_alpha(0.2)
+								.into(),
+						),
+						..default
+					}
+				} else {
+					default
+				}
+			})
+			.into()
+		})
+		.into()
+	}
+
+	#[instrument(level = "trace")]
+	fn plugin_settings(&self) -> Element<Message> {
+		let Some(row_index) = self.table.focus_row else {
+			return Space::new(Fill, Fill).into();
+		};
+
+		let Some(Row { plugin_id, .. }) = self.table.rows.get(row_index) else {
+			return Space::new(Fill, Fill).into();
+		};
+
+		let content = button(
+			row![
+				text("Open plugin directory"),
+				icon::square_arrow_out_up_right().size(12).center()
+			]
+			.align_y(Alignment::Center)
+			.spacing(6),
+		)
+		.on_press(Message::PluginDirectoryOpened(
+			self.inner.path().join(plugin_id.plugin_dir()),
+		));
+
+		column![
+			self.plugin_controls(),
+			horizontal_rule(1),
+			container(content).width(Fill).height(Fill)
+		]
+		.into()
 	}
 
 	#[instrument(level = "trace")]
@@ -825,5 +1321,21 @@ impl Instance {
 			}
 		};
 		self
+	}
+}
+
+impl Default for Instance {
+	fn default() -> Self {
+		Self {
+			inner: emcore::Instance::default(),
+			is_plugin_fullscreen: false,
+			markdown_kind: None,
+			plugin: Plugin::default(),
+			profiles: Vec::new(),
+			profile_form_input: String::new(),
+			split: 0.5,
+			state: State::default(),
+			table: Table::default(),
+		}
 	}
 }

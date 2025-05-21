@@ -6,7 +6,7 @@ use tracing::instrument;
 
 use crate::gui::{Root, log};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct Logs;
 
 #[derive(Debug, Clone)]

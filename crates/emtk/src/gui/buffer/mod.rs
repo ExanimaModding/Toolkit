@@ -35,7 +35,7 @@ pub enum Action {
 	Task(Task<Message>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Buffer {
 	Instance(Box<Instance>),
 	InstanceHistory(Box<InstanceHistory>),
@@ -44,28 +44,24 @@ pub enum Buffer {
 }
 
 impl From<Instance> for Buffer {
-	#[instrument(level = "trace")]
 	fn from(value: Instance) -> Self {
 		Buffer::Instance(Box::new(value))
 	}
 }
 
 impl From<InstanceHistory> for Buffer {
-	#[instrument(level = "trace")]
 	fn from(value: InstanceHistory) -> Self {
 		Buffer::InstanceHistory(Box::new(value))
 	}
 }
 
 impl From<Logs> for Buffer {
-	#[instrument(level = "trace")]
 	fn from(value: Logs) -> Self {
 		Buffer::Logs(Box::new(value))
 	}
 }
 
 impl From<Settings> for Buffer {
-	#[instrument(level = "trace")]
 	fn from(value: Settings) -> Self {
 		Buffer::Settings(Box::new(value))
 	}
@@ -125,7 +121,10 @@ impl Buffer {
 			(_, Message::NewSettings) => return Action::NewSettings,
 			(_, Message::OpenInstance(path)) => return Action::OpenInstance(path),
 			(Buffer::Settings(settings), Message::Settings(message)) => {
-				return Action::Settings(settings.update(message));
+				return match settings.update(message) {
+					settings::Action::Task(task) => Action::Task(task.map(Message::Settings)),
+					action => Action::Settings(action),
+				};
 			}
 			_ => (),
 		}
@@ -134,9 +133,9 @@ impl Buffer {
 	}
 
 	#[instrument(level = "trace")]
-	pub fn view(&self, root: &Root) -> Element<Message> {
+	pub fn view<'a>(&'a self, root: &'a Root) -> Element<'a, Message> {
 		let content = container(match self {
-			Buffer::Instance(instance) => instance.view().map(Message::Instance),
+			Buffer::Instance(instance) => instance.view(root).map(Message::Instance),
 			Buffer::InstanceHistory(instance_history) => {
 				instance_history.view().map(Message::InstanceHistory)
 			}
@@ -182,7 +181,7 @@ impl Buffer {
 					tooltip::Position::Bottom
 				),
 				tooltip(
-					button(icon::logs().size(icon_size).center())
+					button(icon::scroll_text().size(icon_size).center())
 						.on_press(Message::NewLogs)
 						.width(btn_size)
 						.height(btn_size),

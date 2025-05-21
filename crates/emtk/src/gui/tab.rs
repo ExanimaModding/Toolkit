@@ -23,7 +23,7 @@ use crate::gui::{
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // pub struct Id(pub usize);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Tab {
 	pub widget_id: iced_widget::Id,
 	pub buffer: Buffer,
@@ -38,6 +38,13 @@ impl Tab {
 			buffer,
 			loading: false,
 		}
+	}
+
+	pub fn set_buffer(&mut self, buffer: impl Into<Buffer>) -> &mut Self {
+		let buffer = buffer.into();
+		self.buffer = buffer;
+		self.loading = false;
+		self
 	}
 }
 
@@ -68,7 +75,7 @@ impl Tab {
 // 	pub layout: Node,
 // }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TabManager {
 	// pub internal: Internal,
 	// pub tabs: BTreeMap<Id, Tab>,
@@ -260,12 +267,12 @@ impl TabManager {
 	}
 
 	#[instrument(level = "trace")]
-	pub fn view(
-		&self,
+	pub fn view<'a>(
+		&'a self,
 		_tabs: &pane_grid::State<TabManager>,
 		pane: Pane,
-		root: &Root,
-	) -> Element<Message> {
+		root: &'a Root,
+	) -> Element<'a, Message> {
 		if let Some(focus) = &self.focus
 			&& let Some(tab) = self.tabs.iter().find(|tab| &tab.widget_id == focus)
 		{

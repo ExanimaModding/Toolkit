@@ -6,7 +6,7 @@ use std::{
 };
 
 use bon::Builder;
-use getset::Getters;
+use getset::{Getters, MutGetters};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
 use tracing::{info, instrument, warn};
@@ -56,7 +56,7 @@ pub type LoadOrder = HashMap<plugin::Id, LoadOrderEntry>;
 ///
 /// There should be at least one profile called *Default*. Profiles will be stored in a *profiles*
 /// directory.
-#[derive(Default, Clone, Debug, Builder, Getters)]
+#[derive(Default, Clone, Debug, Builder, Getters, MutGetters)]
 #[builder(derive(Debug))]
 #[builder(state_mod(vis = "pub(crate)"))]
 #[builder(start_fn(vis = ""))]
@@ -66,7 +66,7 @@ pub struct Profile {
 	#[getset(get = "pub")]
 	#[builder(start_fn)]
 	path: PathBuf,
-	#[getset(get = "pub")]
+	#[getset(get = "pub", get_mut = "pub")]
 	#[builder(setters(vis = ""))]
 	load_order: LoadOrder,
 }

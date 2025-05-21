@@ -1,7 +1,8 @@
 use std::{env, io};
 
+use emcore::Error;
 use iced::{
-	Alignment, Element, Fill, Theme,
+	Alignment, Element, Fill, Task, Theme,
 	widget::{column, container, pick_list, row, text},
 };
 use tracing::{error, instrument};
@@ -12,13 +13,13 @@ use crate::gui::{
 	widget::{button, default_value, icon},
 };
 
-#[derive(Debug, Clone)]
 pub enum Action {
 	None,
 	ThemeSelected(Theme),
+	Task(Task<Message>),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Settings;
 
 #[derive(Debug, Clone)]
@@ -36,12 +37,21 @@ impl Settings {
 					error!("{}", io::Error::from(io::ErrorKind::NotFound));
 					return Action::None;
 				};
-				let _ = open::that(data_dir).map_err(|e| error!("{}", e));
+				Action::Task(
+					Task::future(async move {
+						let _ = open::that_in_background(data_dir)
+							.join()
+							.map(|r| {
+								r.map_err(Error::msg("failed to open app data directory"))
+									.map_err(|e| error!("{}", e))
+							})
+							.map_err(|_| error!("failed to open app data directory in background"));
+					})
+					.discard(),
+				)
 			}
-			Message::ThemeSelected(theme) => return Action::ThemeSelected(theme),
+			Message::ThemeSelected(theme) => Action::ThemeSelected(theme),
 		}
-
-		Action::None
 	}
 
 	#[instrument(level = "trace")]
@@ -50,7 +60,7 @@ impl Settings {
 
 		let app_data_btn = button(
 			row![
-				text("Open app data").center(),
+				text("Open app data directory").center(),
 				icon::square_arrow_out_up_right().size(12).center()
 			]
 			.align_y(Alignment::Center)
