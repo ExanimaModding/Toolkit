@@ -352,8 +352,12 @@ impl Instance {
 
 						emcore::Instance::with_path(instance_path)?.build().await
 					})
-					.map(|result| result.map_err(|e| error!("{}", e)))
-					.and_then(|instance| Task::done(Message::Init(instance))),
+					.map(|result| {
+						result
+							.map(Message::Init)
+							.map_err(|e| error!("{}", e))
+							.unwrap_or(Message::InitFailed)
+					}),
 				)
 				.chain(Task::done(Message::Loading)),
 		)
