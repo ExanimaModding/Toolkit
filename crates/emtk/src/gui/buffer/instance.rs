@@ -1,5 +1,5 @@
 use std::{
-	env,
+	env, fmt,
 	path::{Path, PathBuf},
 };
 
@@ -7,8 +7,8 @@ use anyhow::anyhow;
 use emcore::{Error, TomlError, instance, plugin, profile};
 use getset::Getters;
 use iced::{
-	Alignment, Border, Color, Element, Fill, Font, Length, Point, Rectangle, Renderer, Shadow,
-	Task, Theme, Vector,
+	Alignment, Border, Element, Fill, Font, Length, Point, Rectangle, Renderer, Shadow,
+	Subscription, Task, Theme,
 	advanced::widget as iced_widget,
 	widget::{
 		Space, center_x, checkbox, column, horizontal_rule, horizontal_space, markdown, pick_list,
@@ -279,6 +279,16 @@ pub enum MarkdownKind {
 	Readme,
 }
 
+impl fmt::Display for MarkdownKind {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			MarkdownKind::Changelog => f.write_str("changelog"),
+			MarkdownKind::License => f.write_str("license"),
+			MarkdownKind::Readme => f.write_str("readme"),
+		}
+	}
+}
+
 /// The view state of the instance.
 #[derive(Debug, Getters)]
 pub struct Instance {
@@ -313,8 +323,9 @@ pub enum Message {
 	PluginDirectoryOpened(PathBuf),
 	PluginEditMarkdown,
 	PluginFullscreenToggled,
-	PluginMarkdownChanged(MarkdownKind, String),
+	PluginMarkdownChanged((MarkdownKind, String)),
 	PluginReadMarkdown(MarkdownKind),
+	PluginSaveMarkdown,
 	PluginSettings,
 	ProfileChanged(emcore::Profile),
 	ProfileDeleted,
@@ -607,7 +618,12 @@ impl Instance {
 											MarkdownKind::License => plugin_id.license_file(),
 											MarkdownKind::Readme => plugin_id.readme_file(),
 										};
-										fs::read_to_string(instance_path.join(file_path)).await
+										let md_path = instance_path.join(file_path);
+										if md_path.is_file() {
+											fs::read_to_string(md_path).await
+										} else {
+											Ok(String::new())
+										}
 									})
 									.map(|result| {
 										result
@@ -628,7 +644,7 @@ impl Instance {
 			Message::PluginFullscreenToggled => {
 				self.is_plugin_fullscreen = !self.is_plugin_fullscreen
 			}
-			Message::PluginMarkdownChanged(kind, buffer) => {
+			Message::PluginMarkdownChanged((kind, buffer)) => {
 				self.plugin = Plugin::Markdown(markdown::parse(&buffer).collect());
 				self.markdown_kind = Some(kind);
 			}
@@ -650,23 +666,73 @@ impl Instance {
 							Task::done(Message::Loading)
 								.chain(
 									Task::future(async move {
-										fs::read_to_string(instance_path.join(file_path))
-											.await
-											.map(move |buffer| (kind, buffer))
-											.map_err(Error::msg(format!(
-												"failed to read {}'s readme file",
-												plugin_id
-											)))
-											.map_err(|e| error!("{}", e))
+										let md_path = instance_path.join(file_path);
+										(
+											kind.clone(),
+											if md_path.is_file() {
+												fs::read_to_string(md_path)
+													.await
+													.map_err(Error::msg(format!(
+														"failed to read {}'s {} file",
+														plugin_id, kind
+													)))
+													.map_err(|e| error!("{}", e))
+													.unwrap_or(String::new())
+											} else {
+												String::new()
+											},
+										)
 									})
-									.and_then(|(kind, buffer)| {
-										Task::done(Message::PluginMarkdownChanged(kind, buffer))
-									}),
+									.map(Message::PluginMarkdownChanged),
 								)
 								.chain(Task::done(Message::Loaded))
 						})
 						.unwrap_or(Task::none()),
 				);
+			}
+			Message::PluginSaveMarkdown => {
+				if let Plugin::Editor(content) = &self.plugin
+					&& let Some(kind) = &self.markdown_kind
+				{
+					let kind = kind.clone();
+					let rows = &self.table.rows;
+					let instance_path = self.inner.path().clone();
+					let buffer = content.text();
+					return Action::Task(
+						self.table
+							.focus_row
+							.map(move |i| rows.get(i))
+							.flatten()
+							.map(move |Row { plugin_id, .. }| {
+								let plugin_id = plugin_id.clone();
+								let file_path = match kind {
+									MarkdownKind::Changelog => plugin_id.changelog_file(),
+									MarkdownKind::License => plugin_id.license_file(),
+									MarkdownKind::Readme => plugin_id.readme_file(),
+								};
+								Task::done(Message::Loading)
+									.chain(
+										Task::future(async move {
+											fs::write(instance_path.join(file_path), &buffer)
+												.await
+												.map_err(Error::msg(format!(
+													"failed to write to {}'s {} file",
+													plugin_id, kind
+												)))
+												.map_err(|e| error!("{}", e))?;
+											Ok::<_, ()>((kind, buffer))
+										})
+										.and_then(|(kind, buffer)| {
+											Task::done(Message::PluginMarkdownChanged((
+												kind, buffer,
+											)))
+										}),
+									)
+									.chain(Task::done(Message::Loaded))
+							})
+							.unwrap_or(Task::none()),
+					);
+				}
 			}
 			Message::PluginSettings => {
 				self.plugin = Plugin::Settings;
@@ -1021,12 +1087,9 @@ impl Instance {
 		} else {
 			Split::new(content, plugin_content, self.split, Message::SplitDragged)
 				.direction(Direction::Horizontal)
-				.style(|theme| {
-					let default = rule::default(theme);
-					rule::Style {
-						width: 11,
-						..default
-					}
+				.style(|theme| rule::Style {
+					width: 0,
+					..rule::default(theme)
 				})
 				.into()
 		}
@@ -1042,59 +1105,95 @@ impl Instance {
 	}
 
 	#[instrument(level = "trace")]
-	fn plugin_controls(&self) -> Element<Message> {
+	fn plugin_controls(&self) -> Element<'_, Message> {
+		let readme_ctrl = if let Plugin::Editor(_) = self.plugin
+			&& let Some(kind) = &self.markdown_kind
+			&& *kind == MarkdownKind::Readme
+		{
+			button(
+				row![text("Save").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginSaveMarkdown)
+		} else if let Some(kind) = &self.markdown_kind
+			&& *kind == MarkdownKind::Readme
+		{
+			button(
+				row![icon::pen().center(), text("Edit").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginEditMarkdown)
+		} else {
+			button(
+				row![icon::book_open().center(), text("README").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginReadMarkdown(MarkdownKind::Readme))
+		};
+
+		let changelog_ctrl = if let Plugin::Editor(_) = self.plugin
+			&& let Some(kind) = &self.markdown_kind
+			&& *kind == MarkdownKind::Changelog
+		{
+			button(
+				row![text("Save").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginSaveMarkdown)
+		} else if let Some(kind) = &self.markdown_kind
+			&& *kind == MarkdownKind::Changelog
+		{
+			button(
+				row![icon::pen().center(), text("Edit").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginEditMarkdown)
+		} else {
+			button(
+				row![icon::scroll_text().center(), text("Changelog").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginReadMarkdown(MarkdownKind::Changelog))
+		};
+
+		let license_ctrl = if let Plugin::Editor(_) = self.plugin
+			&& let Some(kind) = &self.markdown_kind
+			&& *kind == MarkdownKind::License
+		{
+			button(
+				row![text("Save").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginSaveMarkdown)
+		} else if let Some(kind) = &self.markdown_kind
+			&& *kind == MarkdownKind::License
+		{
+			button(
+				row![icon::pen().center(), text("Edit").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginEditMarkdown)
+		} else {
+			button(
+				row![icon::scale().center(), text("License").center()]
+					.align_y(Alignment::Center)
+					.spacing(6),
+			)
+			.on_press(Message::PluginReadMarkdown(MarkdownKind::License))
+		};
+
 		row![
-			if let Some(kind) = &self.markdown_kind
-				&& *kind == MarkdownKind::Readme
-			{
-				button(
-					row![icon::pen().center(), text("Edit").center()]
-						.align_y(Alignment::Center)
-						.spacing(6),
-				)
-				.on_press(Message::PluginEditMarkdown)
-			} else {
-				button(
-					row![icon::book_open().center(), text("README").center()]
-						.align_y(Alignment::Center)
-						.spacing(6),
-				)
-				.on_press(Message::PluginReadMarkdown(MarkdownKind::Readme))
-			},
-			if let Some(kind) = &self.markdown_kind
-				&& *kind == MarkdownKind::Changelog
-			{
-				button(
-					row![icon::pen().center(), text("Edit").center()]
-						.align_y(Alignment::Center)
-						.spacing(6),
-				)
-				.on_press(Message::PluginEditMarkdown)
-			} else {
-				button(
-					row![icon::scroll_text().center(), text("Changelog").center()]
-						.align_y(Alignment::Center)
-						.spacing(6),
-				)
-				.on_press(Message::PluginReadMarkdown(MarkdownKind::Changelog))
-			},
-			if let Some(kind) = &self.markdown_kind
-				&& *kind == MarkdownKind::License
-			{
-				button(
-					row![icon::pen().center(), text("Edit").center()]
-						.align_y(Alignment::Center)
-						.spacing(6),
-				)
-				.on_press(Message::PluginEditMarkdown)
-			} else {
-				button(
-					row![icon::scale().center(), text("License").center()]
-						.align_y(Alignment::Center)
-						.spacing(6),
-				)
-				.on_press(Message::PluginReadMarkdown(MarkdownKind::License))
-			},
+			readme_ctrl,
+			changelog_ctrl,
+			license_ctrl,
 			tooltip(
 				button(icon::settings().center())
 					.on_press(Message::PluginSettings)
@@ -1168,16 +1267,11 @@ impl Instance {
 						container::Style {
 							background: Some(theme.palette().background.into()),
 							shadow: Shadow::default(),
-							border: iced::Border {
+							border: Border {
 								color: theme.extended_palette().background.strong.color,
 								width: 1.,
-								..iced::Border::default()
+								..Border::default()
 							},
-							// shadow: Shadow {
-							// 	color: Color::BLACK.scale_alpha(0.8),
-							// 	offset: Vector::default(),
-							// 	blur_radius: 8.,
-							// },
 							..container::bordered_box(theme)
 						}
 					} else {
@@ -1185,7 +1279,6 @@ impl Instance {
 					}
 				}),
 			)
-			// .padding(4)
 			.style(move |theme: &Theme| {
 				let default = container::Style::default();
 				if size.width > md_width {
