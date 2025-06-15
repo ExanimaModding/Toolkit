@@ -12,7 +12,7 @@ use iced::{
 	advanced::widget as iced_widget,
 	widget::{
 		Space, center_x, checkbox, column, horizontal_rule, horizontal_space, markdown, pick_list,
-		responsive, row, scrollable, text, text_editor, text_input,
+		responsive, row, rule, scrollable, text, text_editor, text_input,
 	},
 };
 use iced_drop::zones_on_point;
@@ -1021,7 +1021,13 @@ impl Instance {
 		} else {
 			Split::new(content, plugin_content, self.split, Message::SplitDragged)
 				.direction(Direction::Horizontal)
-				.thickness(1.)
+				.style(|theme| {
+					let default = rule::default(theme);
+					rule::Style {
+						width: 11,
+						..default
+					}
+				})
 				.into()
 		}
 	}
