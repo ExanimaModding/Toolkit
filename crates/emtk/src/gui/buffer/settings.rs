@@ -60,8 +60,8 @@ impl Settings {
 
 		let app_data_btn = button(
 			row![
-				text("Open app data directory").center(),
-				icon::square_arrow_out_up_right().size(12).center()
+				icon::square_arrow_out_up_right().center(),
+				text("Open app data directory").center()
 			]
 			.align_y(Alignment::Center)
 			.spacing(6),

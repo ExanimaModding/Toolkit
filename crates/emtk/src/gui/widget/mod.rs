@@ -266,6 +266,11 @@ pub mod icon {
 		lucide('\u{E803}')
 	}
 
+	/// Unicode for this app's Lucide save icon
+	pub fn save<'a>() -> Text<'a> {
+		lucide('\u{E81A}')
+	}
+
 	/// Unicode for this app's Lucide scale icon
 	pub fn scale<'a>() -> Text<'a> {
 		lucide('\u{E817}')

@@ -7,8 +7,8 @@ use anyhow::anyhow;
 use emcore::{Error, TomlError, instance, plugin, profile};
 use getset::Getters;
 use iced::{
-	Alignment, Border, Element, Fill, Font, Length, Point, Rectangle, Renderer, Shadow,
-	Subscription, Task, Theme,
+	Alignment, Border, Element, Fill, Font, Length, Point, Rectangle, Renderer, Shadow, Task,
+	Theme,
 	advanced::widget as iced_widget,
 	widget::{
 		Space, center_x, checkbox, column, horizontal_rule, horizontal_space, markdown, pick_list,
@@ -25,6 +25,9 @@ use crate::gui::{
 	Root,
 	widget::{button, container, icon, tooltip},
 };
+
+/// Width of the markdown content.
+const MD_WIDTH: f32 = 896.;
 
 pub enum Action {
 	InitFailed,
@@ -1106,12 +1109,14 @@ impl Instance {
 
 	#[instrument(level = "trace")]
 	fn plugin_controls(&self) -> Element<'_, Message> {
+		let btn_width = 200;
+
 		let readme_ctrl = if let Plugin::Editor(_) = self.plugin
 			&& let Some(kind) = &self.markdown_kind
 			&& *kind == MarkdownKind::Readme
 		{
 			button(
-				row![text("Save").center()]
+				row![icon::save().center(), text("Save").center()]
 					.align_y(Alignment::Center)
 					.spacing(6),
 			)
@@ -1132,7 +1137,8 @@ impl Instance {
 					.spacing(6),
 			)
 			.on_press(Message::PluginReadMarkdown(MarkdownKind::Readme))
-		};
+		}
+		.width(btn_width);
 
 		let changelog_ctrl = if let Plugin::Editor(_) = self.plugin
 			&& let Some(kind) = &self.markdown_kind
@@ -1160,7 +1166,8 @@ impl Instance {
 					.spacing(6),
 			)
 			.on_press(Message::PluginReadMarkdown(MarkdownKind::Changelog))
-		};
+		}
+		.width(btn_width);
 
 		let license_ctrl = if let Plugin::Editor(_) = self.plugin
 			&& let Some(kind) = &self.markdown_kind
@@ -1188,12 +1195,10 @@ impl Instance {
 					.spacing(6),
 			)
 			.on_press(Message::PluginReadMarkdown(MarkdownKind::License))
-		};
+		}
+		.width(btn_width);
 
 		row![
-			readme_ctrl,
-			changelog_ctrl,
-			license_ctrl,
 			tooltip(
 				button(icon::settings().center())
 					.on_press(Message::PluginSettings)
@@ -1202,6 +1207,9 @@ impl Instance {
 				text("View plugin settings"),
 				tooltip::Position::Top,
 			),
+			readme_ctrl,
+			changelog_ctrl,
+			license_ctrl,
 			horizontal_space(),
 			button(
 				if self.is_plugin_fullscreen {
@@ -1226,44 +1234,24 @@ impl Instance {
 
 	#[instrument(level = "trace")]
 	fn plugin_editor<'a>(&'a self, content: &'a text_editor::Content) -> Element<'a, Message> {
-		column![
-			self.plugin_controls(),
-			horizontal_rule(1),
-			text_editor(content)
-				.on_action(Message::TextEditorAction)
-				.height(Fill)
-		]
-		.into()
-	}
-
-	#[instrument(level = "trace")]
-	fn plugin_markdown<'a>(
-		&'a self,
-		root: &'a Root,
-		md: &'a Vec<markdown::Item>,
-	) -> Element<'a, Message> {
 		responsive(move |size| {
-			let md_width = 896.;
 			center_x(
 				container(
 					column![
 						self.plugin_controls(),
 						horizontal_rule(1),
-						scrollable(
-							container(markdown(md, root.theme.clone()).map(Message::LinkClicked),)
-								.padding(32),
-						)
-						.width(Fill)
-						.height(Fill)
+						text_editor(content)
+							.on_action(Message::TextEditorAction)
+							.height(Fill)
 					]
-					.width(if size.width > md_width {
-						Length::Fixed(md_width)
+					.width(if size.width > MD_WIDTH {
+						Length::Fixed(MD_WIDTH)
 					} else {
 						Fill
 					}),
 				)
 				.style(move |theme: &Theme| {
-					if size.width > md_width {
+					if size.width > MD_WIDTH {
 						container::Style {
 							background: Some(theme.palette().background.into()),
 							shadow: Shadow::default(),
@@ -1281,7 +1269,7 @@ impl Instance {
 			)
 			.style(move |theme: &Theme| {
 				let default = container::Style::default();
-				if size.width > md_width {
+				if size.width > MD_WIDTH {
 					container::Style {
 						background: Some(
 							theme
@@ -1304,7 +1292,80 @@ impl Instance {
 	}
 
 	#[instrument(level = "trace")]
-	fn plugin_settings(&self) -> Element<Message> {
+	fn plugin_markdown<'a>(
+		&'a self,
+		root: &'a Root,
+		md: &'a Vec<markdown::Item>,
+	) -> Element<'a, Message> {
+		responsive(move |size| {
+			let content = center_x(
+				container(
+					column![
+						self.plugin_controls(),
+						horizontal_rule(1),
+						scrollable(
+							container(markdown(md, root.theme.clone()).map(Message::LinkClicked),)
+								.padding(32),
+						)
+						.width(Fill)
+						.height(Fill)
+					]
+					.width(if size.width > MD_WIDTH {
+						Length::Fixed(MD_WIDTH)
+					} else {
+						Fill
+					}),
+				)
+				.style(move |theme: &Theme| {
+					if size.width > MD_WIDTH {
+						container::Style {
+							background: Some(theme.palette().background.into()),
+							shadow: Shadow::default(),
+							border: Border {
+								color: theme.extended_palette().background.strong.color,
+								width: 1.,
+								..Border::default()
+							},
+							..container::bordered_box(theme)
+						}
+					} else {
+						container::Style::default()
+					}
+				}),
+			)
+			.style(move |theme: &Theme| {
+				let default = container::Style::default();
+				if size.width > MD_WIDTH {
+					container::Style {
+						background: Some(
+							theme
+								.extended_palette()
+								.secondary
+								.weak
+								.color
+								.scale_alpha(0.2)
+								.into(),
+						),
+						..default
+					}
+				} else {
+					default
+				}
+			});
+
+			let content: Element<_> = if size.width > MD_WIDTH {
+				content.into()
+			} else {
+				column![horizontal_rule(1), content].into()
+			};
+
+			content.into()
+		})
+		.into()
+	}
+
+	#[instrument(level = "trace")]
+	fn plugin_settings(&self) -> Element<'_, Message> {
 		let Some(row_index) = self.table.focus_row else {
 			return Space::new(Fill, Fill).into();
 		};
@@ -1315,8 +1376,8 @@ impl Instance {
 
 		let content = button(
 			row![
-				text("Open plugin directory"),
-				icon::square_arrow_out_up_right().size(12).center()
+				icon::square_arrow_out_up_right().center(),
+				text("Open plugin directory")
 			]
 			.align_y(Alignment::Center)
 			.spacing(6),
