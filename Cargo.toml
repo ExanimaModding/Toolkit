@@ -22,7 +22,7 @@ edition = "2024"
 documentation = "https://exanimamodding.codeberg.page/Book"
 homepage = "https://exanimamodding.codeberg.page/Book"
 repository = "https://codeberg.org/ExanimaModding/Toolkit"
-license = "LGPL-3.0-or-later"
+license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
 anyhow = "1.0"
