@@ -5,13 +5,23 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tracing::instrument;
 
 use super::Instance;
 
 pub mod prelude {
 	pub use crate::plugin::{self, Plugin};
 }
+
+/// The name of file used to provide more information about the plugin in
+/// markdown.
+pub const README: &str = "README.md";
+
+/// The name of the file used to provide changelogs about the plugin in
+/// markdown.
+pub const CHANGELOG: &str = "CHANGELOG.md";
+
+/// The name of the file used to provide licensing information of the plugin.
+pub const LICENSE: &str = "LICENSE";
 
 #[derive(PartialEq, Eq, Hash, Debug, thiserror::Error)]
 pub enum Error {
@@ -69,7 +79,6 @@ impl Id {
 	/// - Is empty
 	/// - Starts or ends with '-' or '.'
 	/// - Not alphanumeric (exceptions: '-', '.')
-	#[instrument(level = "trace")]
 	pub fn is_valid(id: &str) -> bool {
 		if id.is_empty()
 			|| id.starts_with(['-', '.'])
@@ -85,28 +94,44 @@ impl Id {
 	}
 
 	/// Helper that returns a path to this plugin's directory
-	#[instrument(level = "trace")]
 	pub fn plugin_dir(&self) -> PathBuf {
 		PathBuf::from(Instance::MODS_DIR).join(self.to_string())
 	}
 
 	/// Helper that returns a path to this plugin's assets directory.
-	#[instrument(level = "trace")]
 	pub fn assets_dir(&self) -> PathBuf {
 		self.plugin_dir().join(Instance::ASSETS_DIR)
 	}
 
 	/// Helper that returns a path to this plugin's game assets directory.
-	#[instrument(level = "trace")]
 	pub fn packages_dir(&self) -> PathBuf {
 		self.assets_dir().join(Instance::PACKAGES_DIR)
+	}
+
+	/// Helper that returns a path to this plugin's [`README`] file.
+	pub fn readme_file(&self) -> PathBuf {
+		self.plugin_dir().join(README)
+	}
+
+	/// Helper that returns a path to this plugin's [`CHANGELOG`] file.
+	pub fn changelog_file(&self) -> PathBuf {
+		self.plugin_dir().join(CHANGELOG)
+	}
+
+	/// Helper that returns a path to this plugin's [`LICENSE`] file.
+	pub fn license_file(&self) -> PathBuf {
+		self.plugin_dir().join(LICENSE)
+	}
+
+	/// Helper that returns a path to this plugin's [`SETTINGS`] file.
+	pub fn settings_file(&self) -> PathBuf {
+		self.plugin_dir().join(Settings::TOML)
 	}
 }
 
 impl TryFrom<&str> for Id {
 	type Error = Error;
 
-	#[instrument(level = "trace")]
 	fn try_from(value: &str) -> Result<Self, Self::Error> {
 		if !Id::is_valid(value) {
 			return Err(Error::InvalidId(value.into()));
@@ -117,14 +142,12 @@ impl TryFrom<&str> for Id {
 }
 
 impl From<Id> for String {
-	#[instrument(level = "trace")]
 	fn from(value: Id) -> Self {
 		value.0
 	}
 }
 
 impl Display for Id {
-	#[instrument(level = "trace", skip(f))]
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", self.0)
 	}
@@ -167,6 +190,113 @@ impl Manifest {
 	/// The name of the file responsible for storing information about the plugin
 	/// such as display name, version, dependencies, etc.
 	pub const TOML: &str = "manifest.toml";
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Widget {
+	Checkbox(Checkbox),
+	Dropdown(Dropdown),
+	Radio(Radio),
+	Slider(Slider),
+	TextInput(TextInput),
+}
+
+impl From<Checkbox> for Widget {
+	fn from(value: Checkbox) -> Self {
+		Widget::Checkbox(value)
+	}
+}
+
+impl From<Dropdown> for Widget {
+	fn from(value: Dropdown) -> Self {
+		Widget::Dropdown(value)
+	}
+}
+
+impl From<Radio> for Widget {
+	fn from(value: Radio) -> Self {
+		Widget::Radio(value)
+	}
+}
+
+impl From<Slider> for Widget {
+	fn from(value: Slider) -> Self {
+		Widget::Slider(value)
+	}
+}
+
+impl From<TextInput> for Widget {
+	fn from(value: TextInput) -> Self {
+		Widget::TextInput(value)
+	}
+}
+
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub struct Settings {
+	#[serde(rename = "widget")]
+	#[serde(default)]
+	pub widgets: Vec<Widget>,
+}
+
+impl Settings {
+	/// The name of the file used to customize plugin behavior on load.
+	pub const TOML: &str = "settings.toml";
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Checkbox {
+	pub about: Option<String>,
+	pub label: String,
+	pub value: bool,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct DropdownItem {
+	pub about: Option<String>,
+	pub label: String,
+	// pub value: bool,
+	// pub value: toml::Value,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Dropdown {
+	pub about: Option<String>,
+	pub label: String,
+	pub value: i64,
+	pub options: Vec<DropdownItem>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct RadioButton {
+	pub about: Option<String>,
+	pub label: String,
+	// pub value: bool,
+	// pub value: toml::Value,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Radio {
+	pub about: Option<String>,
+	pub label: String,
+	pub value: i64,
+	pub options: Vec<RadioButton>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Slider {
+	pub about: Option<String>,
+	pub label: String,
+	pub value: f64,
+	pub range: [f64; 2],
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct TextInput {
+	pub about: Option<String>,
+	pub label: String,
+	pub value: String,
 }
 
 #[cfg(test)]

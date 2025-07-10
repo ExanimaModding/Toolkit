@@ -23,10 +23,14 @@ use crate::gui::{
 // #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 // pub struct Id(pub usize);
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Tab {
 	pub widget_id: iced_widget::Id,
 	pub buffer: Buffer,
+	// TODO: implement support for state of unsaved changes
+	/// Indicates if there are unsaved changes to this tab.
+	pub is_dirty: bool,
+	/// Indicates if a task is still running in the background.
 	pub loading: bool,
 }
 
@@ -36,8 +40,16 @@ impl Tab {
 		Self {
 			widget_id: iced_widget::Id::unique(),
 			buffer,
+			is_dirty: false,
 			loading: false,
 		}
+	}
+
+	pub fn set_buffer(&mut self, buffer: impl Into<Buffer>) -> &mut Self {
+		let buffer = buffer.into();
+		self.buffer = buffer;
+		self.loading = false;
+		self
 	}
 }
 
@@ -68,7 +80,7 @@ impl Tab {
 // 	pub layout: Node,
 // }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TabManager {
 	// pub internal: Internal,
 	// pub tabs: BTreeMap<Id, Tab>,
@@ -142,7 +154,7 @@ impl TabManager {
 		_tabs: &pane_grid::State<TabManager>,
 		pane: Pane,
 		size: Size,
-	) -> Element<Message> {
+	) -> Element<'_, Message> {
 		let btn_size = 28;
 		let tab_max_width = 160.;
 		let tab_min_width = 60.;
@@ -184,7 +196,7 @@ impl TabManager {
 
 		let tab_elements = row![refresh_btn]
 			.extend(self.tabs.iter().map(|tab| {
-				let close_tab_btn: Element<_> = if let Some(widget_id) = &self.hover
+				let tab_overlay: Element<_> = if let Some(widget_id) = &self.hover
 					&& *widget_id == tab.widget_id
 				{
 					right_center(
@@ -192,13 +204,30 @@ impl TabManager {
 					)
 					.into()
 				} else {
-					Space::new(Shrink, Shrink).into()
+					if tab.is_dirty {
+						right_center(
+							container(Space::new(Shrink, Shrink))
+								.width(8)
+								.height(8)
+								.style(|theme: &Theme| container::Style {
+									background: Some(
+										theme.extended_palette().background.strong.text.into(),
+									),
+									border: Border::default().rounded(99),
+									..container::Style::default()
+								}),
+						)
+						.padding([0, 6])
+						.into()
+					} else {
+						Space::new(Shrink, Shrink).into()
+					}
 				};
 
 				droppable(
 					mouse_area(tooltip(
 						container(
-							stack![text(tab.buffer.title()).center(), close_tab_btn]
+							stack![text(tab.buffer.title()).center(), tab_overlay]
 								.width(Fill)
 								.height(Fill),
 						)
@@ -260,12 +289,12 @@ impl TabManager {
 	}
 
 	#[instrument(level = "trace")]
-	pub fn view(
-		&self,
+	pub fn view<'a>(
+		&'a self,
 		_tabs: &pane_grid::State<TabManager>,
 		pane: Pane,
-		root: &Root,
-	) -> Element<Message> {
+		root: &'a Root,
+	) -> Element<'a, Message> {
 		if let Some(focus) = &self.focus
 			&& let Some(tab) = self.tabs.iter().find(|tab| &tab.widget_id == focus)
 		{

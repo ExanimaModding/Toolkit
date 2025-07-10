@@ -5,15 +5,13 @@ mod log;
 mod tab;
 mod widget;
 
-use std::{env, mem, path::PathBuf};
+use std::env;
 
 use emcore::{Error, Result, TomlError};
 use getset::{Getters, WithSetters};
 use iced::widget::pane_grid;
 use iced::{
-	Element, Event, Padding, Subscription, Task, Theme,
-	advanced::widget as iced_widget,
-	event, keyboard,
+	Element, Event, Padding, Subscription, Task, Theme, event, keyboard,
 	widget::{container, pane_grid::Pane, responsive},
 	window,
 };
@@ -242,7 +240,6 @@ enum Message {
 	Log(log::Event),
 	HotkeyPressed(Hotkey),
 	RefreshConfig(Config),
-	ReplaceBuffer(Pane, iced_widget::Id, Buffer),
 	Tab(tab::Message),
 }
 
@@ -334,47 +331,6 @@ impl App {
 					self.root.theme = theme;
 				}
 			}
-			Message::ReplaceBuffer(pane, widget_id, buffer) => {
-				if let Some(tab_manager) = self.tab_managers.get_mut(pane)
-					&& let Some(tab) = tab_manager
-						.tabs
-						.iter_mut()
-						.find(|tab| tab.widget_id == widget_id)
-				{
-					let path = if let Buffer::Instance(instance) = &buffer {
-						instance.inner().path().clone()
-					} else {
-						PathBuf::new()
-					};
-
-					let _ = mem::replace(&mut tab.buffer, buffer);
-					tab.loading = false;
-
-					// FIX: condition doesn't work properly
-					return if let Buffer::Instance(instance) = &tab.buffer
-						&& !path.display().to_string().is_empty()
-						&& *instance.inner().path() != path
-					{
-						let lock_path = instance
-							.inner()
-							.path()
-							.join(emcore::Instance::DATA_DIR)
-							.join(emcore::Instance::LOCK);
-						Task::future(async move {
-							if lock_path.is_file() {
-								let _ = fs::remove_file(lock_path)
-									.await
-									.map(|_| info!("instance's lock file removed"))
-									.map_err(Error::msg("failed to remove instance's lock file"))
-									.map_err(|e| error!("{}", e));
-							}
-						})
-						.discard()
-					} else {
-						Task::none()
-					};
-				}
-			}
 			Message::Tab(message) => match message {
 				tab::Message::Buffer(pane, message) => {
 					if let Some(tab_manager) = self.tab_managers.get_mut(pane)
@@ -387,6 +343,16 @@ impl App {
 						let action = tab.buffer.update(message);
 						match action {
 							buffer::Action::Instance(action) => match action {
+								instance::Action::InitFailed => {
+									let (instance_history, task) = InstanceHistory::new();
+									tab.set_buffer(instance_history);
+									return task.map(move |message| {
+										Message::Tab(tab::Message::Buffer(
+											pane,
+											buffer::Message::InstanceHistory(message),
+										))
+									});
+								}
 								instance::Action::Loaded => tab.loading = false,
 								instance::Action::Loading => tab.loading = true,
 								instance::Action::None => (),
@@ -404,40 +370,13 @@ impl App {
 								instance_history::Action::Loading => tab.loading = true,
 								instance_history::Action::None => (),
 								instance_history::Action::OpenInstance(path) => {
-									let widget_id = tab.widget_id.clone();
-									return Task::perform(
-										async move { Instance::with_path(&path).await },
-										move |result| match result {
-											Ok(instance) => (
-												Message::ReplaceBuffer(
-													pane,
-													widget_id,
-													instance.into(),
-												),
-												Task::none(),
-											),
-											Err(e) => {
-												error!("{}", e);
-												let (instance_history, task) =
-													InstanceHistory::new();
-												(
-													Message::ReplaceBuffer(
-														pane,
-														widget_id,
-														instance_history.into(),
-													),
-													task,
-												)
-											}
-										},
-									)
-									.then(move |(message, task)| {
-										Task::done(message).chain(task.map(move |message| {
-											Message::Tab(tab::Message::Buffer(
-												pane,
-												buffer::Message::InstanceHistory(message),
-											))
-										}))
+									let (instance, task) = Instance::with_path(&path);
+									tab.set_buffer(instance);
+									return task.map(move |message| {
+										Message::Tab(tab::Message::Buffer(
+											pane,
+											buffer::Message::Instance(message),
+										))
 									});
 								}
 								instance_history::Action::Task(task) => {
@@ -452,70 +391,32 @@ impl App {
 							buffer::Action::Loaded => tab.loading = false,
 							buffer::Action::Loading => tab.loading = true,
 							buffer::Action::NewInstance => {
-								let widget_id = tab.widget_id.clone();
-								return Task::perform(
-									async { Instance::new().await },
-									move |result| match result {
-										Some(new_instance) => (
-											Message::ReplaceBuffer(
-												pane,
-												widget_id,
-												new_instance.into(),
-											),
-											Task::none(),
-										),
-										None => {
-											error!("failed to find last used instance in history");
-											let (instance_history, task) = InstanceHistory::new();
-											(
-												Message::ReplaceBuffer(
-													pane,
-													widget_id,
-													instance_history.into(),
-												),
-												task,
-											)
-										}
-									},
-								)
-								.then(move |(message, task)| {
-									Task::done(message).chain(task.map(move |message| {
-										Message::Tab(tab::Message::Buffer(
-											pane,
-											buffer::Message::InstanceHistory(message),
-										))
-									}))
+								let (instance, task) = Instance::new();
+								tab.set_buffer(instance);
+								return task.map(move |message| {
+									Message::Tab(tab::Message::Buffer(
+										pane,
+										buffer::Message::Instance(message),
+									))
 								});
 							}
 							buffer::Action::NewInstanceHistory => {
 								let (instance_history, task) = InstanceHistory::new();
-								return Task::done(Message::ReplaceBuffer(
-									pane,
-									tab.widget_id.clone(),
-									instance_history.into(),
-								))
-								.chain(task.map(move |message| {
+								tab.set_buffer(instance_history);
+								return task.map(move |message| {
 									Message::Tab(tab::Message::Buffer(
 										pane,
 										buffer::Message::InstanceHistory(message),
 									))
-								}));
+								});
 							}
 							buffer::Action::NewLogs => {
-								return Task::done(Message::ReplaceBuffer(
-									pane,
-									tab.widget_id.clone(),
-									Logs.into(),
-								));
+								tab.set_buffer(Logs);
 							}
 							buffer::Action::NewSettings => {
-								return Task::done(Message::ReplaceBuffer(
-									pane,
-									tab.widget_id.clone(),
-									Settings.into(),
-								));
+								tab.set_buffer(Settings);
 							}
-							buffer::Action::None => (),
+							buffer::Action::None => {}
 							buffer::Action::OpenInstance(path) => {
 								if let Buffer::Instance(instance) = &tab.buffer
 									&& *instance.inner().path() == path
@@ -523,39 +424,13 @@ impl App {
 									return Task::done(Message::Tab(tab::Message::RefreshTab));
 								}
 
-								let widget_id = tab.widget_id.clone();
-								return Task::perform(
-									async move { Instance::with_path(&path).await },
-									move |result| match result {
-										Ok(instance) => (
-											Message::ReplaceBuffer(
-												pane,
-												widget_id,
-												instance.into(),
-											),
-											Task::none(),
-										),
-										Err(e) => {
-											error!("{}", e);
-											let (instance_history, task) = InstanceHistory::new();
-											(
-												Message::ReplaceBuffer(
-													pane,
-													widget_id,
-													instance_history.into(),
-												),
-												task,
-											)
-										}
-									},
-								)
-								.then(move |(message, task)| {
-									Task::done(message).chain(task.map(move |message| {
-										Message::Tab(tab::Message::Buffer(
-											pane,
-											buffer::Message::InstanceHistory(message),
-										))
-									}))
+								let (instance, task) = Instance::with_path(&path);
+								tab.set_buffer(instance);
+								return task.map(move |message| {
+									Message::Tab(tab::Message::Buffer(
+										pane,
+										buffer::Message::Instance(message),
+									))
 								});
 							}
 							buffer::Action::Settings(action) => match action {
@@ -569,6 +444,14 @@ impl App {
 											Task::done(Message::RefreshConfig(config))
 										})
 										.chain(Task::done(Message::Loaded));
+								}
+								settings::Action::Task(task) => {
+									return task.map(move |message| {
+										Message::Tab(tab::Message::Buffer(
+											pane,
+											buffer::Message::Settings(message),
+										))
+									});
 								}
 							},
 							buffer::Action::Task(task) => {
@@ -804,79 +687,39 @@ impl App {
 						&& let Some(tab_focus) = &tab_manager.focus
 						&& let Some(tab) = tab_manager
 							.tabs
-							.iter()
+							.iter_mut()
 							.find(|tab| tab.widget_id == *tab_focus)
 					{
 						match &tab.buffer {
 							Buffer::Instance(instance) => {
 								let pane = self.focus;
-								let path = instance.inner().path().clone();
-								let widget_id = tab.widget_id.clone();
-								let buffer = tab.buffer.clone();
-								let lock_path = instance
-									.inner()
-									.path()
-									.join(emcore::Instance::DATA_DIR)
-									.join(emcore::Instance::LOCK);
-								return Task::future(async move {
-									if lock_path.is_file() {
-										let _ = fs::remove_file(lock_path)
-											.await
-											.map(|_| info!("instance's lock file removed"))
-											.map_err(Error::msg(
-												"failed to remove instance's lock file",
-											))
-											.map_err(|e| error!("{}", e));
-									}
-								})
-								.discard()
-								.chain(Task::perform(
-									async move {
-										let Ok(new_instance) = Instance::with_path(&path)
-											.await
-											.map_err(|e| error!("{}", e))
-										else {
-											return None;
-										};
-										Some(new_instance)
-									},
-									move |result| {
-										if let Some(instance) = result {
-											Message::ReplaceBuffer(pane, widget_id, instance.into())
-										} else {
-											Message::ReplaceBuffer(pane, widget_id, buffer)
-										}
-									},
-								));
+
+								let (instance, task) = Instance::with_path(instance.inner().path());
+								tab.set_buffer(instance);
+								return task.map(move |message| {
+									Message::Tab(tab::Message::Buffer(
+										pane,
+										buffer::Message::Instance(message),
+									))
+								});
 							}
 							Buffer::InstanceHistory(_instance_history) => {
 								let pane = self.focus;
+
 								let (instance_history, task) = InstanceHistory::new();
-								return Task::done(Message::ReplaceBuffer(
-									self.focus,
-									tab.widget_id.clone(),
-									instance_history.into(),
-								))
-								.chain(task.map(move |message| {
+								tab.set_buffer(instance_history);
+								return task.map(move |message| {
 									Message::Tab(tab::Message::Buffer(
 										pane,
 										buffer::Message::InstanceHistory(message),
 									))
-								}));
+								});
 							}
 							Buffer::Logs(_logs) => {
-								return Task::done(Message::ReplaceBuffer(
-									self.focus,
-									tab.widget_id.clone(),
-									Logs.into(),
-								));
+								tab.set_buffer(Logs);
 							}
 							Buffer::Settings(_settings) => {
-								return Task::done(Message::ReplaceBuffer(
-									self.focus,
-									tab.widget_id.clone(),
-									Settings.into(),
-								));
+								tab.set_buffer(Settings);
 							}
 						}
 					} else {
@@ -1012,7 +855,7 @@ impl App {
 	}
 
 	#[instrument(level = "trace")]
-	fn view(&self) -> Element<Message> {
+	fn view(&self) -> Element<'_, Message> {
 		let pane_grid: Element<_> = pane_grid(&self.tab_managers, |pane, tab, _is_maximized| {
 			let title_bar = pane_grid::TitleBar::new({
 				container(responsive(move |size| {

@@ -28,7 +28,7 @@ pub enum Action {
 	Task(Task<Message>),
 }
 
-#[derive(Debug, Clone, Getters)]
+#[derive(Debug, Getters)]
 pub struct InstanceHistory {
 	hover: Option<usize>,
 	#[getset(get = "pub")]
@@ -169,7 +169,7 @@ impl InstanceHistory {
 	}
 
 	#[instrument(level = "trace")]
-	pub fn view(&self) -> Element<Message> {
+	pub fn view(&self) -> Element<'_, Message> {
 		let history_len = self.inner.len() as u32;
 		let history_btn_size = 54;
 		let control_icon_size = 18;

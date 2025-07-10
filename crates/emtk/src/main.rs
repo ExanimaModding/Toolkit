@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-#![feature(let_chains)]
 #![feature(error_generic_member_access)]
 #![feature(path_file_prefix)]
 #![deny(missing_docs)]

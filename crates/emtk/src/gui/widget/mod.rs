@@ -4,10 +4,10 @@
 pub mod toast;
 
 use iced::{
-	Border, Color, Element, Font, Shadow, Theme, Vector,
+	Border, Color, Element, Font, Shadow, Theme, Vector, advanced,
 	widget::{
-		Button, Row, Text, Tooltip, button as iced_button, container as iced_container,
-		row as iced_row, scrollable as iced_scrollable, text as iced_text, tooltip as iced_tooltip,
+		Button, Container, Row, Text, Tooltip, button as iced_button, container as iced_container,
+		row as iced_row, text as iced_text, tooltip as iced_tooltip,
 	},
 };
 
@@ -98,6 +98,8 @@ pub fn button<'a, Message>(content: impl Into<Element<'a, Message>>) -> Button<'
 pub mod container {
 	use super::*;
 
+	pub use iced_container::Style;
+
 	pub fn bordered_box(theme: &Theme) -> iced_container::Style {
 		let bordered_box = iced_container::bordered_box(theme);
 		iced_container::Style {
@@ -109,6 +111,16 @@ pub mod container {
 			..bordered_box
 		}
 	}
+}
+
+pub fn container<'a, Message, Theme, Renderer>(
+	content: impl Into<Element<'a, Message, Theme, Renderer>>,
+) -> Container<'a, Message, Theme, Renderer>
+where
+	Theme: iced_container::Catalog + 'a,
+	Renderer: advanced::Renderer,
+{
+	iced_container(content)
 }
 
 pub fn close_button<'a, Message>() -> Button<'a, Message> {
@@ -157,7 +169,12 @@ pub mod icon {
 		iced_text(codepoint).font(Font::with_name("lucide"))
 	}
 
-	/// Unicode for this app's Lucide rotate x icon
+	/// Unicode for this app's Lucide book-open icon
+	pub fn book_open<'a>() -> Text<'a> {
+		lucide('\u{E816}')
+	}
+
+	/// Unicode for this app's Lucide x icon
 	pub fn close<'a>() -> Text<'a> {
 		lucide('\u{E802}')
 	}
@@ -202,12 +219,17 @@ pub mod icon {
 		lucide('\u{E80B}')
 	}
 
-	/// Unicode for this app's Lucide logs icon
-	pub fn logs<'a>() -> Text<'a> {
-		lucide('\u{E80A}')
+	/// Unicode for this app's Lucide maximize icon
+	pub fn maximize<'a>() -> Text<'a> {
+		lucide('\u{E814}')
 	}
 
-	/// Unicode for this app's Lucide rotate menu icon
+	/// Unicode for this app's Lucide minimize icon
+	pub fn minimize<'a>() -> Text<'a> {
+		lucide('\u{E815}')
+	}
+
+	/// Unicode for this app's Lucide menu icon
 	pub fn menu<'a>() -> Text<'a> {
 		lucide('\u{E800}')
 	}
@@ -217,7 +239,12 @@ pub mod icon {
 		lucide('\u{E811}')
 	}
 
-	/// Unicode for this app's Lucide rotate play icon
+	/// Unicode for this app's Lucide pen icon
+	pub fn pen<'a>() -> Text<'a> {
+		lucide('\u{E819}')
+	}
+
+	/// Unicode for this app's Lucide play icon
 	pub fn play<'a>() -> Text<'a> {
 		lucide('\u{E801}')
 	}
@@ -237,6 +264,21 @@ pub mod icon {
 	/// for reset indication
 	pub fn rotate_ccw<'a>() -> Text<'a> {
 		lucide('\u{E803}')
+	}
+
+	/// Unicode for this app's Lucide save icon
+	pub fn save<'a>() -> Text<'a> {
+		lucide('\u{E81A}')
+	}
+
+	/// Unicode for this app's Lucide scale icon
+	pub fn scale<'a>() -> Text<'a> {
+		lucide('\u{E817}')
+	}
+
+	/// Unicode for this app's Lucide scroll-text icon
+	pub fn scroll_text<'a>() -> Text<'a> {
+		lucide('\u{E818}')
 	}
 
 	/// Unicode for this app's Lucide settings icon

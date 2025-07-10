@@ -6,7 +6,7 @@ use tracing::instrument;
 
 use crate::gui::{Root, log};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct Logs;
 
 #[derive(Debug, Clone)]
@@ -17,7 +17,7 @@ impl Logs {
 	pub fn update(&mut self, _message: Message) {}
 
 	#[instrument(level = "trace")]
-	pub fn view(&self, root: &Root) -> Element<Message> {
+	pub fn view(&self, root: &Root) -> Element<'_, Message> {
 		let content = log::view(&root.logs);
 
 		scrollable(container(content).padding(Padding::default().bottom(10).right(10)))

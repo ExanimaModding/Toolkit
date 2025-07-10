@@ -2,7 +2,14 @@ cargo-features = ["profile-rustflags"]
 
 [workspace]
 resolver = "2"
-members = ["crates/*", "bindings/rust/*", "examples/*"]
+members = [
+	"crates/core",
+	"crates/detours",
+	"crates/emf",
+	"crates/emf-types",
+	"crates/emtk",
+	"crates/xtask",
+]
 default-members = ["crates/emtk"]
 
 [workspace.package]
@@ -26,6 +33,7 @@ image = { version = "0.25", default-features = false, features = [
 	"png",
 ] }
 open = "5.3"
+ron = "0.8"
 safer-ffi = { version = "0.1", default-features = false, features = [
 	"alloc",
 	"log",
