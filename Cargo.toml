@@ -3,19 +3,17 @@ cargo-features = ["profile-rustflags"]
 [workspace]
 resolver = "2"
 members = [
-	"crates/core",
 	"crates/detours",
-	"crates/emf",
-	"crates/emf-types",
-	"crates/emtk",
 	"crates/xtask",
+	"emtk_asset",
+	"emtk_core",
+	"emtk_framework",
+	"emtk_framework_types",
+	"emtk_launcher",
 ]
-default-members = ["crates/emtk"]
+default-members = ["emtk_launcher"]
 
 [workspace.package]
-# Update the version in the following files when changing the version number:
-# - ./bindings/python/emtk-py/emtk/blender/blender_manifest.toml
-# - ./crates/xtask/src/main.rs
 version = "0.1.0-beta.3"
 authors = ["Megumin <megumin@megu.dev>", "ProffDea <deatea@riseup.net>"]
 edition = "2024"
@@ -27,7 +25,7 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 anyhow = "1.0"
 detours-sys = { path = "./crates/detours" }
-emf-types = { path = "./crates/emf-types" }
+emtk_framework_types = { path = "./emtk_framework_types" }
 image = { version = "0.25", default-features = false, features = [
 	"ico",
 	"png",
@@ -62,5 +60,5 @@ codegen-units = 1
 panic = "abort"
 rustflags = ["-Zlocation-detail=none"]
 
-[profile.release.package.emf]
+[profile.release.package.emtk_framework]
 opt-level = 3

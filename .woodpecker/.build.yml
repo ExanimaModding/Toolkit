@@ -83,9 +83,9 @@ steps:
       # Zip up the build for release
       - >
         zip toolkit-$VERSION-x86_64-pc-windows-msvc.zip -j
-        target/x86_64-pc-windows-msvc/release/emtk.exe emtk.exe
-        target/x86_64-pc-windows-msvc/release/deps/emf.dll emf.dll
-        target/x86_64-pc-windows-msvc/release/deps/emf.dll.lib emf.dll.lib
+        target/x86_64-pc-windows-msvc/release/emtk_launcher.exe emtk_launcher.exe
+        target/x86_64-pc-windows-msvc/release/deps/emtk_framework.dll emtk_framework.dll
+        target/x86_64-pc-windows-msvc/release/deps/emtk_framework.dll.lib emtk_framework.dll.lib
 
   publish:
     image: debian:bookworm

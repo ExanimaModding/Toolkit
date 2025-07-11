@@ -110,8 +110,8 @@ fn run() {
 	let examples_path = project_root.join("examples");
 	let exe_path = exe_path();
 
-	let cargo_build_args = &["build", "-p", "emf"];
-	let cargo_run_args = &["run", "-p", "emtk"];
+	let cargo_build_args = &["build", "-p", "emtk_framework"];
+	let cargo_run_args = &["run", "-p", "emtk_launcher"];
 
 	process::Command::new(&cargo)
 		.current_dir(project_root)
@@ -163,7 +163,7 @@ fn run_plugin(name: &str, exanima_exe_path: Option<PathBuf>) {
 
 	// Skip when using "cargo xtask run"
 	if exanima_exe_path.is_none() {
-		let cargo_build_args = &["build", "-p", "emf"];
+		let cargo_build_args = &["build", "-p", "emtk_framework"];
 		process::Command::new(&cargo)
 			.current_dir(project_root)
 			.args(cargo_build_args)
