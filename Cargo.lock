@@ -1535,7 +1535,6 @@ dependencies = [
  "detours-sys",
  "emtk_asset",
  "emtk_core",
- "emtk_framework_types",
  "flate2",
  "hudhook",
  "image",

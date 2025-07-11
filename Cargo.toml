@@ -25,7 +25,6 @@ license = "MIT OR Apache-2.0"
 [workspace.dependencies]
 anyhow = "1.0"
 detours-sys = { path = "./crates/detours" }
-emtk_framework_types = { path = "./emtk_framework_types" }
 image = { version = "0.25", default-features = false, features = [
 	"ico",
 	"png",

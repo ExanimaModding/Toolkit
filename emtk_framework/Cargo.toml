@@ -24,7 +24,6 @@ ansi_term = "0.12"
 anyhow.workspace = true
 detours-sys.workspace = true
 emtk_core = { path = "../emtk_core" }
-emtk_framework_types.workspace = true
 emtk_asset = { path = "../emtk_asset" }
 hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef25735fde84731745824341d506", features = [
 	"opengl3",
