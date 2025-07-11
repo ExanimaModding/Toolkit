@@ -1346,7 +1346,7 @@ checksum = "c2ea6706d74fca54e15f1d40b5cf7fe7f764aaec61352a9fcec58fe27e042fc8"
 
 [[package]]
 name = "detours-sys"
-version = "0.1.0-beta.3"
+version = "0.1.0-dev"
 dependencies = [
  "bindgen",
  "cc",
@@ -1495,7 +1495,7 @@ checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
 name = "emtk_asset"
-version = "0.1.0-beta.3"
+version = "0.1.0-dev"
 dependencies = [
  "deku",
  "pyo3",
@@ -1506,7 +1506,7 @@ dependencies = [
 
 [[package]]
 name = "emtk_core"
-version = "0.1.0-beta.3"
+version = "0.1.0-dev"
 dependencies = [
  "anyhow",
  "bon",
@@ -1528,7 +1528,7 @@ dependencies = [
 
 [[package]]
 name = "emtk_framework"
-version = "0.1.0-beta.3"
+version = "0.1.0-dev"
 dependencies = [
  "ansi_term",
  "anyhow",
@@ -1558,7 +1558,7 @@ dependencies = [
 
 [[package]]
 name = "emtk_framework_types"
-version = "0.1.0-beta.3"
+version = "0.1.0-dev"
 dependencies = [
  "safer-ffi",
  "serde",
@@ -1566,7 +1566,7 @@ dependencies = [
 
 [[package]]
 name = "emtk_launcher"
-version = "0.1.0-beta.3"
+version = "0.1.0-dev"
 dependencies = [
  "anyhow",
  "clap",
@@ -7146,7 +7146,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "0.1.0-beta.3"
+version = "0.1.0-dev"
 
 [[package]]
 name = "yaml-rust"
