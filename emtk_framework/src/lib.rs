@@ -9,6 +9,7 @@ use std::{
 	mem,
 	path::PathBuf,
 	sync::OnceLock,
+	thread,
 };
 
 use detours_sys::{
@@ -200,6 +201,10 @@ unsafe extern "C" fn main() {
 		}
 	};
 
+	thread::spawn(|| {
+		emtk_bevy::app::run();
+	});
+
 	// TODO: port plugin configs to emtk_core::plugin::Manifest
 	// gui::inject_gui();
 
@@ -239,4 +244,6 @@ pub fn env_filter() -> tracing_subscriber::EnvFilter {
 		.from_env()
 		.unwrap()
 		.add_directive("emtk_framework=debug".parse().unwrap())
+		.add_directive("emtk_overlay=debug".parse().unwrap())
+		.add_directive("emtk_bevy=debug".parse().unwrap())
 }

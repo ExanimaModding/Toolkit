@@ -6,10 +6,11 @@ members = [
 	"crates/detours",
 	"crates/xtask",
 	"emtk_asset",
+	"emtk_bevy",
 	"emtk_core",
 	"emtk_framework",
-	"emtk_framework_types",
 	"emtk_launcher",
+	"emtk_overlay",
 ]
 default-members = ["emtk_launcher"]
 
@@ -30,6 +31,7 @@ image = { version = "0.25", default-features = false, features = [
 	"png",
 ] }
 open = "5.3"
+raw-window-handle = "0.6"
 ron = "0.8"
 safer-ffi = { version = "0.1", default-features = false, features = [
 	"alloc",
@@ -50,6 +52,7 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-tracy = "0.11.4"
+winapi = { version = "0.3", features = ["libloaderapi"] }
 
 [profile.release]
 strip = true

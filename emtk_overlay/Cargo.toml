@@ -1,0 +1,28 @@
+[package]
+name = "emtk_overlay"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy_derive = "0.16"
+bevy_ecs = "0.16"
+bevy_reflect = "0.16"
+bevy_winit = "0.16"
+crossbeam-channel = "0.5"
+detours-sys.workspace = true
+gl = "0.14"
+glutin = "0.32"
+glutin-winit = "0.5"
+raw-window-handle.workspace = true
+tracing.workspace = true
+winapi.workspace = true
+winit = { version = "0.30", default-features = false }
+
+[build-dependencies]
+gl_generator = "0.14"
+cfg_aliases = "0.2"

@@ -1,0 +1,17 @@
+[package]
+name = "emtk_bevy"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+bevy = { version = "0.16", features = ["bevy_remote"] }
+crossbeam-channel = "0.5"
+emtk_overlay = { path = "../emtk_overlay" }
+raw-window-handle.workspace = true
+tracing.workspace = true
+winapi.workspace = true
