@@ -9,10 +9,8 @@ use bevy::{
 	},
 	winit::{EventLoopProxyWrapper, WakeUp, WinitPlugin},
 };
-use emtk_overlay::{EVENT_LOOP_PROXY, OverlayEvent};
+use emtk_overlay::{EVENT_LOOP_PROXY, Overlay, OverlayEvent, OverlayPlugin};
 use tracing::info;
-
-use crate::overlay::{self, Overlay, OverlayPlugin};
 
 pub fn run() -> AppExit {
 	info!("Running {}", env!("CARGO_PKG_NAME"));
@@ -101,5 +99,5 @@ fn start(
 		.unwrap();
 
 	let overlay = commands.spawn(Overlay::default()).id();
-	commands.trigger_targets(overlay::Attach, overlay);
+	commands.trigger_targets(emtk_overlay::Attach, overlay);
 }

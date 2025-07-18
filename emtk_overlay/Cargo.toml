@@ -9,10 +9,13 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-bevy_derive = "0.16"
-bevy_ecs = "0.16"
-bevy_reflect = "0.16"
-bevy_winit = "0.16"
+bevy_app = { version = "0.16", optional = true }
+bevy_derive = { version = "0.16", optional = true }
+bevy_ecs = { version = "0.16", optional = true }
+bevy_reflect = { version = "0.16", optional = true }
+bevy_render = { version = "0.16", optional = true }
+bevy_window = { version = "0.16", optional = true }
+bevy_winit = { version = "0.16", optional = true }
 crossbeam-channel = "0.5"
 detours-sys.workspace = true
 gl = "0.14"
@@ -26,3 +29,15 @@ winit = { version = "0.30", default-features = false }
 [build-dependencies]
 gl_generator = "0.14"
 cfg_aliases = "0.2"
+
+[features]
+default = ["bevy"]
+bevy = [
+	"dep:bevy_app",
+	"dep:bevy_derive",
+	"dep:bevy_ecs",
+	"dep:bevy_reflect",
+	"dep:bevy_render",
+	"dep:bevy_window",
+	"dep:bevy_winit",
+]

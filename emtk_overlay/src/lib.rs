@@ -4,14 +4,9 @@ use std::{
 	sync::{Once, OnceLock},
 };
 
-use bevy_derive::Deref;
-use bevy_ecs::prelude::*;
-use bevy_reflect::prelude::*;
-use bevy_winit::{EventLoopProxy, WakeUp};
-use crossbeam_channel::{Receiver, Sender};
 use detours_sys::{DetourAttach, DetourTransactionBegin, DetourTransactionCommit};
 use raw_window_handle::Win32WindowHandle;
-use tracing::info;
+use tracing::{debug, info};
 use winapi::{
 	shared::windef::HDC,
 	um::{
@@ -22,6 +17,12 @@ use winapi::{
 	},
 };
 
+#[cfg(feature = "bevy")]
+mod bevy;
+
+#[cfg(feature = "bevy")]
+pub use bevy::*;
+
 /// A pointer to the process' original opengl32 function, wglSwapBuffers, that
 /// is initialized when the overlay runs.
 pub static OPENGL32_WGL_SWAP_BUFFERS: OnceLock<unsafe extern "system" fn(HDC) -> HRESULT> =
@@ -31,27 +32,7 @@ pub static OPENGL32_WGL_SWAP_BUFFERS: OnceLock<unsafe extern "system" fn(HDC) ->
 /// Exanima's process.
 pub static WINDOW_HANDLE: OnceLock<Win32WindowHandle> = OnceLock::new();
 
-pub static SENDER: OnceLock<RenderWorldSender> = OnceLock::new();
-
-pub static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<OverlayEvent>> = OnceLock::new();
-// pub static EVENT_LOOP_PROXY: OnceLock<EventLoopProxy<WakeUp>> = OnceLock::new();
-
 pub static OVERLAY_CONTEXT: OnceLock<NonZeroIsize> = OnceLock::new();
-
-/// This will receive asynchronously any data sent from the render world
-#[derive(Debug, Resource, Deref)]
-pub struct MainWorldReceiver(pub Receiver<Vec<u8>>);
-
-/// This will send asynchronously any data to the main world
-#[derive(Debug, Resource, Deref)]
-pub struct RenderWorldSender(pub Sender<Vec<u8>>);
-
-#[derive(Debug, Default, Event, Reflect)]
-#[reflect(Debug, Default)]
-pub enum OverlayEvent {
-	#[default]
-	WakeUp,
-}
 
 // #[derive(Event)]
 // pub struct WindowHandle(Win32WindowHandle);
