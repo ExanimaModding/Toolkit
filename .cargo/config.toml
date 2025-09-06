@@ -1,9 +1,6 @@
 [alias]
 release = "build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release --"
 
-[build]
-target = "x86_64-pc-windows-msvc"
-
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"
 rustdocflags = ["-Clinker=rust-lld.exe"]
