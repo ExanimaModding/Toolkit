@@ -1,5 +1,4 @@
 #![doc = include_str!("../README.md")]
-#![feature(let_chains)]
 #![feature(error_generic_member_access)]
 #![deny(clippy::panic)]
 #![deny(clippy::expect_used)]
