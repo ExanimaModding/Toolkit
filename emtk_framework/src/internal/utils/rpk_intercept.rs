@@ -1,5 +1,5 @@
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, HashSet},
 	ffi::{CString, c_void},
 	fs,
 	io::{Cursor, Read},
@@ -11,10 +11,10 @@ use std::{
 
 use detours_sys::{DetourAttach, DetourTransactionBegin, DetourTransactionCommit};
 use emtk_asset::{
-	Format,
-	deku::{DekuReader, DekuWriter, reader::Reader, writer::Writer},
-	rpk,
+	Entry, Package,
+	deku::{DekuWriter, writer::Writer},
 };
+use tracing::error;
 use winapi::{
 	shared::minwindef::{BOOL, DWORD, LPDWORD, LPVOID, MAX_PATH},
 	um::{
@@ -114,28 +114,18 @@ unsafe fn read_file(
 
 		// [Magic::RPK, table_size]
 		if requested_offset == 0 && n_number_of_bytes_to_read == 8 {
-			let mut original_rpk: emtk_asset::Rpk = {
-				let mut ctx = emtk_asset::Context::default();
-				ctx.rpk.entries_only = true;
-				let Ok(file) = fs::File::open(&file_name) else {
-					break 'try_proxy_file;
-				};
-
-				let mut reader = Reader::new(file);
-				match Format::from_reader_with_ctx(&mut reader, ctx) {
-					Ok(Format::Rpk(rpk)) => rpk,
-					_ => break 'try_proxy_file,
-				}
+			let Ok(original_rpk) = Package::new(&file_name).map_err(|e| error!("{e}")) else {
+				break 'try_proxy_file;
+			};
+			let Ok(mut original_entries) = original_rpk.entries().map_err(|e| error!("{e}")) else {
+				break 'try_proxy_file;
 			};
 
 			// Get all of the new entries (not in the original RPK)
 			// and modified entries (in the original RPK, but modified).
 			let (new_entries, modified_entries) = {
-				let existing_names: HashSet<_> = original_rpk
-					.entries
-					.iter()
-					.map(|e| e.name.clone())
-					.collect();
+				let existing_names: HashSet<_> =
+					original_entries.iter().map(|e| e.name.clone()).collect();
 
 				let Some(file_name_without_ext) = file_name.file_stem() else {
 					break 'try_proxy_file;
@@ -176,7 +166,7 @@ unsafe fn read_file(
 				(new_entries, modified_entries)
 			};
 
-			let original_table_size_bytes = original_rpk.entries.len() * 32;
+			let original_table_size_bytes = original_entries.len() * Entry::RAW_SIZE;
 			let mut state = FileState {
 				// magic (4) + table size (4) + entry_bytes (entries_count*32)
 				original_end_of_table: 8 + original_table_size_bytes as u32,
@@ -191,10 +181,10 @@ unsafe fn read_file(
 
 			// IMPORTANT: Sort the original entries by offset to ensure they are in the correct order.
 			// Exanima will break if we don't do this.
-			original_rpk.entries.sort_by(|a, b| a.offset.cmp(&b.offset));
+			original_entries.sort_by(|a, b| a.byte_offset.cmp(&b.byte_offset));
 
 			// Loop through every entry in the original RPK and check if it has been modified.
-			for entry in original_rpk.entries.iter() {
+			for entry in original_entries.iter() {
 				if let Some(updated) = modified_entries.iter().find(|path| {
 					path.file_name().and_then(|name| name.to_str()) == Some(&entry.name)
 				}) {
@@ -204,13 +194,13 @@ unsafe fn read_file(
 					let offset = previous_offset + previous_size;
 
 					state.entries.push(SomeEntry {
-						original_offset: entry.offset,
-						original_size: entry.size,
+						original_offset: entry.byte_offset,
+						original_size: entry.byte_length,
 						intercepted_offset: offset,
 						intercepted_size: size,
 						is_foreign: false,
 						is_modified: true,
-						asset_name: entry.name.clone(),
+						asset_name: entry.name.clone().into(),
 					});
 
 					previous_offset = offset;
@@ -219,16 +209,16 @@ unsafe fn read_file(
 					// If the file is unmodified, store the original offset and size.
 					// Then, set the new offset. The size is unchanged.
 					let offset = previous_offset + previous_size;
-					let size = entry.size;
+					let size = entry.byte_length;
 
 					state.entries.push(SomeEntry {
-						original_offset: entry.offset,
-						original_size: entry.size,
+						original_offset: entry.byte_offset,
+						original_size: entry.byte_length,
 						intercepted_offset: offset,
 						intercepted_size: size,
 						is_foreign: false,
 						is_modified: false,
-						asset_name: entry.name.clone(),
+						asset_name: entry.name.clone().into(),
 					});
 
 					previous_offset = offset;
@@ -273,7 +263,7 @@ unsafe fn read_file(
 			// Write out our ReadFile results for the caller to read.
 			let buffer = lp_buffer as *mut u32;
 			unsafe {
-				*buffer = rpk::MAGIC;
+				*buffer = u32::from_le_bytes(*Package::MAGIC);
 				*(buffer.offset(1)) = table_size_bytes;
 				*lp_number_of_bytes_read = 8;
 
@@ -286,20 +276,25 @@ unsafe fn read_file(
 			// [table header]
 			let state = packages.get(&file_name).expect("Failed to get file state");
 
-			let rpk_entries = state
-				.entries
-				.iter()
-				.map(|entry| emtk_asset::rpk::Entry {
-					offset: entry.intercepted_offset,
-					size: entry.intercepted_size,
-					name: entry.asset_name.clone(),
-				})
-				.collect::<Vec<_>>();
-
-			let mut buffer = Cursor::new(Vec::new());
-			let mut writer = Writer::new(&mut buffer);
-			rpk_entries.to_writer(&mut writer, ()).unwrap();
-			let buffer = buffer.into_inner();
+			let mut buffer: Vec<[u8; Entry::RAW_SIZE]> =
+				Vec::with_capacity(state.entries.len() * Entry::RAW_SIZE);
+			for entry in &state.entries {
+				let new_entry = Entry {
+					name: entry.asset_name.clone().into(),
+					byte_offset: entry.intercepted_offset,
+					byte_length: entry.intercepted_size,
+				};
+				let mut bytes = Cursor::new([0u8; Entry::RAW_SIZE]);
+				if new_entry
+					.to_writer(&mut Writer::new(&mut bytes), ())
+					.map_err(|e| error!("{e}"))
+					.is_err()
+				{
+					break 'try_proxy_file;
+				}
+				buffer.push(bytes.into_inner());
+			}
+			let buffer = buffer.into_iter().flatten().collect::<Vec<_>>();
 
 			unsafe {
 				ptr::copy_nonoverlapping(buffer.as_ptr(), lp_buffer as _, buffer.len() as _);
