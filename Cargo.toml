@@ -4,7 +4,6 @@ cargo-features = ["profile-rustflags"]
 resolver = "2"
 members = [
 	"crates/detours",
-	"crates/xtask",
 	"emtk_asset",
 	"emtk_core",
 	"emtk_framework",
