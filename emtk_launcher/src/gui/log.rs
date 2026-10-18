@@ -1,10 +1,10 @@
 use std::{fmt::Debug, io};
 
 use iced::{
-	Element,
-	futures::{Stream, channel::mpsc},
-	stream::channel,
-	widget::{Column, text},
+    Element,
+    futures::{Stream, channel::mpsc},
+    stream::channel,
+    widget::{Column, text},
 };
 use tracing::instrument;
 use tracing_subscriber::{fmt::MakeWriter, prelude::*, util::SubscriberInitExt};
@@ -16,101 +16,101 @@ pub struct Event(pub Vec<(String, Option<tracing::Level>)>);
 
 #[instrument(level = "trace")]
 pub fn view<'a, Message: 'a>(events: &[Event]) -> Element<'a, Message> {
-	Column::with_children(
-		events
-			.iter()
-			.map(|event| text(event.0.first().unwrap().0.clone()).into()),
-	)
-	.into()
+    Column::with_children(
+        events
+            .iter()
+            .map(|event| text(event.0.first().unwrap().0.clone()).into()),
+    )
+    .into()
 }
 
 #[instrument(level = "trace")]
 pub fn stream() -> impl Stream<Item = Event> {
-	channel(0, |tx: mpsc::Sender<Event>| async move {
-		let file_appender =
-			tracing_appender::rolling::hourly(emtk_core::log_dir().await.unwrap(), "gui.log");
-		let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
-		TRACING_GUARD.set(guard).unwrap();
+    channel(0, |tx: mpsc::Sender<Event>| async move {
+        let file_appender =
+            tracing_appender::rolling::hourly(emtk_core::log_dir().await.unwrap(), "gui.log");
+        let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
+        TRACING_GUARD.set(guard).unwrap();
 
-		let filter = env_filter();
-		let filter = add_directive(filter, "emtk_launcher=debug");
-		let filter = add_directive(filter, "emtk_core=debug");
+        let filter = env_filter();
+        let filter = add_directive(filter, "emtk_launcher=debug");
+        let filter = add_directive(filter, "emtk_core=debug");
 
-		let appender_filter = env_filter();
-		let appender_filter = add_directive(appender_filter, "emtk_launcher=debug");
-		let appender_filter = add_directive(appender_filter, "emtk_core=debug");
+        let appender_filter = env_filter();
+        let appender_filter = add_directive(appender_filter, "emtk_launcher=debug");
+        let appender_filter = add_directive(appender_filter, "emtk_core=debug");
 
-		let subscriber = tracing_subscriber::registry()
-			.with(tracing_subscriber::fmt::layer().with_filter(filter))
-			.with(
-				tracing_subscriber::fmt::layer()
-					.with_ansi(false)
-					.with_writer(non_blocking)
-					.with_filter(appender_filter),
-			);
+        let subscriber = tracing_subscriber::registry()
+            .with(tracing_subscriber::fmt::layer().with_filter(filter))
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_ansi(false)
+                    .with_writer(non_blocking)
+                    .with_filter(appender_filter),
+            );
 
-		#[cfg(debug_assertions)]
-		let subscriber = {
-			let tracy_filter = env_filter();
-			let tracy_filter = add_directive(tracy_filter, "emtk_launcher=trace");
-			let tracy_filter = add_directive(tracy_filter, "emtk_core=trace");
-			subscriber.with(tracing_tracy::TracyLayer::default().with_filter(tracy_filter))
-		};
+        #[cfg(debug_assertions)]
+        let subscriber = {
+            let tracy_filter = env_filter();
+            let tracy_filter = add_directive(tracy_filter, "emtk_launcher=trace");
+            let tracy_filter = add_directive(tracy_filter, "emtk_core=trace");
+            subscriber.with(tracing_tracy::TracyLayer::default().with_filter(tracy_filter))
+        };
 
-		let gui_filter = env_filter();
-		let gui_filter = add_directive(gui_filter, "emtk_launcher=debug");
-		let gui_filter = add_directive(gui_filter, "emtk_core=debug");
-		let subscriber = subscriber.with(
-			tracing_subscriber::fmt::layer()
-				.with_writer(Writer::new(tx))
-				.with_ansi(false)
-				.with_filter(gui_filter),
-		);
+        let gui_filter = env_filter();
+        let gui_filter = add_directive(gui_filter, "emtk_launcher=debug");
+        let gui_filter = add_directive(gui_filter, "emtk_core=debug");
+        let subscriber = subscriber.with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(Writer::new(tx))
+                .with_ansi(false)
+                .with_filter(gui_filter),
+        );
 
-		subscriber.init()
-	})
+        subscriber.init()
+    })
 }
 
 pub struct Writer {
-	level: Option<tracing::Level>,
-	tx: mpsc::Sender<Event>,
+    level: Option<tracing::Level>,
+    tx: mpsc::Sender<Event>,
 }
 
 impl Writer {
-	pub fn new(tx: mpsc::Sender<Event>) -> Self {
-		Self { level: None, tx }
-	}
+    pub fn new(tx: mpsc::Sender<Event>) -> Self {
+        Self { level: None, tx }
+    }
 }
 
 impl io::Write for Writer {
-	fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-		self.tx
-			.try_send(Event(vec![(
-				String::from_utf8_lossy(buf).to_string(),
-				self.level,
-			)]))
-			.unwrap();
-		Ok(buf.len())
-	}
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.tx
+            .try_send(Event(vec![(
+                String::from_utf8_lossy(buf).to_string(),
+                self.level,
+            )]))
+            .unwrap();
+        Ok(buf.len())
+    }
 
-	fn flush(&mut self) -> io::Result<()> {
-		Ok(())
-	}
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }
 
 impl<'a> MakeWriter<'a> for Writer {
-	type Writer = Self;
+    type Writer = Self;
 
-	fn make_writer(&'a self) -> Self::Writer {
-		Self::new(self.tx.clone())
-	}
+    fn make_writer(&'a self) -> Self::Writer {
+        Self::new(self.tx.clone())
+    }
 
-	fn make_writer_for(&'a self, meta: &tracing::Metadata<'_>) -> Self::Writer {
-		Self {
-			level: Some(*meta.level()),
-			tx: self.tx.clone(),
-		}
-	}
+    fn make_writer_for(&'a self, meta: &tracing::Metadata<'_>) -> Self::Writer {
+        Self {
+            level: Some(*meta.level()),
+            tx: self.tx.clone(),
+        }
+    }
 }
 
 // impl fmt::Write for Writer {

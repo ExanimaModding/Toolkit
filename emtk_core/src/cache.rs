@@ -14,68 +14,68 @@ pub type Metadata = HashMap<PathBuf, u64>;
 #[instrument(level = "trace", skip(deserializer))]
 pub fn deserialize_metadata<'de, D>(deserializer: D) -> Result<Metadata, D::Error>
 where
-	D: Deserializer<'de>,
+    D: Deserializer<'de>,
 {
-	let raw_metadata: HashMap<String, u64> = HashMap::deserialize(deserializer)?;
+    let raw_metadata: HashMap<String, u64> = HashMap::deserialize(deserializer)?;
 
-	let metadata = raw_metadata
-		.into_iter()
-		.map(|(key, value)| (PathBuf::from(key), value))
-		.collect();
+    let metadata = raw_metadata
+        .into_iter()
+        .map(|(key, value)| (PathBuf::from(key), value))
+        .collect();
 
-	Ok(metadata)
+    Ok(metadata)
 }
 
 #[cfg(test)]
 mod tests {
-	use std::{
-		fs,
-		io::{self, Read, Write},
-		time::UNIX_EPOCH,
-	};
+    use std::{
+        fs,
+        io::{self, Read, Write},
+        time::UNIX_EPOCH,
+    };
 
-	use pretty_assertions::assert_eq;
-	use tempfile::{Builder, tempdir};
+    use pretty_assertions::assert_eq;
+    use tempfile::{Builder, tempdir};
 
-	use crate::cache::deserialize_metadata;
+    use crate::cache::deserialize_metadata;
 
-	#[test]
-	fn new_metadata() {
-		let dir = tempdir().unwrap();
-		let mut file = Builder::new()
-			.prefix("emtk-metadata")
-			.rand_bytes(0)
-			.suffix(".ron")
-			.keep(true)
-			.tempfile_in(&dir)
-			.unwrap();
-		let file_path = dir.path().join("emtk-metadata.ron").canonicalize().unwrap();
-		let time = file
-			.as_file()
-			.metadata()
-			.unwrap()
-			.modified()
-			.unwrap()
-			.duration_since(UNIX_EPOCH)
-			.unwrap()
-			.as_secs();
+    #[test]
+    fn new_metadata() {
+        let dir = tempdir().unwrap();
+        let mut file = Builder::new()
+            .prefix("emtk-metadata")
+            .rand_bytes(0)
+            .suffix(".ron")
+            .keep(true)
+            .tempfile_in(&dir)
+            .unwrap();
+        let file_path = dir.path().join("emtk-metadata.ron").canonicalize().unwrap();
+        let time = file
+            .as_file()
+            .metadata()
+            .unwrap()
+            .modified()
+            .unwrap()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-		let mut metadata = crate::cache::Metadata::new();
-		metadata.insert(file_path.clone(), time);
+        let mut metadata = crate::cache::Metadata::new();
+        metadata.insert(file_path.clone(), time);
 
-		let buffer =
-			ron::ser::to_string_pretty(&metadata, ron::ser::PrettyConfig::default()).unwrap();
-		write!(file, "{}", buffer).unwrap();
+        let buffer =
+            ron::ser::to_string_pretty(&metadata, ron::ser::PrettyConfig::default()).unwrap();
+        write!(file, "{}", buffer).unwrap();
 
-		let mut reader = io::BufReader::new(fs::File::open(&file_path).unwrap());
-		let mut buffer = String::new();
-		reader.read_to_string(&mut buffer).unwrap();
-		let metadata =
-			deserialize_metadata(&mut ron::de::Deserializer::from_str(&buffer).unwrap()).unwrap();
+        let mut reader = io::BufReader::new(fs::File::open(&file_path).unwrap());
+        let mut buffer = String::new();
+        reader.read_to_string(&mut buffer).unwrap();
+        let metadata =
+            deserialize_metadata(&mut ron::de::Deserializer::from_str(&buffer).unwrap()).unwrap();
 
-		assert_eq!(
-			metadata.get(&file_path.canonicalize().unwrap()).unwrap(),
-			&time
-		);
-	}
+        assert_eq!(
+            metadata.get(&file_path.canonicalize().unwrap()).unwrap(),
+            &time
+        );
+    }
 }
