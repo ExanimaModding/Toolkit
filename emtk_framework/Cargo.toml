@@ -27,9 +27,9 @@ emtk_core = { path = "../emtk_core" }
 emtk_framework_types.workspace = true
 emtk_asset = { path = "../emtk_asset" }
 hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef25735fde84731745824341d506", features = [
-	"opengl3",
-	"imgui-docking",
-	"imgui-tables-api",
+  "opengl3",
+  "imgui-docking",
+  "imgui-tables-api",
 ], default-features = false }
 image.workspace = true
 libloading = "0.8"
@@ -45,13 +45,13 @@ tracing-appender.workspace = true
 tracing-subscriber.workspace = true
 tracing-tracy.workspace = true
 winapi = { version = "0.3", features = [
-	"minwindef",
-	"winnt",
-	"winbase",
-	"errhandlingapi",
-	"psapi",
-	"consoleapi",
-	"ntdef",
+  "minwindef",
+  "winnt",
+  "winbase",
+  "errhandlingapi",
+  "psapi",
+  "consoleapi",
+  "ntdef",
 ] }
 
 [features]

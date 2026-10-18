@@ -16,12 +16,12 @@ emtk_core = { path = "../emtk_core" }
 emtk_framework = { path = "../emtk_framework" }
 getset = "0.1"
 iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = [
-	"advanced",
-	"highlighter",
-	"lazy",
-	"markdown",
-	"svg",
-	"tokio",
+  "advanced",
+  "highlighter",
+  "lazy",
+  "markdown",
+  "svg",
+  "tokio",
 ] }
 iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", branch = "dev" }
 iced_split = { git = "https://github.com/edwloef/iced_split.git", branch = "main" }
