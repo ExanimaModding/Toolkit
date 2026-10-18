@@ -49,14 +49,6 @@ pub fn stream() -> impl Stream<Item = Event> {
                     .with_filter(appender_filter),
             );
 
-        #[cfg(debug_assertions)]
-        let subscriber = {
-            let tracy_filter = env_filter();
-            let tracy_filter = add_directive(tracy_filter, "emtk_launcher=trace");
-            let tracy_filter = add_directive(tracy_filter, "emtk_core=trace");
-            subscriber.with(tracing_tracy::TracyLayer::default().with_filter(tracy_filter))
-        };
-
         let gui_filter = env_filter();
         let gui_filter = add_directive(gui_filter, "emtk_launcher=debug");
         let gui_filter = add_directive(gui_filter, "emtk_core=debug");

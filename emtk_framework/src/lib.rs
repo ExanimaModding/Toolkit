@@ -29,11 +29,6 @@ use winapi::{
 
 use crate::internal::utils::{pe64::PE64, remap_image};
 
-#[cfg(debug_assertions)]
-#[global_allocator]
-static GLOBAL: tracing_tracy::client::ProfiledAllocator<std::alloc::System> =
-    tracing_tracy::client::ProfiledAllocator::new(std::alloc::System, 100);
-
 pub(crate) static LOAD_ORDER: OnceLock<Vec<(plugin::Id, profile::LoadOrderEntry)>> =
     OnceLock::new();
 pub(crate) static MOD_ENTRIES: OnceLock<HashMap<String, HashMap<String, PathBuf>>> =
@@ -83,15 +78,9 @@ unsafe extern "stdcall" fn DllMain(
 
 #[instrument(level = "trace")]
 unsafe extern "C" fn main() {
-    #[cfg(debug_assertions)]
-    tracing_tracy::client::Client::start();
-
     let maybe_data_dir = emtk_core::data_dir();
     ansi_term::enable_ansi_support().unwrap();
     let subscriber = tracing_subscriber::registry().with(fmt::layer().with_filter(env_filter()));
-
-    #[cfg(debug_assertions)]
-    let subscriber = subscriber.with(tracing_tracy::TracyLayer::default());
 
     if let Some(data_dir) = maybe_data_dir {
         let log_dir = data_dir.join(emtk_core::LOG_DIR);

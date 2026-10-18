@@ -15,11 +15,6 @@ use emtk_core::{Error, Result};
 use tracing::instrument;
 use tracing_subscriber::{EnvFilter, filter};
 
-#[cfg(debug_assertions)]
-#[global_allocator]
-static GLOBAL: tracing_tracy::client::ProfiledAllocator<std::alloc::System> =
-    tracing_tracy::client::ProfiledAllocator::new(std::alloc::System, 100);
-
 /// When tracing is initialized for logging, the guard to the log file is stored
 /// here to ensure tracing keeps writing to the log file.
 pub(crate) static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> =
@@ -27,9 +22,6 @@ pub(crate) static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::Worker
 
 #[instrument(level = "trace")]
 fn main() {
-    #[cfg(debug_assertions)]
-    tracing_tracy::client::Client::start();
-
     if env::args_os().len() == 1 {
         let _ = gui::App::run().map_err(|e| eprintln!("failed to run gui: {e}"));
     } else {
@@ -83,20 +75,9 @@ pub fn launch(path: &Path) -> Result<()> {
             "failed to find the game executable file in the game directory",
         ))?;
 
-    #[cfg(not(debug_assertions))]
     let emtk_framework_dll = env::current_exe()
         .map_err(Error::msg("failed to find path to current executable"))?
         .with_file_name("emtk_framework.dll")
-        .display()
-        .to_string();
-
-    #[cfg(debug_assertions)]
-    let emtk_framework_dll = env::current_exe()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("deps")
-        .join("emtk_framework.dll")
         .display()
         .to_string();
 
