@@ -70,9 +70,6 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            #[cfg(debug_assertions)]
-            visible: true,
-            #[cfg(not(debug_assertions))]
             visible: false,
             show_cursor: false,
             show_demo_window: false,
@@ -284,16 +281,6 @@ impl ImguiRenderLoop for RenderLoop {
                                 .spawn()
                                 .unwrap();
                         }
-                    });
-
-                    #[cfg(debug_assertions)]
-                    ui.menu("Debug", || {
-                        ui.menu("Dear ImGui", || {
-                            ui.menu_item("Show Demo Window");
-                            if ui.is_item_clicked_with_button(imgui::MouseButton::Left) {
-                                self.state.show_demo_window = !self.state.show_demo_window;
-                            }
-                        });
                     });
 
                     ui.menu("Help", || {
