@@ -1,7 +1,8 @@
-use std::ffi::c_void;
-
 use safer_ffi::{ffi_export, prelude::repr_c};
-use winapi::um::{memoryapi::WriteProcessMemory, processthreadsapi::GetCurrentProcess};
+use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
+use windows::Win32::System::Threading::GetCurrentProcess;
+
+use std::ffi::c_void;
 
 use crate::{
     internal::memory::sigscanner::{SigScanner, SigScannerResult},
@@ -31,17 +32,16 @@ pub unsafe extern "C" fn read_bytes(pointer: *const c_void, length: usize) -> re
 
 #[ffi_export]
 pub unsafe extern "C" fn write_bytes(pointer: *const c_void, buffer: repr_c::Vec<u8>) -> bool {
-    let result = unsafe {
+    unsafe {
         WriteProcessMemory(
             GetCurrentProcess(),
             pointer as _,
             buffer.as_ptr() as _,
             buffer.len(),
-            std::ptr::null_mut(),
+            Some(std::ptr::null_mut()),
         )
-    };
-
-    result != 0
+        .is_ok()
+    }
 }
 
 #[ffi_export]

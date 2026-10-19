@@ -1,18 +1,19 @@
-use std::{ffi::c_void, result::Result::Ok};
+use crate::framework::api::location_is_readwrite;
+use crate::internal::memory::sigscanner::SigScanner;
 
 use anyhow::*;
 use detours_sys::{
     DetourAttach, DetourDetach, DetourTransactionAbort, DetourTransactionBegin,
     DetourTransactionCommit,
 };
-use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
+use safer_ffi::prelude::repr_c;
+use safer_ffi::{derive_ReprC, ffi_export};
 use tracing::error;
-use winapi::{shared::ntdef::NTSTATUS, um::processthreadsapi::GetCurrentProcess};
+use windows::Win32::Foundation::{HANDLE, NTSTATUS};
+use windows::Win32::System::Threading::GetCurrentProcess;
 
-use crate::{
-    framework::api::location_is_readwrite,
-    internal::{memory::sigscanner::SigScanner, utils::ntdll::NtStatus},
-};
+use std::ffi::c_void;
+use std::result::Result::Ok;
 
 pub trait Hookable {
     /// Apply the hook.
@@ -85,7 +86,7 @@ impl Hookable for Hook {
 
         unsafe {
             let proc = GetCurrentProcess();
-            let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
+            let writable = location_is_readwrite(HANDLE(*self.target_fn_ptr as _), proc);
 
             if writable.is_err() {
                 return Err(anyhow!(
@@ -95,11 +96,11 @@ impl Hookable for Hook {
 
             DetourTransactionBegin();
 
-            let result: NTSTATUS = DetourAttach(self.target_fn_ptr, self.replacement_fn_ptr);
+            let result = NTSTATUS(DetourAttach(self.target_fn_ptr, self.replacement_fn_ptr));
 
-            if let NtStatus::Other(status) = NtStatus::from(result) {
+            if result.is_err() {
                 DetourTransactionAbort();
-                Err(anyhow!("Failed to attach detour. Status: {:#X}", status))
+                Err(anyhow!("Failed to attach detour. Status: {:#X}", result.0))
             } else {
                 DetourTransactionCommit();
                 self.hooked = true;
@@ -119,7 +120,7 @@ impl Hookable for Hook {
 
         unsafe {
             let proc = GetCurrentProcess();
-            let writable = location_is_readwrite(*self.target_fn_ptr as _, proc);
+            let writable = location_is_readwrite(HANDLE(*self.target_fn_ptr as _), proc);
 
             if writable.is_err() {
                 return Err(anyhow!(
@@ -128,11 +129,11 @@ impl Hookable for Hook {
             }
 
             DetourTransactionBegin();
-            let result: NTSTATUS = DetourDetach(self.target_fn_ptr, self.replacement_fn_ptr);
+            let result = NTSTATUS(DetourDetach(self.target_fn_ptr, self.replacement_fn_ptr));
 
-            if let NtStatus::Other(status) = NtStatus::from(result) {
+            if result.is_err() {
                 DetourTransactionAbort();
-                Err(anyhow!("Failed to detach detour. Status: {:#X}", status))
+                Err(anyhow!("Failed to detach detour. Status: {:#X}", result.0))
             } else {
                 DetourTransactionCommit();
                 self.hooked = false;

@@ -1,15 +1,12 @@
-use std::result::Result::Ok;
+use super::location_is_readwrite;
+use crate::internal::memory::sigscanner::{SigScanner, SigScannerResult};
 
 use anyhow::*;
 use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
 use tracing::error;
-use winapi::um::{
-    errhandlingapi::GetLastError, memoryapi::WriteProcessMemory,
-    processthreadsapi::GetCurrentProcess,
-};
-
-use super::location_is_readwrite;
-use crate::internal::memory::sigscanner::{SigScanner, SigScannerResult};
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
+use windows::Win32::System::Threading::GetCurrentProcess;
 
 pub trait Patchable<T> {
     unsafe fn apply(&mut self) -> Result<()>;
@@ -70,7 +67,7 @@ impl Patchable<Vec<u8>> for Patch {
             }
 
             let proc = GetCurrentProcess();
-            if location_is_readwrite(self.address as _, proc).is_err() {
+            if location_is_readwrite(HANDLE(self.address as _), proc).is_err() {
                 return Err(anyhow!(
                     "Memory location {:p} is not writeable.",
                     self.address
@@ -82,21 +79,19 @@ impl Patchable<Vec<u8>> for Patch {
             let original_bytes: &[u8] = std::slice::from_raw_parts(self.address, length);
             self.original_bytes = original_bytes.to_vec().into();
 
-            let result = WriteProcessMemory(
+            WriteProcessMemory(
                 proc,
                 self.address as _,
                 self.patch_bytes.as_ptr() as _,
                 length,
-                std::ptr::null_mut(),
-            );
-
-            if result == 0 {
-                return Err(anyhow!(
-                    "WriteProcessMemory failed on memory location {:p}. Error: {}",
-                    self.address,
-                    GetLastError()
-                ));
-            }
+                None,
+            )
+            .map_err(|e| {
+                anyhow!(
+                    "WriteProcessMemory failed on memory location {:p}. Error: {e}",
+                    self.address
+                )
+            })?;
 
             match self.is_applied() {
                 true => Ok(()),
@@ -114,7 +109,7 @@ impl Patchable<Vec<u8>> for Patch {
             }
 
             let proc = GetCurrentProcess();
-            if location_is_readwrite(self.address as _, proc).is_err() {
+            if location_is_readwrite(HANDLE(self.address as _), proc).is_err() {
                 return Err(anyhow!(
                     "Memory location {:p} is not writeable.",
                     self.address
@@ -123,21 +118,20 @@ impl Patchable<Vec<u8>> for Patch {
 
             let length = self.original_bytes.len();
 
-            let result = WriteProcessMemory(
+            WriteProcessMemory(
                 proc,
                 self.address as _,
                 self.original_bytes.as_ptr() as _,
                 length,
-                std::ptr::null_mut(),
-            );
-
-            if result == 0 {
-                return Err(anyhow!(
+                None,
+            )
+            .map_err(|e| {
+                anyhow!(
                     "WriteProcessMemory failed on memory location {:p}. Error: {}",
                     self.address,
-                    GetLastError()
-                ));
-            }
+                    e
+                )
+            })?;
         }
 
         Ok(())
@@ -147,7 +141,7 @@ impl Patchable<Vec<u8>> for Patch {
     unsafe fn is_applied(&self) -> bool {
         unsafe {
             let proc = GetCurrentProcess();
-            if location_is_readwrite(self.address as _, proc).is_err() {
+            if location_is_readwrite(HANDLE(self.address as _), proc).is_err() {
                 return false;
             }
 
@@ -159,7 +153,7 @@ impl Patchable<Vec<u8>> for Patch {
     unsafe fn read_current(&self) -> Result<Vec<u8>> {
         unsafe {
             let proc = GetCurrentProcess();
-            if location_is_readwrite(self.address as _, proc).is_err() {
+            if location_is_readwrite(HANDLE(self.address as _), proc).is_err() {
                 return Err(anyhow!(
                     "Memory location {:p} is not writeable.",
                     self.address

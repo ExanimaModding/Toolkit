@@ -1436,7 +1436,6 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "winapi",
  "windows 0.62.2",
 ]
 

@@ -1,13 +1,4 @@
-use std::{
-    collections::{BTreeMap, HashSet},
-    ffi::{CString, c_void},
-    fs,
-    io::{Cursor, Read},
-    mem,
-    path::PathBuf,
-    ptr,
-    sync::{LazyLock, Mutex},
-};
+use crate::MOD_ENTRIES;
 
 use detours_sys::{DetourAttach, DetourTransactionBegin, DetourTransactionCommit};
 use emtk_asset::{
@@ -15,17 +6,20 @@ use emtk_asset::{
     deku::{DekuWriter, writer::Writer},
 };
 use tracing::error;
-use winapi::{
-    shared::minwindef::{BOOL, DWORD, LPDWORD, LPVOID, MAX_PATH},
-    um::{
-        fileapi::{GetFinalPathNameByHandleA, ReadFile, SetFilePointer},
-        minwinbase::LPOVERLAPPED,
-        winbase::{FILE_BEGIN, FILE_CURRENT},
-        winnt::HANDLE,
-    },
+use windows::Win32::Foundation::{HANDLE, MAX_PATH, TRUE};
+use windows::Win32::Storage::FileSystem::{
+    FILE_BEGIN, FILE_CURRENT, FILE_NAME_NORMALIZED, GetFinalPathNameByHandleA, ReadFile,
+    SetFilePointer,
 };
+use windows::Win32::System::IO::OVERLAPPED;
+use windows::core::BOOL;
 
-use crate::MOD_ENTRIES;
+use std::collections::{BTreeMap, HashSet};
+use std::ffi::{CString, c_void};
+use std::io::{Cursor, Read};
+use std::path::PathBuf;
+use std::sync::{LazyLock, Mutex};
+use std::{fs, mem, ptr};
 
 #[derive(Debug)]
 struct FileState {
@@ -65,18 +59,18 @@ pub unsafe fn register_hooks() {
 
 type TReadFile = unsafe extern "system" fn(
     h_file: HANDLE,
-    lp_buffer: LPVOID,
-    n_number_of_bytes_to_read: DWORD,
-    lp_number_of_bytes_read: LPDWORD,
-    lp_overlapped: LPOVERLAPPED,
+    lp_buffer: *mut c_void,
+    n_number_of_bytes_to_read: u32,
+    lp_number_of_bytes_read: *mut u32,
+    lp_overlapped: *mut OVERLAPPED,
 ) -> BOOL;
 
 unsafe fn read_file(
     h_file: HANDLE,
-    lp_buffer: LPVOID,
-    n_number_of_bytes_to_read: DWORD,
-    lp_number_of_bytes_read: LPDWORD,
-    lp_overlapped: LPOVERLAPPED,
+    lp_buffer: *mut c_void,
+    n_number_of_bytes_to_read: u32,
+    lp_number_of_bytes_read: *mut u32,
+    lp_overlapped: *mut OVERLAPPED,
 ) -> BOOL {
     static READ_FILE: LazyLock<TReadFile> =
         LazyLock::new(|| unsafe { mem::transmute(O_READ_FILE) });
@@ -84,15 +78,9 @@ unsafe fn read_file(
     'try_proxy_file: {
         // Get the file name from the handle.
         let file_name: PathBuf = {
-            let mut file_name = vec![0u8; MAX_PATH];
-            let len = unsafe {
-                GetFinalPathNameByHandleA(
-                    h_file,
-                    file_name.as_mut_ptr() as *mut i8,
-                    MAX_PATH as u32,
-                    0,
-                )
-            };
+            let mut file_name = vec![0u8; MAX_PATH as usize];
+            let len =
+                unsafe { GetFinalPathNameByHandleA(h_file, &mut file_name, FILE_NAME_NORMALIZED) };
             file_name.truncate(len as usize);
             let Ok(file_name) = CString::new(file_name) else {
                 break 'try_proxy_file;
@@ -107,7 +95,7 @@ unsafe fn read_file(
             break 'try_proxy_file;
         }
 
-        let requested_offset = unsafe { SetFilePointer(h_file, 0, ptr::null_mut(), FILE_CURRENT) };
+        let requested_offset = unsafe { SetFilePointer(h_file, 0, None, FILE_CURRENT) };
 
         // Lock the global packages map for the duration of this function.
         let mut packages = PACKAGES.lock().unwrap();
@@ -268,10 +256,10 @@ unsafe fn read_file(
                 *lp_number_of_bytes_read = 8;
 
                 // Increment the file pointer, as is the default behaviour of ReadFile.
-                SetFilePointer(h_file, 8, ptr::null_mut(), FILE_BEGIN);
+                SetFilePointer(h_file, 8, None, FILE_BEGIN);
             }
 
-            return 1;
+            return TRUE;
         } else if requested_offset == 8 && packages.contains_key(&file_name) {
             // [table header]
             let state = packages.get(&file_name).expect("Failed to get file state");
@@ -300,10 +288,10 @@ unsafe fn read_file(
                 ptr::copy_nonoverlapping(buffer.as_ptr(), lp_buffer as _, buffer.len() as _);
                 *lp_number_of_bytes_read = buffer.len() as u32;
 
-                SetFilePointer(h_file, buffer.len() as i32, ptr::null_mut(), FILE_CURRENT);
+                SetFilePointer(h_file, buffer.len() as i32, None, FILE_CURRENT);
             }
 
-            return 1;
+            return TRUE;
         } else if packages.contains_key(&file_name) {
             // [Asset Data]
             let state = packages.get(&file_name).expect("Failed to get file state");
@@ -342,7 +330,7 @@ unsafe fn read_file(
                         );
                         *lp_number_of_bytes_read = buffer.len() as u32;
                     }
-                    return 1;
+                    return TRUE;
                 }
 
                 unsafe {
@@ -350,7 +338,7 @@ unsafe fn read_file(
                     SetFilePointer(
                         h_file,
                         entry.original_offset as i32 + state.original_end_of_table as i32,
-                        ptr::null_mut(),
+                        None,
                         FILE_BEGIN,
                     );
 
@@ -368,7 +356,7 @@ unsafe fn read_file(
                     SetFilePointer(
                         h_file,
                         (requested_offset + n_number_of_bytes_to_read) as _,
-                        ptr::null_mut(),
+                        None,
                         FILE_BEGIN,
                     );
 

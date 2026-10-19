@@ -4,17 +4,9 @@ mod framework;
 mod internal;
 mod plugins;
 
-use std::{
-    collections::HashMap,
-    env,
-    ffi::{CString, c_void},
-    fs,
-    io::{self, Read, Write},
-    mem, panic,
-    path::{Path, PathBuf},
-    sync::OnceLock,
-    thread,
-};
+use crate::internal::gui;
+use crate::internal::utils::{pe64::PE64, remap_image};
+use crate::plugins::read_plugin_configs;
 
 use detours_sys::{
     DetourAttach, DetourIsHelperProcess, DetourRestoreAfterWith, DetourTransactionBegin,
@@ -25,16 +17,19 @@ use internal::utils::rpk_intercept;
 use pelite::pe::Pe;
 use tracing::{error, info, instrument};
 use tracing_subscriber::{Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use winapi::{
-    shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
-    um::{consoleapi::AllocConsole, winnt::DLL_PROCESS_ATTACH},
-};
+use windows::Win32::Foundation::{HINSTANCE, TRUE};
+use windows::Win32::System::Console::AllocConsole;
+use windows::Win32::System::SystemServices::DLL_PROCESS_ATTACH;
 use windows::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MessageBoxA};
+use windows::core::BOOL;
 use windows::core::PCSTR;
 
-use crate::internal::gui;
-use crate::internal::utils::{pe64::PE64, remap_image};
-use crate::plugins::read_plugin_configs;
+use std::collections::HashMap;
+use std::ffi::{CString, c_void};
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+use std::{env, fs, mem, panic, thread};
 
 pub(crate) static LOAD_ORDER: OnceLock<Vec<(plugin::Id, profile::LoadOrderEntry)>> =
     OnceLock::new();
@@ -50,30 +45,30 @@ static mut ORIGINAL_START: *mut c_void = 0 as _;
 
 #[unsafe(no_mangle)]
 unsafe extern "system" fn DllMain(
-    _hinst_dll: HINSTANCE,
-    fwd_reason: DWORD,
-    _lpv_reserved: LPVOID,
+    _hmodule: HINSTANCE,
+    reason: u32,
+    _reserved: *mut c_void,
 ) -> BOOL {
     unsafe {
         if DetourIsHelperProcess() != 0 {
-            return 1;
+            return TRUE;
         }
 
-        if fwd_reason == DLL_PROCESS_ATTACH {
+        if reason == DLL_PROCESS_ATTACH {
             panic_hook_setup();
 
-            AllocConsole();
+            _ = AllocConsole();
 
             let mut lock = io::stdout().lock();
-            let _ = writeln!(lock, "DllMain Loaded");
+            _ = writeln!(lock, "DllMain Loaded");
 
-            let _ = writeln!(lock, "Remapping Image");
+            _ = writeln!(lock, "Remapping Image");
             remap_image().unwrap();
 
-            let _ = writeln!(lock, "Restoring Memory Import Table");
+            _ = writeln!(lock, "Restoring Memory Import Table");
             DetourRestoreAfterWith();
 
-            let _ = writeln!(lock, "Hooking Process Entrypoint");
+            _ = writeln!(lock, "Hooking Process Entrypoint");
             DetourTransactionBegin();
             let opt_headers = PE64::get_module_information().optional_header();
             ORIGINAL_START = (opt_headers.ImageBase + opt_headers.AddressOfEntryPoint as u64) as _;
@@ -82,7 +77,7 @@ unsafe extern "system" fn DllMain(
         }
     }
 
-    1
+    TRUE
 }
 
 fn panic_hook_setup() {

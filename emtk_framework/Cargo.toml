@@ -43,17 +43,14 @@ toml.workspace = true
 tracing.workspace = true
 tracing-appender.workspace = true
 tracing-subscriber.workspace = true
-winapi = { version = "0.3", features = [
-  "minwindef",
-  "winnt",
-  "winbase",
-  "errhandlingapi",
-  "psapi",
-  "consoleapi",
-  "ntdef",
-] }
 windows = { workspace = true, features = [
-  "Win32_Foundation",
+  "Wdk_Foundation",
+  "Wdk_Storage_FileSystem",
+  "Wdk_System_Memory",
+  "Win32_Security",
+  "Win32_Storage_FileSystem",
+  "Win32_System_IO",
+  "Win32_System_ProcessStatus",
   "Win32_UI_Input",
   "Win32_UI_WindowsAndMessaging",
 ] }

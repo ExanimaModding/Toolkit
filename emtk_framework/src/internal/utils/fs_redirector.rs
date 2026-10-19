@@ -1,28 +1,21 @@
-use std::{
-    env,
-    ffi::{CStr, CString, c_void},
-    mem,
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
-
 use detours_sys::{DetourAttach, DetourTransactionBegin, DetourTransactionCommit};
-use winapi::{
-    shared::{minwindef::DWORD, ntdef::LPCSTR},
-    um::{
-        fileapi::{CreateFileA, CreateFileW},
-        minwinbase::LPSECURITY_ATTRIBUTES,
-        winnt::HANDLE,
-    },
-};
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::Security::SECURITY_ATTRIBUTES;
+use windows::Win32::Storage::FileSystem::{CreateFileA, CreateFileW};
+use windows::core::{PCSTR, PCWSTR};
+
+use std::ffi::{CStr, CString, c_void};
+use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
+use std::{env, mem};
 
 static mut O_CREATE_FILE_W: *mut c_void = 0 as _;
 static mut O_CREATE_FILE_A: *mut c_void = 0 as _;
 
 pub unsafe fn register_hooks() {
     unsafe {
-        O_CREATE_FILE_W = CreateFileW as *mut c_void;
-        O_CREATE_FILE_A = CreateFileA as *mut c_void;
+        O_CREATE_FILE_W = CreateFileW::<PCWSTR> as *mut c_void;
+        O_CREATE_FILE_A = CreateFileA::<PCSTR> as *mut c_void;
 
         DetourTransactionBegin();
         DetourAttach(&raw mut O_CREATE_FILE_A, create_file_a as _);
@@ -31,22 +24,22 @@ pub unsafe fn register_hooks() {
 }
 
 type TCreateFileA = unsafe extern "system" fn(
-    lp_file_name: LPCSTR,
-    dw_desired_access: DWORD,
-    dw_share_mode: DWORD,
-    lp_security_attributes: LPSECURITY_ATTRIBUTES,
-    dw_creation_disposition: DWORD,
-    dw_flags_and_attributes: DWORD,
+    lp_file_name: *mut PCSTR,
+    dw_desired_access: u32,
+    dw_share_mode: u32,
+    lp_security_attributes: *mut SECURITY_ATTRIBUTES,
+    dw_creation_disposition: u32,
+    dw_flags_and_attributes: u32,
     h_template_file: HANDLE,
 ) -> HANDLE;
 
 unsafe fn create_file_a(
-    lp_file_name: LPCSTR,
-    dw_desired_access: DWORD,
-    dw_share_mode: DWORD,
-    lp_security_attributes: LPSECURITY_ATTRIBUTES,
-    dw_creation_disposition: DWORD,
-    dw_flags_and_attributes: DWORD,
+    lp_file_name: *mut PCSTR,
+    dw_desired_access: u32,
+    dw_share_mode: u32,
+    lp_security_attributes: *mut SECURITY_ATTRIBUTES,
+    dw_creation_disposition: u32,
+    dw_flags_and_attributes: u32,
     h_template_file: HANDLE,
 ) -> HANDLE {
     static CREATE_FILE_A: LazyLock<TCreateFileA> =
@@ -64,7 +57,11 @@ unsafe fn create_file_a(
     });
 
     // Convert the string pointer to a Rust path.
-    let file_name = unsafe { CStr::from_ptr(lp_file_name).to_string_lossy().into_owned() };
+    let file_name = unsafe {
+        CStr::from_ptr(lp_file_name as _)
+            .to_string_lossy()
+            .into_owned()
+    };
     let file_path = Path::new(&file_name);
 
     let is_in_cwd = file_path.starts_with(&*CWD_PATH);
@@ -128,7 +125,7 @@ unsafe fn create_file_a(
     // Call the original CreateFileA with the new file name, and return the result.
     unsafe {
         CREATE_FILE_A(
-            new_file_name.as_ptr(),
+            PCSTR(new_file_name.as_ptr().cast()).as_ptr() as _,
             dw_desired_access,
             dw_share_mode,
             lp_security_attributes,

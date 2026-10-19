@@ -3,12 +3,12 @@ pub(crate) mod hook;
 pub(crate) mod patch;
 pub(crate) mod plugin;
 
-use std::mem;
-
-use winapi::um::{
-    memoryapi::VirtualQueryEx,
-    winnt::{HANDLE, MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READWRITE, PAGE_READWRITE},
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::System::Memory::{
+    MEMORY_BASIC_INFORMATION, PAGE_EXECUTE_READWRITE, PAGE_READWRITE, VirtualQueryEx,
 };
+
+use std::mem;
 
 pub unsafe fn location_is_readwrite(address: HANDLE, proc: HANDLE) -> anyhow::Result<()> {
     let mut mem_info: MEMORY_BASIC_INFORMATION =
@@ -19,7 +19,7 @@ pub unsafe fn location_is_readwrite(address: HANDLE, proc: HANDLE) -> anyhow::Re
     let result = unsafe {
         VirtualQueryEx(
             proc as _,
-            address as _,
+            Some(address.0),
             &raw mut mem_info,
             std::mem::size_of::<MEMORY_BASIC_INFORMATION>(),
         )
@@ -28,7 +28,7 @@ pub unsafe fn location_is_readwrite(address: HANDLE, proc: HANDLE) -> anyhow::Re
     if result == 0 {
         return Err(anyhow::anyhow!(
             "VirtualQueryEx failed on memory location {:p}.",
-            address
+            address.0
         ));
     }
 
@@ -37,7 +37,7 @@ pub unsafe fn location_is_readwrite(address: HANDLE, proc: HANDLE) -> anyhow::Re
     {
         return Err(anyhow::anyhow!(
             "Memory location {:p} is not writeable.",
-            address
+            address.0
         ));
     }
 
