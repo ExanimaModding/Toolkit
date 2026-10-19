@@ -27,7 +27,9 @@ use winapi::{
     um::{consoleapi::AllocConsole, winnt::DLL_PROCESS_ATTACH},
 };
 
+use crate::internal::gui;
 use crate::internal::utils::{pe64::PE64, remap_image};
+use crate::plugins::read_plugin_configs;
 
 pub(crate) static LOAD_ORDER: OnceLock<Vec<(plugin::Id, profile::LoadOrderEntry)>> =
     OnceLock::new();
@@ -208,6 +210,22 @@ unsafe extern "C" fn main() {
     // 		error!("Failed to load plugin: {:?}", e);
     // 	}
     // }
+    gui::inject_gui();
+
+    let plugin_configs = match read_plugin_configs() {
+        Ok(configs) => configs,
+        Err(e) => {
+            error!("Failed to load plugin configs: {:?}", e);
+            return;
+        }
+    };
+
+    for config in plugin_configs {
+        let result = plugins::load_plugin(config);
+        if let Err(e) = result {
+            error!("Failed to load plugin: {:?}", e);
+        }
+    }
 
     info!("Running Original Program Entrypoint");
 
