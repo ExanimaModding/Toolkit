@@ -98,7 +98,7 @@ impl ImguiRenderLoop for RenderLoop {
         // Maybe another font, or something else? FreeType is an option but could be annoying to implement.
         let fonts = ctx.fonts();
         fonts.add_font(&[imgui::FontSource::TtfData {
-            data: include_bytes!("../../../../../assets/fonts/Lora-Regular.ttf"),
+            data: include_bytes!("../../../../assets/fonts/Lora-Regular.ttf"),
             size_pixels: 20.0,
             config: Some(imgui::FontConfig {
                 size_pixels: 20.0,
@@ -126,7 +126,7 @@ impl ImguiRenderLoop for RenderLoop {
 
         let image = image::load(
             std::io::Cursor::new(include_bytes!(
-                "../../../../../assets/images/corro-211x172.png"
+                "../../../../assets/images/corro-211x172.png"
             )),
             image::ImageFormat::Png,
         )
@@ -245,7 +245,7 @@ impl ImguiRenderLoop for RenderLoop {
                         ui.text("Exanima Modding Toolkit");
                         ui.text(format!("Version: {}", EMTK_FRAMEWORK_VERSION));
                         ui.text(format!("Authors: {}", &*EMTK_FRAMEWORK_AUTHORS));
-                        ui.text(format!("License: {}", EMTK_FRAMEWORK_AUTHORS));
+                        ui.text(format!("License: {}", &*EMTK_FRAMEWORK_AUTHORS));
 
                         if ui.button("View Source") {
                             open::that(EMTK_FRAMEWORK_REPO).unwrap();
