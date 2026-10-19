@@ -26,11 +26,11 @@ detours-sys.workspace = true
 emtk_core = { path = "../emtk_core" }
 emtk_framework_types.workspace = true
 emtk_asset = { path = "../emtk_asset" }
-hudhook = { git = "https://github.com/veeenu/hudhook.git", rev = "4d8d8d09ee64ef25735fde84731745824341d506", features = [
+hudhook = { version = "0.9.3", default-features = false, features = [
   "opengl3",
   "imgui-docking",
   "imgui-tables-api",
-], default-features = false }
+] }
 image.workspace = true
 libloading = "0.8"
 libmem = { version = "5.0.4", default-features = false, features = ["static"] }
@@ -51,6 +51,11 @@ winapi = { version = "0.3", features = [
   "psapi",
   "consoleapi",
   "ntdef",
+] }
+windows = { workspace = true, features = [
+  "Win32_Foundation",
+  "Win32_UI_Input",
+  "Win32_UI_WindowsAndMessaging",
 ] }
 
 [features]

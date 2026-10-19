@@ -2,11 +2,13 @@ mod components;
 
 use std::sync::LazyLock;
 
-use hudhook::*;
+use hudhook::imgui;
+use hudhook::{Hudhook, ImguiRenderLoop, MessageFilter, RenderContext};
 use tracing::error;
-use windows::Win32::UI::{
-    Input::KeyboardAndMouse,
-    WindowsAndMessaging::{CURSOR_SHOWING, CURSORINFO, GetCursorInfo, WM_KEYDOWN, WM_KEYUP},
+use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::UI::Input::KeyboardAndMouse;
+use windows::Win32::UI::WindowsAndMessaging::{
+    CURSOR_SHOWING, CURSORINFO, GetCursorInfo, WM_KEYDOWN, WM_KEYUP,
 };
 
 use crate::plugins::manager::PluginManager;
@@ -144,13 +146,7 @@ impl ImguiRenderLoop for RenderLoop {
         };
     }
 
-    fn on_wnd_proc(
-        &self,
-        _hwnd: windows::Win32::Foundation::HWND,
-        umsg: u32,
-        _wparam: windows::Win32::Foundation::WPARAM,
-        _lparam: windows::Win32::Foundation::LPARAM,
-    ) {
+    fn after_wnd_proc(&self, _hwnd: HWND, umsg: u32, _wparam: WPARAM, _lparam: LPARAM) {
         unsafe {
             match umsg {
                 WM_KEYDOWN => {

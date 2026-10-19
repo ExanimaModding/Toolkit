@@ -44,7 +44,7 @@ static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> = On
 static mut ORIGINAL_START: *mut c_void = 0 as _;
 
 #[unsafe(no_mangle)]
-unsafe extern "stdcall" fn DllMain(
+unsafe extern "system" fn DllMain(
     _hinst_dll: HINSTANCE,
     fwd_reason: DWORD,
     _lpv_reserved: LPVOID,
@@ -194,22 +194,6 @@ unsafe extern "C" fn main() {
     };
 
     // TODO: port plugin configs to emtk_core::plugin::Manifest
-    // gui::inject_gui();
-
-    // let plugin_configs = match read_plugin_configs() {
-    // 	Ok(configs) => configs,
-    // 	Err(e) => {
-    // 		error!("Failed to load plugin configs: {:?}", e);
-    // 		return;
-    // 	}
-    // };
-
-    // for config in plugin_configs {
-    // 	let result = plugins::load_plugin(config);
-    // 	if let Err(e) = result {
-    // 		error!("Failed to load plugin: {:?}", e);
-    // 	}
-    // }
     gui::inject_gui();
 
     let plugin_configs = match read_plugin_configs() {
