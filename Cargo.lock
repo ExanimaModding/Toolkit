@@ -854,24 +854,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "convert_case"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb402b8d4c85569410425650ce3eddc7d698ed96d39a73f941b08fb63082f1e7"
-dependencies = [
- "unicode-segmentation",
-]
-
-[[package]]
-name = "coolor"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "980c2afde4af43d6a05c5be738f9eae595cff86dce1f38f88b95058a98c027f3"
-dependencies = [
- "crossterm",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -978,32 +960,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crokey"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5282b45c96c5978c8723ea83385cb9a488b64b7d175733f48d07bf9da514a863"
-dependencies = [
- "crokey-proc_macros",
- "crossterm",
- "once_cell",
- "serde",
- "strict",
-]
-
-[[package]]
-name = "crokey-proc_macros"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ea0218d3fedf0797fa55676f1964ef5d27103d41ed0281b4bbd2a6e6c3d8d28"
-dependencies = [
- "crossterm",
- "proc-macro2",
- "quote",
- "strict",
- "syn 2.0.103",
-]
-
-[[package]]
 name = "crossbeam"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1061,17 +1017,15 @@ checksum = "d0a5c400df2834b80a4c3327b3aad3a4c4cd4de0629063962b03235697506a28"
 
 [[package]]
 name = "crossterm"
-version = "0.29.0"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8b9f2e4c67f833b660cdb0a3523065869fb35570177239812ed4c905aeff87b"
+checksum = "c0ebde6a9dd5e331cd6c6f48253254d117642c31653baa475e394657c59c1f7d"
 dependencies = [
- "bitflags 2.9.1",
+ "bitflags 1.3.2",
  "crossterm_winapi",
- "derive_more",
- "document-features",
- "mio",
- "parking_lot",
- "rustix 1.0.7",
+ "libc",
+ "mio 0.7.14",
+ "parking_lot 0.11.2",
  "signal-hook",
  "signal-hook-mio",
  "winapi",
@@ -1079,9 +1033,9 @@ dependencies = [
 
 [[package]]
 name = "crossterm_winapi"
-version = "0.9.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acdd7c62a3665c7f6830a51635d9ac9b23ed385797f70a83bb8bafe9c572ab2b"
+checksum = "3a6966607622438301997d3dac0d2f6e9a90c68bb6bc1785ea98456ab93c0507"
 dependencies = [
  "winapi",
 ]
@@ -1212,27 +1166,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c9e6a11ca8224451684bc0d7d5a7adbf8f2fd6887261a1cfc3c0432f9d4068e"
 dependencies = [
  "powerfmt",
-]
-
-[[package]]
-name = "derive_more"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
-dependencies = [
- "derive_more-impl",
-]
-
-[[package]]
-name = "derive_more-impl"
-version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
-dependencies = [
- "convert_case",
- "proc-macro2",
- "quote",
- "syn 2.0.103",
 ]
 
 [[package]]
@@ -1385,6 +1318,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "emtk"
+version = "0.1.0-dev"
+dependencies = [
+ "emtk_asset",
+ "emtk_core",
+]
+
+[[package]]
 name = "emtk_asset"
 version = "0.1.0-dev"
 dependencies = [
@@ -1417,8 +1358,7 @@ dependencies = [
  "ansi_term",
  "anyhow",
  "detours-sys",
- "emtk_asset",
- "emtk_core",
+ "emtk",
  "emtk_framework_types",
  "flate2",
  "hudhook",
@@ -1454,11 +1394,11 @@ dependencies = [
  "anyhow",
  "clap",
  "detours-sys",
- "emtk_core",
+ "emtk",
  "emtk_framework",
  "getset",
  "iced",
- "iced_drop",
+ "iced_drop 0.1.0 (git+https://github.com/ProffDea/iced_drop.git?rev=f6ef384ad88113f9de3cdffbb570426a72da582a)",
  "iced_split",
  "iced_table",
  "image",
@@ -2183,7 +2123,7 @@ dependencies = [
  "gl_generator",
  "imgui",
  "once_cell",
- "parking_lot",
+ "parking_lot 0.12.4",
  "tracing",
  "tracing-subscriber",
  "windows 0.62.2",
@@ -2271,7 +2211,7 @@ dependencies = [
 [[package]]
 name = "iced"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "iced_core",
  "iced_debug",
@@ -2287,7 +2227,7 @@ dependencies = [
 [[package]]
 name = "iced_core"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",
@@ -2305,7 +2245,7 @@ dependencies = [
 [[package]]
 name = "iced_debug"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "iced_core",
  "iced_futures",
@@ -2321,9 +2261,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "iced_drop"
+version = "0.1.0"
+source = "git+https://github.com/ProffDea/iced_drop.git?rev=f6ef384ad88113f9de3cdffbb570426a72da582a#f6ef384ad88113f9de3cdffbb570426a72da582a"
+dependencies = [
+ "iced",
+]
+
+[[package]]
 name = "iced_futures"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "futures",
  "iced_core",
@@ -2337,7 +2285,7 @@ dependencies = [
 [[package]]
 name = "iced_graphics"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -2355,7 +2303,7 @@ dependencies = [
 [[package]]
 name = "iced_highlighter"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "iced_core",
  "syntect",
@@ -2364,7 +2312,7 @@ dependencies = [
 [[package]]
 name = "iced_program"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "iced_graphics",
  "iced_runtime",
@@ -2373,7 +2321,7 @@ dependencies = [
 [[package]]
 name = "iced_renderer"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "iced_graphics",
  "iced_tiny_skia",
@@ -2385,7 +2333,7 @@ dependencies = [
 [[package]]
 name = "iced_runtime"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "bytes",
  "iced_core",
@@ -2398,7 +2346,7 @@ dependencies = [
 [[package]]
 name = "iced_split"
 version = "0.1.0"
-source = "git+https://github.com/edwloef/iced_split.git?branch=main#5f815e58a25485e2f97f779f14e484a0ea55924a"
+source = "git+https://github.com/edwloef/iced_split.git?rev=5f815e58a25485e2f97f779f14e484a0ea55924a#5f815e58a25485e2f97f779f14e484a0ea55924a"
 dependencies = [
  "iced_widget",
 ]
@@ -2406,17 +2354,17 @@ dependencies = [
 [[package]]
 name = "iced_table"
 version = "0.13.0"
-source = "git+https://github.com/ProffDea/iced_table.git?branch=dev#bad5c408d79aa438a8273344e8138a3313188051"
+source = "git+https://github.com/ProffDea/iced_table.git?rev=bad5c408d79aa438a8273344e8138a3313188051#bad5c408d79aa438a8273344e8138a3313188051"
 dependencies = [
  "iced_core",
- "iced_drop",
+ "iced_drop 0.1.0 (git+https://github.com/ProffDea/iced_drop.git?branch=dev)",
  "iced_widget",
 ]
 
 [[package]]
 name = "iced_tiny_skia"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "bytemuck",
  "cosmic-text",
@@ -2433,7 +2381,7 @@ dependencies = [
 [[package]]
 name = "iced_wgpu"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "bitflags 2.9.1",
  "bytemuck",
@@ -2453,7 +2401,7 @@ dependencies = [
 [[package]]
 name = "iced_widget"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "iced_highlighter",
  "iced_renderer",
@@ -2471,7 +2419,7 @@ dependencies = [
 [[package]]
 name = "iced_winit"
 version = "0.14.0-dev"
-source = "git+https://github.com/iced-rs/iced?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
+source = "git+https://github.com/iced-rs/iced.git?branch=master#89f480bdae951a31944302777b759661ec3c3e83"
 dependencies = [
  "iced_debug",
  "iced_program",
@@ -2626,7 +2574,7 @@ dependencies = [
  "cfg-if",
  "imgui-sys",
  "mint",
- "parking_lot",
+ "parking_lot 0.12.4",
 ]
 
 [[package]]
@@ -2649,6 +2597,15 @@ checksum = "cea70ddb795996207ad57735b50c5982d8844f38ba9ee5f1aedcfb708a2aa11e"
 dependencies = [
  "equivalent",
  "hashbrown",
+]
+
+[[package]]
+name = "instant"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
+dependencies = [
+ "cfg-if",
 ]
 
 [[package]]
@@ -2808,29 +2765,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0de8b303297635ad57c9f5059fd9cee7a47f8e8daa09df0fcd07dd39fb22977f"
 dependencies = [
  "log",
-]
-
-[[package]]
-name = "lazy-regex"
-version = "3.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60c7310b93682b36b98fa7ea4de998d3463ccbebd94d935d6b48ba5b6ffa7126"
-dependencies = [
- "lazy-regex-proc_macros",
- "once_cell",
- "regex",
-]
-
-[[package]]
-name = "lazy-regex-proc_macros"
-version = "3.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ba01db5ef81e17eb10a5e0f2109d1b3a3e29bac3070fdbd7d156bf7dbd206a1"
-dependencies = [
- "proc-macro2",
- "quote",
- "regex",
- "syn 2.0.103",
 ]
 
 [[package]]
@@ -3039,9 +2973,9 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "minimad"
-version = "0.13.1"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9c5d708226d186590a7b6d4a9780e2bdda5f689e0d58cd17012a298efd745d2"
+checksum = "8957f240ecb82a4e699bcf4db189fe8a7f5aa68b9e6d5abf829c62a9ee4630ed"
 dependencies = [
  "once_cell",
 ]
@@ -3070,14 +3004,35 @@ checksum = "e53debba6bda7a793e5f99b8dacf19e626084f525f7829104ba9898f367d85ff"
 
 [[package]]
 name = "mio"
+version = "0.7.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8067b404fe97c70829f082dec8bcf4f71225d7eaea1d8645349cb76fa06205cc"
+dependencies = [
+ "libc",
+ "log",
+ "miow",
+ "ntapi",
+ "winapi",
+]
+
+[[package]]
+name = "mio"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78bed444cc8a2160f01cbcf811ef18cac863ad68ae8ca62092e8db51d51c761c"
 dependencies = [
  "libc",
- "log",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "miow"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9f1c5b025cda876f66ef43a113f91ebc9f4ccef34843000e0adf6ebbab84e21"
+dependencies = [
+ "winapi",
 ]
 
 [[package]]
@@ -3194,6 +3149,15 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "ntapi"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c28774a7fd2fbb4f0babd8237ce554b73af68021b5f695a3cebd6c59bac0980f"
+dependencies = [
+ "winapi",
 ]
 
 [[package]]
@@ -3686,12 +3650,37 @@ checksum = "f38d5652c16fde515bb1ecef450ab0f6a219d619a7274976324d5e377f7dceba"
 
 [[package]]
 name = "parking_lot"
+version = "0.11.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d17b78036a60663b797adeaee46f5c9dfebb86948d1255007a1d6be0271ff99"
+dependencies = [
+ "instant",
+ "lock_api",
+ "parking_lot_core 0.8.6",
+]
+
+[[package]]
+name = "parking_lot"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70d58bf43669b5795d1576d0641cfb6fbb2057bf629506267a92807158584a13"
 dependencies = [
  "lock_api",
- "parking_lot_core",
+ "parking_lot_core 0.9.11",
+]
+
+[[package]]
+name = "parking_lot_core"
+version = "0.8.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60a2cfe6f0ad2bfc16aefa463b497d5c7a5ecd44a23efa72aa342d90177356dc"
+dependencies = [
+ "cfg-if",
+ "instant",
+ "libc",
+ "redox_syscall 0.2.16",
+ "smallvec",
+ "winapi",
 ]
 
 [[package]]
@@ -4095,6 +4084,15 @@ checksum = "04ca636dac446b5664bd16c069c00a9621806895b8bb02c2dc68542b23b8f25d"
 dependencies = [
  "bytemuck",
  "font-types",
+]
+
+[[package]]
+name = "redox_syscall"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
+dependencies = [
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -4627,7 +4625,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "34db1a06d485c9142248b7a054f034b349b212551f3dfd19c94d45a754a217cd"
 dependencies = [
  "libc",
- "mio",
+ "mio 0.7.14",
  "signal-hook",
 ]
 
@@ -4836,12 +4834,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "strict"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f42444fea5b87a39db4218d9422087e66a85d0e7a0963a439b07bcdf91804006"
-
-[[package]]
 name = "strict-num"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5046,17 +5038,14 @@ dependencies = [
 
 [[package]]
 name = "termimad"
-version = "0.31.3"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7301d9c2c4939c97f25376b70d3c13311f8fefdee44092fc361d2a98adc2cbb6"
+checksum = "a09f249613ba31188fd902030fcbc94bbdebb5e881fe7fcb58be16fb50e0d77a"
 dependencies = [
- "coolor",
- "crokey",
  "crossbeam",
- "lazy-regex",
+ "crossterm",
  "minimad",
- "serde",
- "thiserror 2.0.12",
+ "thiserror 1.0.69",
  "unicode-width 0.1.14",
 ]
 
@@ -5213,7 +5202,7 @@ dependencies = [
  "backtrace",
  "bytes",
  "libc",
- "mio",
+ "mio 1.0.4",
  "pin-project-lite",
  "socket2",
  "tokio-macros",
@@ -5752,7 +5741,7 @@ checksum = "0048ad49a55b9deb3953841fa1fc5858f0efbcb7a18868c899a360269fac1b23"
 dependencies = [
  "futures",
  "js-sys",
- "parking_lot",
+ "parking_lot 0.12.4",
  "pin-utils",
  "slab",
  "wasm-bindgen",
@@ -5906,7 +5895,7 @@ dependencies = [
  "js-sys",
  "log",
  "naga",
- "parking_lot",
+ "parking_lot 0.12.4",
  "profiling",
  "raw-window-handle",
  "smallvec",
@@ -5934,7 +5923,7 @@ dependencies = [
  "log",
  "naga",
  "once_cell",
- "parking_lot",
+ "parking_lot 0.12.4",
  "profiling",
  "raw-window-handle",
  "rustc-hash 1.1.0",
@@ -5975,7 +5964,7 @@ dependencies = [
  "objc",
  "once_cell",
  "ordered-float",
- "parking_lot",
+ "parking_lot 0.12.4",
  "profiling",
  "range-alloc",
  "raw-window-handle",

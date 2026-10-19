@@ -4,7 +4,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use emtk_core::{Error, TomlError, instance, plugin, profile};
+use emtk::{Error, TomlError, instance, plugin, profile};
 use getset::Getters;
 use iced::{
     Alignment, Border, Element, Fill, Font, Length, Point, Rectangle, Renderer, Shadow, Task,
@@ -214,7 +214,7 @@ pub struct Table {
 
 impl Table {
     #[instrument(level = "trace")]
-    pub fn new(instance: &emtk_core::Instance) -> Self {
+    pub fn new(instance: &emtk::Instance) -> Self {
         let mut table = Self::default();
         table.refresh(instance.profile().load_order().clone());
         table
@@ -304,7 +304,7 @@ impl fmt::Display for MarkdownKind {
 #[derive(Debug, Getters)]
 pub struct Instance {
     #[getset(get = "pub")]
-    inner: emtk_core::Instance,
+    inner: emtk::Instance,
     is_plugin_maximized: bool,
     markdown_kind: Option<MarkdownKind>,
     plugin: Plugin,
@@ -322,7 +322,7 @@ pub enum Message {
     DraggedRowCanceled,
     DroppedRow(Point, Rectangle),
     EntryToggled(usize, bool),
-    Init(emtk_core::Instance),
+    Init(emtk::Instance),
     InitFailed,
     Launch,
     LinkClicked(markdown::Url),
@@ -340,7 +340,7 @@ pub enum Message {
     PluginSaveMarkdown,
     PluginSettingsChanged(toml::Value),
     PluginSettingsLoaded(Option<plugin::Settings>),
-    ProfileChanged(emtk_core::Profile),
+    ProfileChanged(emtk::Profile),
     ProfileDeleted,
     ProfileFormInputChanged(String),
     ProfileFormSubmitted,
@@ -374,7 +374,7 @@ impl Instance {
                             ));
                         };
 
-                        emtk_core::Instance::with_path(instance_path)?.build().await
+                        emtk::Instance::with_path(instance_path)?.build().await
                     })
                     .map(|result| {
                         result
@@ -395,7 +395,7 @@ impl Instance {
             Task::done(Message::Loading)
                 .chain(
                     Task::future(
-                        async move { emtk_core::Instance::with_path(path)?.build().await },
+                        async move { emtk::Instance::with_path(path)?.build().await },
                     )
                     .map(|result| {
                         result
@@ -410,7 +410,7 @@ impl Instance {
 
     // TODO: refactor into sync function that returns (Self, Task<Message>)
     #[instrument(level = "trace")]
-    pub async fn with_instance(inner: emtk_core::Instance) -> Self {
+    pub async fn with_instance(inner: emtk::Instance) -> Self {
         let table = Table::new(&inner);
         let mut instance = Self {
             inner,
@@ -518,7 +518,7 @@ impl Instance {
                     Task::done(Message::Loading)
                         .chain(
                             Task::future(async move {
-                                fs::write(path.join(emtk_core::Profile::LOAD_ORDER_TOML), buffer)
+                                fs::write(path.join(emtk::Profile::LOAD_ORDER_TOML), buffer)
                                     .await
                                     .map_err(Error::msg(
                                         "failed to write profile's load order buffer into file",
@@ -549,7 +549,7 @@ impl Instance {
                         self.inner()
                             .profile()
                             .path()
-                            .join(emtk_core::Profile::LOAD_ORDER_TOML),
+                            .join(emtk::Profile::LOAD_ORDER_TOML),
                     );
                 }
                 return Action::Task(
@@ -780,14 +780,14 @@ impl Instance {
                     Task::done(Message::Loading)
                         .chain(
                             Task::future(async move {
-                                // TODO: clean up redundancy from `emtk_core::Instance::cache_dir`.
+                                // TODO: clean up redundancy from `emtk::Instance::cache_dir`.
                                 let cache_dir = path
-                                    .join(emtk_core::Instance::DATA_DIR)
-                                    .join(emtk_core::Instance::CACHE_DIR);
-                                emtk_core::ensure_dir(&cache_dir).await?;
+                                    .join(emtk::Instance::DATA_DIR)
+                                    .join(emtk::Instance::CACHE_DIR);
+                                emtk::ensure_dir(&cache_dir).await?;
 
                                 fs::write(
-                                    cache_dir.join(emtk_core::Instance::RECENT_PROFILE_RON),
+                                    cache_dir.join(emtk::Instance::RECENT_PROFILE_RON),
                                     buffer,
                                 )
                                 .await
@@ -815,7 +815,7 @@ impl Instance {
                         .and_then(|_| {
                             Task::batch([
                                 Task::done(Message::ProfileSelected(
-                                    emtk_core::Instance::DEFAULT_PROFILE_DIR.to_string(),
+                                    emtk::Instance::DEFAULT_PROFILE_DIR.to_string(),
                                 )),
                                 Task::done(Message::RefreshProfiles),
                             ])
@@ -831,11 +831,11 @@ impl Instance {
                     Task::done(Message::Loading)
                         .chain(
                             Task::future(async move {
-                                // TODO: clean up redundancy from `emtk_core::Instance::profile_dirs`.
+                                // TODO: clean up redundancy from `emtk::Instance::profile_dirs`.
                                 let profiles_dir = path
-                                    .join(emtk_core::Instance::DATA_DIR)
-                                    .join(emtk_core::Instance::PROFILES_DIR);
-                                emtk_core::ensure_dir(&profiles_dir)
+                                    .join(emtk::Instance::DATA_DIR)
+                                    .join(emtk::Instance::PROFILES_DIR);
+                                emtk::ensure_dir(&profiles_dir)
                                     .await
                                     .map_err(Error::msg(
                                         "failed to ensure profiles directory exists",
@@ -848,7 +848,7 @@ impl Instance {
                                         "failed to create profile with name",
                                     ));
                                 }
-                                emtk_core::Profile::with_path(new_dir).await?.build().await
+                                emtk::Profile::with_path(new_dir).await?.build().await
                             })
                             .map(|result| result.map_err(|e| error!("{}", e)))
                             .and_then(|profile| {
@@ -869,17 +869,17 @@ impl Instance {
                     Task::done(Message::Loading)
                         .chain(
                             Task::future(async move {
-                                // TODO: clean up redundancy from `emtk_core::Instance::profile_dirs`.
+                                // TODO: clean up redundancy from `emtk::Instance::profile_dirs`.
                                 let profiles_dir = path
-                                    .join(emtk_core::Instance::DATA_DIR)
-                                    .join(emtk_core::Instance::PROFILES_DIR);
-                                emtk_core::ensure_dir(&profiles_dir)
+                                    .join(emtk::Instance::DATA_DIR)
+                                    .join(emtk::Instance::PROFILES_DIR);
+                                emtk::ensure_dir(&profiles_dir)
                                     .await
                                     .map_err(Error::msg(
                                         "failed to ensure profiles directory exists",
                                     ))?;
 
-                                emtk_core::Profile::with_path(profiles_dir.join(name))
+                                emtk::Profile::with_path(profiles_dir.join(name))
                                     .await?
                                     .build()
                                     .await
@@ -896,11 +896,11 @@ impl Instance {
                     Task::done(Message::Loading)
                         .chain(
                             Task::future(async move {
-                                // TODO: clean up redundancy from `emtk_core::Instance::profile_dirs`.
+                                // TODO: clean up redundancy from `emtk::Instance::profile_dirs`.
                                 let profiles_dir = path
-                                    .join(emtk_core::Instance::DATA_DIR)
-                                    .join(emtk_core::Instance::PROFILES_DIR);
-                                emtk_core::ensure_dir(&profiles_dir).await?;
+                                    .join(emtk::Instance::DATA_DIR)
+                                    .join(emtk::Instance::PROFILES_DIR);
+                                emtk::ensure_dir(&profiles_dir).await?;
 
                                 let mut profile_paths = Vec::new();
                                 let mut read_profiles_dir = fs::read_dir(&profiles_dir).await?;
@@ -979,7 +979,7 @@ impl Instance {
                     Task::done(Message::Loading)
                         .chain(
                             Task::future(async move {
-                                fs::write(path.join(emtk_core::Profile::LOAD_ORDER_TOML), buffer)
+                                fs::write(path.join(emtk::Profile::LOAD_ORDER_TOML), buffer)
                                     .await
                             })
                             .map(|result| {
@@ -1528,7 +1528,7 @@ impl Instance {
 impl Default for Instance {
     fn default() -> Self {
         Self {
-            inner: emtk_core::Instance::default(),
+            inner: emtk::Instance::default(),
             is_plugin_maximized: false,
             markdown_kind: None,
             plugin: Plugin::default(),

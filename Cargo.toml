@@ -4,13 +4,13 @@ cargo-features = ["profile-rustflags"]
 resolver = "2"
 members = [
   "crates/detours",
-  "emtk_asset",
-  "emtk_core",
-  "emtk_framework",
-  "emtk_framework_types",
-  "emtk_launcher",
+  "asset",
+  "core",
+  "framework",
+  "framework_types",
+  "launcher",
 ]
-default-members = ["emtk_launcher"]
+default-members = ["launcher"]
 
 [workspace.package]
 version = "0.1.0-dev"
@@ -22,21 +22,45 @@ repository = "https://codeberg.org/ExanimaModding/Toolkit"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
+ansi_term = "0.12"
 anyhow = "1.0"
+bon = "3.3"
+clap = "4.5"
+deku = "0.19"
 detours-sys = { path = "./crates/detours" }
-emtk_framework_types = { path = "./emtk_framework_types" }
+dirs = "6.0"
+emtk = { version = "0.1.0-dev", path = "." }
+emtk_asset = { version = "0.1.0-dev", path = "asset" }
+emtk_core = { version = "0.1.0-dev", path = "core" }
+emtk_framework = { version = "0.1.0-dev", path = "framework" }
+emtk_framework_types = { version = "0.1.0-dev", path = "framework_types" }
+flate2 = "1.1.1"
+getset = "0.1"
+hudhook = { version = "0.9.3", default-features = false }
+iced = { git = "https://github.com/iced-rs/iced.git", branch = "master" }
+iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", rev = "f6ef384ad88113f9de3cdffbb570426a72da582a" }
+iced_split = { git = "https://github.com/edwloef/iced_split.git", rev = "5f815e58a25485e2f97f779f14e484a0ea55924a" }
+iced_table = { git = "https://github.com/ProffDea/iced_table.git", rev = "bad5c408d79aa438a8273344e8138a3313188051" }
 image = { version = "0.25", default-features = false, features = [
   "ico",
   "png",
 ] }
+libloading = "0.8"
+libmem = { version = "5.0.4", default-features = false }
 open = "5.3"
+path-clean = "1.0"
+pelite = "0.10"
+reqwest = "0.12.15"
+rfd = "0.15"
 ron = "0.8"
 safer-ffi = { version = "0.1", default-features = false, features = [
   "alloc",
   "log",
 ] }
 serde = { version = "1.0", features = ["derive"] }
+tar = "0.4.44"
 tempfile = "3.16"
+termimad = "0.13"
 thiserror = "2.0"
 tokio = { version = "1", features = [
   "io-std",
@@ -50,6 +74,21 @@ tracing = "0.1"
 tracing-appender = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 windows = "0.62.2"
+winresource = "0.1"
+
+[package]
+name = "emtk"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+emtk_asset.workspace = true
+emtk_core.workspace = true
 
 [profile.release]
 strip = true

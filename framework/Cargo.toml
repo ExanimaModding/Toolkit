@@ -20,23 +20,22 @@ name = "generate-headers"
 required-features = ["headers"]
 
 [dependencies]
-ansi_term = "0.12"
+ansi_term.workspace = true
 anyhow.workspace = true
 detours-sys.workspace = true
-emtk_core = { path = "../emtk_core" }
+emtk.workspace = true
 emtk_framework_types.workspace = true
-emtk_asset = { path = "../emtk_asset" }
-hudhook = { version = "0.9.3", default-features = false, features = [
+hudhook = { workspace = true, features = [
   "opengl3",
   "imgui-docking",
   "imgui-tables-api",
 ] }
 image.workspace = true
-libloading = "0.8"
-libmem = { version = "5.0.4", default-features = false, features = ["static"] }
+libloading.workspace = true
+libmem = { workspace = true, features = ["static"] }
 open.workspace = true
-path-clean = "1.0"
-pelite = "0.10"
+path-clean.workspace = true
+pelite.workspace = true
 safer-ffi.workspace = true
 serde.workspace = true
 toml.workspace = true
@@ -59,6 +58,6 @@ windows = { workspace = true, features = [
 headers = ["safer-ffi/headers"]
 
 [build-dependencies]
-flate2 = "1.1.1"
-reqwest = { version = "0.12.15", features = ["blocking"] }
-tar = "0.4.44"
+flate2.workspace = true
+reqwest = { workspace = true, features = ["blocking"] }
+tar.workspace = true

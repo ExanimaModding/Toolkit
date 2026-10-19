@@ -6,7 +6,7 @@ use std::path::PathBuf;
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Export DLL Ordinals
     let mut ordinal = project_root().unwrap();
-    ordinal.push("emtk_framework");
+    ordinal.push("framework");
     ordinal.push("lib.def");
     println!("cargo:rustc-cdylib-link-arg=/DEF:{}", ordinal.display());
 

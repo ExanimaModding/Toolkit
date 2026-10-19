@@ -12,7 +12,7 @@ use detours_sys::{
     DetourAttach, DetourIsHelperProcess, DetourRestoreAfterWith, DetourTransactionBegin,
     DetourTransactionCommit,
 };
-use emtk_core::{plugin, profile};
+use emtk::{plugin, profile};
 use internal::utils::rpk_intercept;
 use pelite::pe::Pe;
 use tracing::{error, info, instrument};
@@ -122,12 +122,12 @@ fn panic_hook_setup() {
 
 #[instrument(level = "trace")]
 unsafe extern "C" fn main() {
-    let maybe_data_dir = emtk_core::data_dir();
+    let maybe_data_dir = emtk::data_dir();
     ansi_term::enable_ansi_support().unwrap();
     let subscriber = tracing_subscriber::registry().with(fmt::layer().with_filter(env_filter()));
 
     if let Some(data_dir) = maybe_data_dir {
-        let log_dir = data_dir.join(emtk_core::LOG_DIR);
+        let log_dir = data_dir.join(emtk::LOG_DIR);
         if !log_dir.is_dir() {
             fs::create_dir_all(&log_dir).unwrap();
         }

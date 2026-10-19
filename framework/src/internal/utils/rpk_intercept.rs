@@ -1,7 +1,7 @@
 use crate::MOD_ENTRIES;
 
 use detours_sys::{DetourAttach, DetourTransactionBegin, DetourTransactionCommit};
-use emtk_asset::{
+use emtk::asset::{
     Entry, Package,
     deku::{DekuWriter, writer::Writer},
 };

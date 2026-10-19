@@ -28,7 +28,7 @@ pub fn view<'a, Message: 'a>(events: &[Event]) -> Element<'a, Message> {
 pub fn stream() -> impl Stream<Item = Event> {
     channel(0, |tx: mpsc::Sender<Event>| async move {
         let file_appender =
-            tracing_appender::rolling::hourly(emtk_core::log_dir().await.unwrap(), "gui.log");
+            tracing_appender::rolling::hourly(emtk::log_dir().await.unwrap(), "gui.log");
         let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
         TRACING_GUARD.set(guard).unwrap();
 

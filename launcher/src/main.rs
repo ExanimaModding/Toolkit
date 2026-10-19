@@ -11,7 +11,7 @@ mod injector;
 use std::{env, path::Path, sync::OnceLock};
 
 use clap::Parser;
-use emtk_core::{Error, Result};
+use emtk::{Error, Result};
 use tracing::instrument;
 use tracing_subscriber::{EnvFilter, filter};
 
@@ -69,7 +69,7 @@ fn env_filter() -> EnvFilter {
 #[instrument(level = "trace")]
 pub fn launch(path: &Path) -> Result<()> {
     let exanima_exe = path
-        .join(emtk_core::Instance::BINARY)
+        .join(emtk::Instance::BINARY)
         .canonicalize()
         .map_err(Error::msg(
             "failed to find the game executable file in the game directory",

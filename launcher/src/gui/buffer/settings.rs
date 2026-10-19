@@ -1,6 +1,6 @@
 use std::{env, io};
 
-use emtk_core::Error;
+use emtk::Error;
 use iced::{
     Alignment, Element, Fill, Task, Theme,
     widget::{column, container, pick_list, row, text},
@@ -33,7 +33,7 @@ impl Settings {
     pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::OpenAppDataDir => {
-                let Some(data_dir) = emtk_core::data_dir() else {
+                let Some(data_dir) = emtk::data_dir() else {
                     error!("{}", io::Error::from(io::ErrorKind::NotFound));
                     return Action::None;
                 };

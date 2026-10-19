@@ -3,7 +3,7 @@ use std::{borrow::BorrowMut, env, ffi::CString, io, mem::MaybeUninit, ptr};
 use detours_sys::{
     _PROCESS_INFORMATION, _STARTUPINFOA, BOOL, DWORD, DetourCreateProcessWithDllExA, HANDLE,
 };
-use emtk_core::{Error, Result};
+use emtk::{Error, Result};
 use tracing::instrument;
 
 /// Inject a DLL into a target process.

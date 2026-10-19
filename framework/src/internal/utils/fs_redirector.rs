@@ -51,9 +51,9 @@ unsafe fn create_file_a(
     static CACHE_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
         CWD_PATH
             .clone()
-            .join(emtk_core::Instance::DATA_DIR)
-            .join(emtk_core::Instance::CACHE_DIR)
-            .join(emtk_core::Instance::CACHE_BUILD_DIR)
+            .join(emtk::Instance::DATA_DIR)
+            .join(emtk::Instance::CACHE_DIR)
+            .join(emtk::Instance::CACHE_BUILD_DIR)
     });
 
     // Convert the string pointer to a Rust path.

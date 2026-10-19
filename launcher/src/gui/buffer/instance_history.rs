@@ -2,7 +2,7 @@ use super::*;
 
 use std::path::PathBuf;
 
-use emtk_core::instance::write_instance_history;
+use emtk::instance::write_instance_history;
 use getset::Getters;
 use iced::{
     Task, Theme,
@@ -54,7 +54,7 @@ impl InstanceHistory {
         let task = Task::done(Message::Loading)
             .chain(Task::perform(
                 async {
-                    let history = match emtk_core::instance::history().await {
+                    let history = match emtk::instance::history().await {
                         Ok(instance_history) => instance_history,
                         Err(e) => {
                             warn!("{}", e);
@@ -64,8 +64,8 @@ impl InstanceHistory {
 
                     future::join_all(history.into_iter().map(async |path| 'read_toml: {
                         let Ok(file) = fs::File::open(
-                            path.join(emtk_core::Instance::DATA_DIR)
-                                .join(emtk_core::Instance::TOML),
+                            path.join(emtk::Instance::DATA_DIR)
+                                .join(emtk::Instance::TOML),
                         )
                         .await
                         else {
@@ -76,7 +76,7 @@ impl InstanceHistory {
                         if reader.read_to_string(&mut buffer).await.is_err() {
                             break 'read_toml (path, None);
                         };
-                        let Ok(settings) = toml::from_str::<emtk_core::instance::Settings>(&buffer)
+                        let Ok(settings) = toml::from_str::<emtk::instance::Settings>(&buffer)
                         else {
                             break 'read_toml (path, None);
                         };

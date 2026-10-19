@@ -7,7 +7,7 @@ mod widget;
 
 use std::env;
 
-use emtk_core::{Error, Result, TomlError};
+use emtk::{Error, Result, TomlError};
 use getset::{Getters, WithSetters};
 use iced::widget::pane_grid;
 use iced::{
@@ -111,10 +111,10 @@ pub struct Config {
 
 impl Config {
     /// Attempt to deserialize and return GUI settings from the toml file stored
-    /// in `emtk_core::DATA_DIR`.
+    /// in `emtk::DATA_DIR`.
     #[instrument(level = "trace")]
     async fn read_config() -> Result<Self> {
-        let data_dir = emtk_core::data_dir()
+        let data_dir = emtk::data_dir()
             .ok_or(io::Error::new(
                 io::ErrorKind::NotFound,
                 "path does not exist",
@@ -143,12 +143,12 @@ impl Config {
     ///
     /// Errors may be returned according to:
     ///
-    /// - `emtk_core::data_dir`
+    /// - `emtk::data_dir`
     /// - `toml::to_string`
     /// - `tokio::fs::write`
     #[instrument(level = "trace")]
     pub async fn write_config(self) -> Result<Self> {
-        let toml_path = emtk_core::data_dir()
+        let toml_path = emtk::data_dir()
             .map(|p| p.join(App::TOML))
             .ok_or(io::Error::new(
                 io::ErrorKind::NotFound,
@@ -191,7 +191,7 @@ pub struct Root {
 impl Root {
     #[instrument(level = "trace")]
     fn new() -> (Self, Task<Message>) {
-        let config_exists = emtk_core::data_dir().map(|p| p.join(App::TOML).is_file());
+        let config_exists = emtk::data_dir().map(|p| p.join(App::TOML).is_file());
         let task = if let Some(is_file) = config_exists
             && is_file
         {
@@ -245,7 +245,7 @@ enum Message {
 
 impl App {
     /// The name of the file responsible for storing user settings for the gui
-    /// specifically. This is a child of `emtk_core::DATA_DIR`.
+    /// specifically. This is a child of `emtk::DATA_DIR`.
     pub const TOML: &'static str = "gui.toml";
 
     #[instrument(level = "trace")]
@@ -487,8 +487,8 @@ impl App {
                             let lock_path = instance
                                 .inner()
                                 .path()
-                                .join(emtk_core::Instance::DATA_DIR)
-                                .join(emtk_core::Instance::LOCK);
+                                .join(emtk::Instance::DATA_DIR)
+                                .join(emtk::Instance::LOCK);
                             Task::future(async move {
                                 if lock_path.is_file() {
                                     let _ = fs::remove_file(lock_path)

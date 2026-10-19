@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use emtk_core::prelude::*;
+use emtk::prelude::*;
 use tokio::{
     fs,
     io::{self, AsyncReadExt},

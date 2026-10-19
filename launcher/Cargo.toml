@@ -10,12 +10,12 @@ license.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-clap = { version = "4.5", features = ["derive"] }
+clap = { workspace = true, features = ["derive"] }
 detours-sys.workspace = true
-emtk_core = { path = "../emtk_core" }
-emtk_framework = { path = "../emtk_framework" }
-getset = "0.1"
-iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = [
+emtk.workspace = true
+emtk_framework.workspace = true
+getset.workspace = true
+iced = { workspace = true, features = [
   "advanced",
   "highlighter",
   "lazy",
@@ -23,15 +23,15 @@ iced = { git = "https://github.com/iced-rs/iced", branch = "master", features = 
   "svg",
   "tokio",
 ] }
-iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", branch = "dev" }
-iced_split = { git = "https://github.com/edwloef/iced_split.git", branch = "main" }
-iced_table = { git = "https://github.com/ProffDea/iced_table.git", branch = "dev" }
+iced_drop.workspace = true
+iced_split.workspace = true
+iced_table.workspace = true
 image.workspace = true
 open.workspace = true
-rfd = "0.15"
+rfd.workspace = true
 ron.workspace = true
 serde.workspace = true
-termimad = "0.31"
+termimad.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 toml.workspace = true
@@ -40,7 +40,7 @@ tracing-appender.workspace = true
 tracing-subscriber.workspace = true
 
 [build-dependencies]
-winresource = "0.1"
+winresource.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
