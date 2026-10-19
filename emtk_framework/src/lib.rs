@@ -1,3 +1,5 @@
+#![feature(thread_id_value)]
+
 mod framework;
 mod internal;
 mod plugins;
@@ -5,12 +7,13 @@ mod plugins;
 use std::{
     collections::HashMap,
     env,
-    ffi::c_void,
+    ffi::{CString, c_void},
     fs,
     io::{self, Read, Write},
-    mem,
-    path::PathBuf,
+    mem, panic,
+    path::{Path, PathBuf},
     sync::OnceLock,
+    thread,
 };
 
 use detours_sys::{
@@ -26,6 +29,8 @@ use winapi::{
     shared::minwindef::{BOOL, DWORD, HINSTANCE, LPVOID},
     um::{consoleapi::AllocConsole, winnt::DLL_PROCESS_ATTACH},
 };
+use windows::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MessageBoxA};
+use windows::core::PCSTR;
 
 use crate::internal::gui;
 use crate::internal::utils::{pe64::PE64, remap_image};
@@ -55,6 +60,8 @@ unsafe extern "system" fn DllMain(
         }
 
         if fwd_reason == DLL_PROCESS_ATTACH {
+            panic_hook_setup();
+
             AllocConsole();
 
             let mut lock = io::stdout().lock();
@@ -76,6 +83,46 @@ unsafe extern "system" fn DllMain(
     }
 
     1
+}
+
+fn panic_hook_setup() {
+    panic::set_hook(Box::new(move |info| {
+        if !Path::new("logs").exists() {
+            _ = fs::create_dir("logs");
+        }
+
+        let msg = info.payload_as_str();
+        let location = info.location();
+        let file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("logs/emf-panicked.log")
+            .ok();
+
+        if let Some(((msg, location), mut file)) = msg.zip(location).zip(file) {
+            let current_thread = thread::current();
+            let name = current_thread.name().unwrap_or("<unnamed>");
+            let tid = current_thread.id().as_u64().get();
+
+            let output = format!("\nthread '{name}' ({tid:?}) panicked at {location}:\n{msg}");
+
+            _ = file.write_all(output.as_bytes()); // TODO append .2026-02-22-14 format for tracing-appender compat?
+
+            unsafe {
+                MessageBoxA(
+                    None,
+                    PCSTR(CString::new(output).unwrap().as_ptr().cast()),
+                    PCSTR(
+                        CString::new(format!("emtk@v{}", env!("CARGO_PKG_VERSION")))
+                            .unwrap()
+                            .as_ptr()
+                            .cast(),
+                    ),
+                    MB_ICONERROR,
+                );
+            }
+        }
+    }));
 }
 
 #[instrument(level = "trace")]
