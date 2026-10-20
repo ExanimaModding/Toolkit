@@ -97,7 +97,7 @@ impl ImguiRenderLoop for RenderLoop {
         // Maybe another font, or something else? FreeType is an option but could be annoying to implement.
         let fonts = ctx.fonts();
         fonts.add_font(&[imgui::FontSource::TtfData {
-            data: include_bytes!("../../../../assets/fonts/Lora-Regular.ttf"),
+            data: include_bytes!("../../../assets/fonts/Lora-Regular.ttf"),
             size_pixels: 20.0,
             config: Some(imgui::FontConfig {
                 size_pixels: 20.0,
@@ -124,9 +124,7 @@ impl ImguiRenderLoop for RenderLoop {
         self.menu = components::Menu::new(vec!["Plugins".to_string()]);
 
         let image = image::load(
-            std::io::Cursor::new(include_bytes!(
-                "../../../../assets/images/corro-211x172.png"
-            )),
+            std::io::Cursor::new(include_bytes!("../../../assets/images/corro-211x172.png")),
             image::ImageFormat::Png,
         )
         .unwrap()
