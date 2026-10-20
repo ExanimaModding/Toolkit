@@ -161,7 +161,7 @@ impl Instance {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```no_run
     /// use emtk_core::prelude::*;
     ///
     /// let maybe_instance = "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Exanima";
@@ -193,7 +193,7 @@ impl Instance {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```no_run
     /// use emtk_core::prelude::*;
     ///
     /// # tokio_test::block_on(async {

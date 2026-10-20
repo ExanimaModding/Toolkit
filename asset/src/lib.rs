@@ -289,10 +289,11 @@ impl Package {
     /// # Example
     ///
     /// ```no_run
-    /// let resource = Package {
-    ///     path: "C:/Program Files (x86)/Steam/steamapps/common/Exanima/Resource.rpk"
-    /// };
-    /// let opponent03 = resource.load("actors.rpk/opponent03")?;
+    /// let resource = emtk_asset::Package::new(
+    ///     "C:/Program Files (x86)/Steam/steamapps/common/Exanima/Resource.rpk",
+    /// )
+    /// .expect("Get package");
+    /// let opponent03 = resource.load("actors.rpk/opponent03");
     /// ```
     pub fn load<'a, P: 'a + AsRef<Path>>(&self, path: P) -> Result<Vec<u8>, EntryError<'a>> {
         let path = path.as_ref();

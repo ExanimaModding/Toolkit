@@ -50,6 +50,7 @@ libmem = { version = "5.0.4", default-features = false }
 open = "5.3"
 path-clean = "1.0"
 pelite = "0.10"
+pretty_assertions = "1.4.1"
 reqwest = "0.12.15"
 rfd = "0.15"
 ron = "0.8"
@@ -69,6 +70,7 @@ tokio = { version = "1", features = [
   "macros",
   "rt-multi-thread",
 ] }
+tokio-test = "0.4.6"
 toml = "0.8"
 tracing = "0.1"
 tracing-appender = "0.2"
