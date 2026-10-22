@@ -5,7 +5,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod cli;
-mod gui;
 mod injector;
 
 use std::{env, path::Path, sync::OnceLock};
@@ -22,16 +21,12 @@ pub(crate) static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::Worker
 
 #[instrument(level = "trace")]
 fn main() {
-    if env::args_os().len() == 1 {
-        let _ = gui::App::run().map_err(|e| eprintln!("failed to run gui: {e}"));
-    } else {
-        let body = async { cli::App::parse().run().await };
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("Failed building the Runtime")
-            .block_on(body);
-    };
+    let body = async { cli::App::parse().run().await };
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed building the Runtime")
+        .block_on(body);
 }
 
 /// Helper function to parse a string into tracing's filter [`Directive`] for

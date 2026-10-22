@@ -37,10 +37,6 @@ emtk_framework_types = { version = "0.1.0-dev", path = "framework_types" }
 flate2 = "1.1.1"
 getset = "0.1"
 hudhook = { version = "0.9.3", default-features = false }
-iced = { git = "https://github.com/iced-rs/iced.git", branch = "master" }
-iced_drop = { git = "https://github.com/ProffDea/iced_drop.git", rev = "f6ef384ad88113f9de3cdffbb570426a72da582a" }
-iced_split = { git = "https://github.com/edwloef/iced_split.git", rev = "5f815e58a25485e2f97f779f14e484a0ea55924a" }
-iced_table = { git = "https://github.com/ProffDea/iced_table.git", rev = "bad5c408d79aa438a8273344e8138a3313188051" }
 image = { version = "0.25", default-features = false, features = [
   "ico",
   "png",

@@ -15,17 +15,6 @@ detours-sys.workspace = true
 emtk.workspace = true
 emtk_framework.workspace = true
 getset.workspace = true
-iced = { workspace = true, features = [
-  "advanced",
-  "highlighter",
-  "lazy",
-  "markdown",
-  "svg",
-  "tokio",
-] }
-iced_drop.workspace = true
-iced_split.workspace = true
-iced_table.workspace = true
 image.workspace = true
 open.workspace = true
 rfd.workspace = true
