@@ -1,0 +1,14 @@
+[package]
+name = "emtk_editor"
+description = "Binary to help with the process of creating mods"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+iced.workspace = true
+iced_split.workspace = true

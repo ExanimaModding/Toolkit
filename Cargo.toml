@@ -9,6 +9,7 @@ members = [
   "framework",
   "framework_types",
   "launcher",
+  "tools/*",
 ]
 default-members = ["launcher"]
 
@@ -37,6 +38,8 @@ emtk_framework_types = { version = "0.1.0-dev", path = "framework_types" }
 flate2 = "1.1.1"
 getset = "0.1"
 hudhook = { version = "0.9.3", default-features = false }
+iced = "0.15.0-dev"
+iced_split = "0.2.0-dev"
 image = { version = "0.25", default-features = false, features = [
   "ico",
   "png",
@@ -98,3 +101,8 @@ rustflags = ["-Zlocation-detail=none"]
 
 [profile.release.package.emtk_framework]
 opt-level = 3
+
+[patch.crates-io]
+iced = { git = "https://github.com/iced-rs/iced.git", rev = "08eb93ad476597889eb4597f22b4198f5545abb9" }
+iced_core = { git = "https://github.com/iced-rs/iced.git", rev = "08eb93ad476597889eb4597f22b4198f5545abb9" }
+iced_split = { git = "https://github.com/edwloef/iced_split.git", rev = "a8b7da03a0396b356143c3b2ea8b61aeb3a06fc1" }
