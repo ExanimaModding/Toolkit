@@ -570,9 +570,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.9.0"
+version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "877bf67ac8e52449eb2f9e98a344ea163beb70dd1f9eebe3cc5357dcfeaee4df"
+checksum = "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -1150,7 +1150,6 @@ dependencies = [
  "deku",
  "serde",
  "thiserror 2.0.21",
- "tracing",
 ]
 
 [[package]]
@@ -1161,6 +1160,7 @@ dependencies = [
  "bon",
  "dirs",
  "getset",
+ "log",
  "pretty_assertions",
  "ron",
  "serde",
@@ -1169,7 +1169,6 @@ dependencies = [
  "tokio",
  "tokio-test",
  "toml 0.8.23",
- "tracing",
 ]
 
 [[package]]
@@ -1201,6 +1200,7 @@ dependencies = [
  "image",
  "libloading",
  "libmem",
+ "log",
  "open",
  "path-clean",
  "pelite",
@@ -1209,7 +1209,6 @@ dependencies = [
  "serde",
  "tar",
  "toml 0.8.23",
- "tracing",
  "tracing-appender",
  "tracing-subscriber",
  "windows",
@@ -1234,6 +1233,7 @@ dependencies = [
  "emtk_framework",
  "getset",
  "image",
+ "log",
  "open",
  "rfd",
  "ron",
@@ -1243,7 +1243,6 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "toml 0.8.23",
- "tracing",
  "tracing-appender",
  "tracing-subscriber",
  "winresource",

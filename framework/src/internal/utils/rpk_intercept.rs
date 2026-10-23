@@ -5,7 +5,7 @@ use emtk::asset::{
     Entry, Package,
     deku::{DekuWriter, writer::Writer},
 };
-use tracing::error;
+use log::error;
 use windows::Win32::Foundation::{HANDLE, MAX_PATH, TRUE};
 use windows::Win32::Storage::FileSystem::{
     FILE_BEGIN, FILE_CURRENT, FILE_NAME_NORMALIZED, GetFinalPathNameByHandleA, ReadFile,

@@ -6,9 +6,9 @@ use detours_sys::{
     DetourAttach, DetourDetach, DetourTransactionAbort, DetourTransactionBegin,
     DetourTransactionCommit,
 };
+use log::error;
 use safer_ffi::prelude::repr_c;
 use safer_ffi::{derive_ReprC, ffi_export};
-use tracing::error;
 use windows::Win32::Foundation::{HANDLE, NTSTATUS};
 use windows::Win32::System::Threading::GetCurrentProcess;
 

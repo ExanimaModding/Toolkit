@@ -1,6 +1,6 @@
 use emtk_framework_types::{ffi::GetSettingReturnValue, rust::config::PluginConfigSettingValue};
+use log::warn;
 use safer_ffi::prelude::*;
-use tracing::warn;
 
 use crate::plugins::manager::PluginManager;
 

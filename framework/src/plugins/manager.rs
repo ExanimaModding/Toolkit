@@ -9,8 +9,8 @@ use std::{
 use anyhow::Result;
 use emtk_framework_types::config;
 use libloading::os::windows::Symbol;
+use log::error;
 use safer_ffi::prelude::*;
-use tracing::error;
 
 use super::write_plugin_config;
 

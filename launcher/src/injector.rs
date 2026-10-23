@@ -4,14 +4,12 @@ use detours_sys::{
     _PROCESS_INFORMATION, _STARTUPINFOA, BOOL, DWORD, DetourCreateProcessWithDllExA, HANDLE,
 };
 use emtk::{Error, Result};
-use tracing::instrument;
 
 /// Inject a DLL into a target process.
 ///
 /// # Safety
 ///
 /// This function is unsafe because it is injecting a DLL into a live process.
-#[instrument(level = "trace")]
 pub(crate) unsafe fn inject(dll_path: &str, target_exe: &str) -> Result<()> {
     let binding = CString::new(target_exe).map_err(Error::msg(
         "failed to create new C string for the target executable",

@@ -4,7 +4,7 @@ use std::sync::LazyLock;
 
 use hudhook::imgui;
 use hudhook::{Hudhook, ImguiRenderLoop, MessageFilter, RenderContext};
-use tracing::error;
+use log::error;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse;
 use windows::Win32::UI::WindowsAndMessaging::{

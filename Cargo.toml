@@ -47,6 +47,10 @@ image = { version = "0.25", default-features = false, features = [
 libloading = "0.8"
 libmem = { version = "5.0.4", default-features = false }
 open = "5.3"
+log = { version = "0.4.34", features = [
+  "max_level_debug",
+  "release_max_level_warn",
+] }
 path-clean = "1.0"
 pelite = "0.10"
 pretty_assertions = "1.4.1"
@@ -71,9 +75,11 @@ tokio = { version = "1", features = [
 ] }
 tokio-test = "0.4.6"
 toml = "0.8"
-tracing = "0.1"
 tracing-appender = "0.2"
-tracing-subscriber = "0.3"
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "tracing-log",
+] }
 windows = "0.62.2"
 winresource = "0.1"
 

@@ -9,7 +9,6 @@ use iced::{
     Element, Fill, Padding, Task,
     widget::{column, container, row, text},
 };
-use tracing::instrument;
 
 use crate::gui::{
     Root,
@@ -84,7 +83,6 @@ pub enum Message {
 }
 
 impl Buffer {
-    #[instrument(level = "trace")]
     pub fn update(&mut self, message: Message) -> Action {
         match (self, message) {
             (_, Message::ImportInstanceDialog) => {
@@ -132,7 +130,6 @@ impl Buffer {
         Action::None
     }
 
-    #[instrument(level = "trace")]
     pub fn view<'a>(&'a self, root: &'a Root) -> Element<'a, Message> {
         let content = container(match self {
             Buffer::Instance(instance) => instance.view(root).map(Message::Instance),
@@ -150,7 +147,6 @@ impl Buffer {
         column![self.controls(), content].spacing(8).into()
     }
 
-    #[instrument(level = "trace")]
     fn controls(&self) -> Element<Message> {
         let icon_size = 20;
         let btn_size = 38;
@@ -203,7 +199,6 @@ impl Buffer {
         .into()
     }
 
-    #[instrument(level = "trace")]
     pub fn title(&self) -> String {
         match self {
             Buffer::Instance(instance) => instance.title(),

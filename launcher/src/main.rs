@@ -11,7 +11,6 @@ use std::{env, path::Path, sync::OnceLock};
 
 use clap::Parser;
 use emtk::{Error, Result};
-use tracing::instrument;
 use tracing_subscriber::{EnvFilter, filter};
 
 /// When tracing is initialized for logging, the guard to the log file is stored
@@ -19,7 +18,6 @@ use tracing_subscriber::{EnvFilter, filter};
 pub(crate) static TRACING_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> =
     OnceLock::new();
 
-#[instrument(level = "trace")]
 fn main() {
     let body = async { cli::App::parse().run().await };
     tokio::runtime::Builder::new_multi_thread()
@@ -31,7 +29,6 @@ fn main() {
 
 /// Helper function to parse a string into tracing's filter [`Directive`] for
 /// logging.
-#[instrument(level = "trace")]
 fn directive(directive: &str) -> Option<filter::Directive> {
     directive
         .parse::<filter::Directive>()
@@ -42,7 +39,6 @@ fn directive(directive: &str) -> Option<filter::Directive> {
 }
 
 /// Helper function to add a filter to a tracing [`EnvFilter`] for logging.
-#[instrument(level = "trace")]
 fn add_directive(filter: EnvFilter, d: &str) -> EnvFilter {
     if let Some(directive) = directive(d) {
         filter.add_directive(directive)
@@ -52,7 +48,6 @@ fn add_directive(filter: EnvFilter, d: &str) -> EnvFilter {
 }
 
 /// Helper function to return a tracing [`EnvFilter`] for logging.
-#[instrument(level = "trace")]
 fn env_filter() -> EnvFilter {
     EnvFilter::builder()
         .from_env()
@@ -61,7 +56,6 @@ fn env_filter() -> EnvFilter {
 }
 
 /// Executes Exanima as a process inside the given path's directory
-#[instrument(level = "trace")]
 pub fn launch(path: &Path) -> Result<()> {
     let exanima_exe = path
         .join(emtk::Instance::BINARY)

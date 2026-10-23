@@ -5,16 +5,11 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 use emtk::prelude::*;
+use log::info;
 use tokio::{
     fs,
     io::{self, AsyncReadExt},
 };
-// use termimad::crossterm::{
-// 	self,
-// 	terminal::{EnterAlternateScreen, LeaveAlternateScreen},
-// };
-use tracing::{info, instrument};
-// use tracing_indicatif::IndicatifLayer;
 use tracing_subscriber::{Layer, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// The Exanima Modding CLI
@@ -34,7 +29,6 @@ pub(super) struct App {
 }
 
 impl App {
-    #[instrument(level = "trace")]
     pub(super) async fn run(&self) {
         // let file_appender = tracing_appender::rolling::never(
         // 	std::path::absolute(PathBuf::from("./")).unwrap(),
@@ -84,7 +78,6 @@ enum AppCommands {
 }
 
 impl AppCommands {
-    #[instrument(level = "trace")]
     async fn run(&self) {
         match self {
             AppCommands::Instance { command } => command.run().await,
@@ -121,7 +114,6 @@ enum InstanceCommands {
 }
 
 impl InstanceCommands {
-    #[instrument(level = "trace")]
     async fn run(&self) {
         match self {
             InstanceCommands::Launch => self.launch().await,
@@ -132,7 +124,6 @@ impl InstanceCommands {
         }
     }
 
-    #[instrument(level = "trace")]
     async fn launch(&self) {
         let instance_history = instance::history().await.unwrap();
         let instance_path = instance_history.last().unwrap();
@@ -152,7 +143,6 @@ impl InstanceCommands {
     /// ```sh
     /// $ emtk instance list
     /// ```
-    #[instrument(level = "trace")]
     async fn list(&self) {
         let instance_history = instance::history().await.unwrap();
         for path in instance_history.iter().rev() {
@@ -165,7 +155,6 @@ impl InstanceCommands {
     /// ```sh
     /// $ emtk instance import "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Exanima"
     /// ```
-    #[instrument(level = "trace")]
     async fn import(&self, path: &str) {
         let path = PathBuf::from(path);
         Instance::with_path(path).unwrap().build().await.unwrap();
@@ -183,7 +172,6 @@ enum ModCommands {
 }
 
 impl ModCommands {
-    #[instrument(level = "trace")]
     async fn run(&self) {
         match self {
             ModCommands::Info { id } => self.info(id).await,
@@ -196,7 +184,6 @@ impl ModCommands {
     /// ```sh
     /// emtk instance mod info com.example.my-mod
     /// ```
-    #[instrument(level = "trace")]
     async fn info(&self, maybe_id: &str) {
         let skin = termimad::MadSkin::default();
         let plugin_id = plugin::Id::try_from(maybe_id).unwrap();
@@ -246,7 +233,6 @@ impl ModCommands {
     /// ```sh
     /// $ emtk instance mod list
     /// ```
-    #[instrument(level = "trace")]
     async fn list(&self) {
         let instance_history = instance::history().await.unwrap();
         let instance_path = instance_history.last().unwrap();
@@ -290,7 +276,6 @@ enum ProfileCommands {
 }
 
 impl ProfileCommands {
-    #[instrument(level = "trace")]
     async fn run(&self) {
         match self {
             ProfileCommands::Create => self.create(),
@@ -299,17 +284,14 @@ impl ProfileCommands {
         }
     }
 
-    #[instrument(level = "trace")]
     fn create(&self) {
         todo!("profile create wip");
     }
 
-    #[instrument(level = "trace")]
     fn delete(&self, _force: bool) {
         todo!("profile delete wip");
     }
 
-    #[instrument(level = "trace")]
     async fn list(&self) {
         let instance_history = instance::history().await.unwrap();
         let instance_path = instance_history.last().unwrap();

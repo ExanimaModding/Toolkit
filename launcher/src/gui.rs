@@ -18,7 +18,7 @@ use iced::{
 use iced_drop::zones_on_point;
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
-use tracing::{debug, error, info, instrument};
+use info::{debug, error, info};
 
 use buffer::{
     Buffer,
@@ -69,12 +69,10 @@ pub(crate) static ICON: &[u8] = include_bytes!(workspace_root!("/assets/images/c
 // 	}
 // }
 
-#[instrument(level = "trace")]
 pub fn default_theme() -> Theme {
     Theme::Ferra
 }
 
-#[instrument(level = "trace")]
 pub fn theme_from(val: &str) -> Option<Theme> {
     match val {
         "Light" => Some(Theme::Light),
@@ -112,7 +110,6 @@ pub struct Config {
 impl Config {
     /// Attempt to deserialize and return GUI settings from the toml file stored
     /// in `emtk::DATA_DIR`.
-    #[instrument(level = "trace")]
     async fn read_config() -> Result<Self> {
         let data_dir = emtk::data_dir()
             .ok_or(io::Error::new(
@@ -146,7 +143,6 @@ impl Config {
     /// - `emtk::data_dir`
     /// - `toml::to_string`
     /// - `tokio::fs::write`
-    #[instrument(level = "trace")]
     pub async fn write_config(self) -> Result<Self> {
         let toml_path = emtk::data_dir()
             .map(|p| p.join(App::TOML))
@@ -169,7 +165,6 @@ impl Config {
 }
 
 impl Default for Config {
-    #[instrument(level = "trace")]
     fn default() -> Self {
         Theme::default();
         Self {
@@ -189,7 +184,6 @@ pub struct Root {
 }
 
 impl Root {
-    #[instrument(level = "trace")]
     fn new() -> (Self, Task<Message>) {
         let config_exists = emtk::data_dir().map(|p| p.join(App::TOML).is_file());
         let task = if let Some(is_file) = config_exists
@@ -207,7 +201,6 @@ impl Root {
 }
 
 impl Default for Root {
-    #[instrument(level = "trace")]
     fn default() -> Self {
         Self {
             config: Config::default(),
@@ -248,7 +241,6 @@ impl App {
     /// specifically. This is a child of `emtk::DATA_DIR`.
     pub const TOML: &'static str = "gui.toml";
 
-    #[instrument(level = "trace")]
     pub(super) fn run() -> iced::Result {
         let image = image::load_from_memory(ICON).unwrap();
         let icon =
@@ -269,7 +261,6 @@ impl App {
             .run()
     }
 
-    #[instrument(level = "trace")]
     fn new() -> (Self, Task<Message>) {
         let (root, root_task) = Root::new();
         let (tab_manager, buffer_task) = TabManager::new();
@@ -287,7 +278,6 @@ impl App {
         )
     }
 
-    #[instrument(level = "trace")]
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ClosedToast(index) => {
@@ -857,7 +847,6 @@ impl App {
         Task::none()
     }
 
-    #[instrument(level = "trace")]
     fn view(&self) -> Element<'_, Message> {
         let pane_grid: Element<_> = pane_grid(&self.tab_managers, |pane, tab, _is_maximized| {
             let title_bar = pane_grid::TitleBar::new({
@@ -891,7 +880,6 @@ impl App {
             .into()
     }
 
-    #[instrument(level = "trace")]
     fn subscription(&self) -> Subscription<Message> {
         let logs = Subscription::run(log::stream).map(Message::Log);
 
@@ -914,7 +902,6 @@ impl App {
         Subscription::batch([logs, events])
     }
 
-    #[instrument(level = "trace")]
     fn title(&self) -> String {
         let mut title = format!("Exanima Modding Toolkit v{}", env!("CARGO_PKG_VERSION"));
 
@@ -932,7 +919,6 @@ impl App {
         title
     }
 
-    #[instrument(level = "trace")]
     fn theme(&self) -> Theme {
         self.root.theme.clone()
     }

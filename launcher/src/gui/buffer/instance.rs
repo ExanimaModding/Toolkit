@@ -19,8 +19,8 @@ use iced::{
 use iced_drop::zones_on_point;
 use iced_split::{Direction, Split};
 use iced_table::table;
+use log::{error, info};
 use tokio::{fs, io};
-use tracing::{error, info, instrument};
 
 use crate::gui::{
     Root,
@@ -55,7 +55,6 @@ pub struct Column {
 }
 
 impl Column {
-    #[instrument(level = "trace")]
     pub fn new(kind: ColumnKind) -> Self {
         let width = match kind {
             ColumnKind::Name => 400.,
@@ -74,7 +73,6 @@ impl Column {
 impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
     type Row = Row;
 
-    #[instrument(level = "trace")]
     fn header(&'a self, _col_index: usize) -> Element<'a, Message> {
         let content = match self.kind {
             ColumnKind::Name => "Name",
@@ -85,7 +83,6 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
         text(content).into()
     }
 
-    #[instrument(level = "trace")]
     fn cell(&'a self, _col_index: usize, row_index: usize, row: &'a Row) -> Element<'a, Message> {
         let plugin_valid = row.plugin.display_name.is_some() && row.plugin.version.is_some();
 
@@ -152,7 +149,6 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
         layout.width(Fill).into()
     }
 
-    #[instrument(level = "trace")]
     fn footer(&'a self, _col_index: usize, rows: &'a [Row]) -> Option<Element<'a, Message>> {
         match self.kind {
             ColumnKind::Name => Some(
@@ -175,12 +171,10 @@ impl<'a> table::Column<'a, Message, Theme, Renderer> for Column {
         }
     }
 
-    #[instrument(level = "trace")]
     fn width(&self) -> f32 {
         self.width
     }
 
-    #[instrument(level = "trace")]
     fn resize_offset(&self) -> Option<f32> {
         self.resize_offset
     }
@@ -195,7 +189,6 @@ pub struct Row {
 }
 
 impl iced_table::WithId for Row {
-    #[instrument(level = "trace")]
     fn id(&self) -> iced::advanced::graphics::core::widget::Id {
         self.widget_id.clone()
     }
@@ -213,7 +206,6 @@ pub struct Table {
 }
 
 impl Table {
-    #[instrument(level = "trace")]
     pub fn new(instance: &emtk::Instance) -> Self {
         let mut table = Self::default();
         table.refresh(instance.profile().load_order().clone());
@@ -222,7 +214,6 @@ impl Table {
 
     /// Fills the table's rows with the current profile's load order. This can be
     /// used in combination with `Instance::refresh` to fully update the load order.
-    #[instrument(level = "trace")]
     pub fn refresh(&mut self, load_order: profile::LoadOrder) -> &mut Self {
         let mut load_order: Vec<_> = load_order.into_iter().collect();
         load_order.sort_by(|(_, a), (_, b)| a.priority.cmp(&b.priority));
@@ -359,7 +350,6 @@ pub enum Message {
 }
 
 impl Instance {
-    #[instrument(level = "trace")]
     pub fn new() -> (Self, Task<Message>) {
         (
             Self::default(),
@@ -387,29 +377,25 @@ impl Instance {
         )
     }
 
-    #[instrument(level = "trace")]
     pub fn with_path(path: &Path) -> (Self, Task<Message>) {
         let path = path.to_owned();
         (
             Self::default(),
             Task::done(Message::Loading)
                 .chain(
-                    Task::future(
-                        async move { emtk::Instance::with_path(path)?.build().await },
-                    )
-                    .map(|result| {
-                        result
-                            .map(|instance| Message::Init(instance))
-                            .map_err(|e| error!("{}", e))
-                            .unwrap_or(Message::InitFailed)
-                    }),
+                    Task::future(async move { emtk::Instance::with_path(path)?.build().await })
+                        .map(|result| {
+                            result
+                                .map(|instance| Message::Init(instance))
+                                .map_err(|e| error!("{}", e))
+                                .unwrap_or(Message::InitFailed)
+                        }),
                 )
                 .chain(Task::done(Message::Loaded)),
         )
     }
 
     // TODO: refactor into sync function that returns (Self, Task<Message>)
-    #[instrument(level = "trace")]
     pub async fn with_instance(inner: emtk::Instance) -> Self {
         let table = Table::new(&inner);
         let mut instance = Self {
@@ -427,7 +413,6 @@ impl Instance {
         instance
     }
 
-    #[instrument(level = "trace")]
     pub fn update(&mut self, message: Message) -> Action {
         match message {
             Message::ClickedRow(index) => {
@@ -835,11 +820,9 @@ impl Instance {
                                 let profiles_dir = path
                                     .join(emtk::Instance::DATA_DIR)
                                     .join(emtk::Instance::PROFILES_DIR);
-                                emtk::ensure_dir(&profiles_dir)
-                                    .await
-                                    .map_err(Error::msg(
-                                        "failed to ensure profiles directory exists",
-                                    ))?;
+                                emtk::ensure_dir(&profiles_dir).await.map_err(Error::msg(
+                                    "failed to ensure profiles directory exists",
+                                ))?;
 
                                 let new_dir = profiles_dir.join(&profile_form_input);
                                 if new_dir.is_dir() {
@@ -873,11 +856,9 @@ impl Instance {
                                 let profiles_dir = path
                                     .join(emtk::Instance::DATA_DIR)
                                     .join(emtk::Instance::PROFILES_DIR);
-                                emtk::ensure_dir(&profiles_dir)
-                                    .await
-                                    .map_err(Error::msg(
-                                        "failed to ensure profiles directory exists",
-                                    ))?;
+                                emtk::ensure_dir(&profiles_dir).await.map_err(Error::msg(
+                                    "failed to ensure profiles directory exists",
+                                ))?;
 
                                 emtk::Profile::with_path(profiles_dir.join(name))
                                     .await?
@@ -979,8 +960,7 @@ impl Instance {
                     Task::done(Message::Loading)
                         .chain(
                             Task::future(async move {
-                                fs::write(path.join(emtk::Profile::LOAD_ORDER_TOML), buffer)
-                                    .await
+                                fs::write(path.join(emtk::Profile::LOAD_ORDER_TOML), buffer).await
                             })
                             .map(|result| {
                                 result
@@ -1045,7 +1025,6 @@ impl Instance {
         Action::None
     }
 
-    #[instrument(level = "trace")]
     pub fn view<'a>(&'a self, root: &'a Root) -> Element<'a, Message> {
         let profile_controls: Element<_> = if self.profiles.is_empty() {
             tooltip(
@@ -1132,7 +1111,6 @@ impl Instance {
         }
     }
 
-    #[instrument(level = "trace")]
     pub fn title(&self) -> String {
         self.inner
             .settings()
@@ -1141,7 +1119,6 @@ impl Instance {
             .unwrap_or(self.inner.path().display().to_string())
     }
 
-    #[instrument(level = "trace")]
     fn plugin_controls(&self) -> Element<'_, Message> {
         use MarkdownKind::*;
         container(
@@ -1193,7 +1170,6 @@ impl Instance {
         .into()
     }
 
-    #[instrument(level = "trace")]
     fn plugin_editor<'a>(&'a self, content: &'a text_editor::Content) -> Element<'a, Message> {
         responsive(move |size| {
             center_x(
@@ -1252,7 +1228,6 @@ impl Instance {
         .into()
     }
 
-    #[instrument(level = "trace")]
     fn plugin_markdown<'a>(
         &'a self,
         root: &'a Root,
@@ -1325,7 +1300,6 @@ impl Instance {
         .into()
     }
 
-    #[instrument(level = "trace")]
     fn plugin_settings(&self) -> Element<'_, Message> {
         let settings: Element<_> = if let Plugin::Settings(maybe_settings) = &self.plugin
             && let Some(settings) = maybe_settings
@@ -1367,7 +1341,6 @@ impl Instance {
         .into()
     }
 
-    #[instrument(level = "trace")]
     pub fn profile_form<'a>(&self) -> Element<'a, Message> {
         row![
             text_input("New Profile...", &self.profile_form_input)
@@ -1404,7 +1377,6 @@ impl Instance {
         .into()
     }
 
-    #[instrument(level = "trace")]
     pub fn profile_picker<'a>(&self) -> Element<'a, Message> {
         row![
             tooltip(
@@ -1512,7 +1484,6 @@ impl Instance {
     /// Attempts to iterate the filesystem for valid directories of profiles related
     /// to the current instance. If an error occurs, it will be logged and not
     /// mutate self.
-    #[instrument(level = "trace")]
     pub async fn refresh_profiles(&mut self) -> &mut Self {
         self.profiles = match self.inner.profile_dirs().await {
             Ok(profile_dirs) => profile_dirs,

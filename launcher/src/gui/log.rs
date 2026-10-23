@@ -6,7 +6,6 @@ use iced::{
     stream::channel,
     widget::{Column, text},
 };
-use tracing::instrument;
 use tracing_subscriber::{fmt::MakeWriter, prelude::*, util::SubscriberInitExt};
 
 use crate::{TRACING_GUARD, add_directive, env_filter};
@@ -14,7 +13,6 @@ use crate::{TRACING_GUARD, add_directive, env_filter};
 #[derive(Debug, Clone)]
 pub struct Event(pub Vec<(String, Option<tracing::Level>)>);
 
-#[instrument(level = "trace")]
 pub fn view<'a, Message: 'a>(events: &[Event]) -> Element<'a, Message> {
     Column::with_children(
         events
@@ -24,7 +22,6 @@ pub fn view<'a, Message: 'a>(events: &[Event]) -> Element<'a, Message> {
     .into()
 }
 
-#[instrument(level = "trace")]
 pub fn stream() -> impl Stream<Item = Event> {
     channel(0, |tx: mpsc::Sender<Event>| async move {
         let file_appender =

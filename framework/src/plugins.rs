@@ -5,8 +5,8 @@ use std::{path::PathBuf, result::Result::Ok};
 
 use anyhow::*;
 use emtk_framework_types::config;
+use log::{error, info};
 use path_clean::PathClean;
-use tracing::{error, info};
 
 use crate::internal::utils::get_game_dir;
 

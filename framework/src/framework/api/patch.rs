@@ -2,8 +2,8 @@ use super::location_is_readwrite;
 use crate::internal::memory::sigscanner::{SigScanner, SigScannerResult};
 
 use anyhow::*;
+use log::error;
 use safer_ffi::{derive_ReprC, ffi_export, prelude::repr_c};
-use tracing::error;
 use windows::Win32::Foundation::HANDLE;
 use windows::Win32::System::Diagnostics::Debug::WriteProcessMemory;
 use windows::Win32::System::Threading::GetCurrentProcess;

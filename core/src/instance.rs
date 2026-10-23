@@ -2,9 +2,9 @@ use std::{fmt, path::PathBuf, process};
 
 use bon::Builder;
 use getset::{Getters, MutGetters};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
-use tracing::{error, info, instrument, warn};
 
 use crate::{Error, Result, TomlError, prelude::*};
 
@@ -15,7 +15,6 @@ pub mod prelude {
 pub type InstanceHistory = Vec<PathBuf>;
 
 /// Return a result to the instance history
-#[instrument(level = "trace")]
 pub async fn history() -> Result<InstanceHistory> {
     let history_file_path = crate::cache_dir()
         .await
@@ -44,7 +43,6 @@ pub async fn history() -> Result<InstanceHistory> {
     Ok(instance_history)
 }
 
-#[instrument(level = "trace")]
 pub async fn write_instance_history(instance_history: &[PathBuf]) -> Result<()> {
     let history_file_path = crate::cache_dir()
         .await
@@ -175,7 +173,6 @@ impl Instance {
     /// - `path` doesn't exist
     /// - **Exanima.exe** does not exist within the directory `path` points to
     /// - another process locked the instance and is currently using it
-    #[instrument(level = "trace")]
     pub fn with_path<P: Into<PathBuf> + fmt::Debug>(path: P) -> Result<InstanceBuilder> {
         let path: PathBuf = path.into();
         let path = path
@@ -221,7 +218,6 @@ impl Instance {
     /// - `ron::ser::to_string`
     /// - `Instance::cache_dir`
     /// - `tokio::fs::write`
-    #[instrument(level = "trace")]
     pub async fn set_profile(&mut self, profile: Profile) -> Result<&mut Self> {
         self.profile = profile;
 
@@ -256,7 +252,6 @@ impl Instance {
     /// - `toml::to_string`
     /// - `Instance::data_dir`
     /// - `tokio::fs::write`
-    #[instrument(level = "trace")]
     pub async fn set_settings(&mut self, settings: Settings) -> Result<&mut Self> {
         let buffer = toml::to_string(&settings)
             .map_err(TomlError::from)
@@ -280,14 +275,12 @@ impl Instance {
         Ok(self)
     }
 
-    #[instrument(level = "trace")]
     pub async fn data_dir(&self) -> io::Result<PathBuf> {
         let dir = self.path.join(Self::DATA_DIR);
         crate::ensure_dir(&dir).await?;
         Ok(dir)
     }
 
-    #[instrument(level = "trace")]
     pub async fn mods_dir(&self) -> io::Result<PathBuf> {
         let dir = self.path.join(Self::MODS_DIR);
         crate::ensure_dir(&dir).await?;
@@ -298,21 +291,18 @@ impl Instance {
     ///
     /// To get a list of paths of all profiles for the current instance, see
     /// [`Instance::profile_dirs`].
-    #[instrument(level = "trace")]
     pub async fn profiles_dir(&self) -> io::Result<PathBuf> {
         let dir = self.data_dir().await?.join(Self::PROFILES_DIR);
         crate::ensure_dir(&dir).await?;
         Ok(dir)
     }
 
-    #[instrument(level = "trace")]
     pub async fn cache_dir(&self) -> io::Result<PathBuf> {
         let dir = self.data_dir().await?.join(Self::CACHE_DIR);
         crate::ensure_dir(&dir).await?;
         Ok(dir)
     }
 
-    #[instrument(level = "trace")]
     pub async fn cache_build_dir(&self) -> io::Result<PathBuf> {
         let dir = self.cache_dir().await?.join(Self::CACHE_BUILD_DIR);
         crate::ensure_dir(&dir).await?;
@@ -324,7 +314,6 @@ impl Instance {
     ///
     /// To get the path to `Instance::PROFILES_DIR`, see
     /// [`Instance::profiles_dir`].
-    #[instrument(level = "trace")]
     pub async fn profile_dirs(&self) -> io::Result<Vec<PathBuf>> {
         let profiles_dir = self.profiles_dir().await?;
         let mut profile_paths = Vec::new();
@@ -345,13 +334,11 @@ where
 {
     /// Tells the `InstanceBuilder` to ignore any lock file at the instance path
     /// thus allowing an `Instance` to be built forcefully.
-    #[instrument(level = "trace")]
     pub fn force(mut self) -> Self {
         self.force = true;
         self
     }
 
-    #[instrument(level = "trace")]
     pub async fn build(self) -> Result<Instance>
     where
         S: instance_builder::IsComplete,

@@ -22,7 +22,6 @@ use tokio::{fs, io};
 pub use instance::{Instance, InstanceHistory};
 pub use plugin::Plugin;
 pub use profile::Profile;
-use tracing::instrument;
 
 pub mod prelude {
     pub use crate::{instance::prelude::*, plugin::prelude::*, profile::prelude::*};
@@ -53,7 +52,6 @@ pub struct Error {
 }
 
 impl Error {
-    #[instrument(level = "trace")]
     pub fn new<K, M>(kind: K, message: M) -> Self
     where
         K: Into<ErrorKind> + fmt::Debug,
@@ -65,7 +63,6 @@ impl Error {
         }
     }
 
-    #[instrument(level = "trace")]
     pub fn msg<K, M>(message: M) -> impl FnOnce(K) -> Self
     where
         K: Into<ErrorKind> + fmt::Debug,
@@ -116,7 +113,6 @@ pub const CACHE_DIR: &str = "cache";
 /// This is a child of `emtk_core::DATA_DIR`.
 pub const LOG_DIR: &str = "log";
 
-#[instrument(level = "trace")]
 pub async fn ensure_dir(dir: &Path) -> io::Result<()> {
     if !dir.is_dir() {
         fs::create_dir_all(dir).await?;
@@ -126,14 +122,12 @@ pub async fn ensure_dir(dir: &Path) -> io::Result<()> {
 }
 
 /// Returns the path to the application's data directory.
-#[instrument(level = "trace")]
 pub fn data_dir() -> Option<PathBuf> {
     dirs::data_dir().map(|p| p.join(DATA_DIR))
 }
 
 /// Returns the path to the application's cache directory. This is a child
 /// of `emtk_core::DATA_DIR_NAME`.
-#[instrument(level = "trace")]
 pub async fn cache_dir() -> io::Result<PathBuf> {
     let cache_dir = data_dir()
         .map(|p| p.join(CACHE_DIR))
@@ -146,7 +140,6 @@ pub async fn cache_dir() -> io::Result<PathBuf> {
 
 /// Returns the path to the application's log directory. This is a child
 /// of `emtk_core::DATA_DIR_NAME`.
-#[instrument(level = "trace")]
 pub async fn log_dir() -> io::Result<PathBuf> {
     let log_dir = data_dir()
         .map(|p| p.join(LOG_DIR))

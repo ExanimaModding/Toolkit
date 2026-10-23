@@ -14,8 +14,8 @@ use detours_sys::{
 };
 use emtk::{plugin, profile};
 use internal::utils::rpk_intercept;
+use log::{info, warn};
 use pelite::pe::Pe;
-use tracing::{info, instrument, warn};
 use tracing_subscriber::{Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use windows::Win32::Foundation::{HINSTANCE, TRUE};
 use windows::Win32::System::Console::AllocConsole;
@@ -77,7 +77,6 @@ unsafe extern "system" fn DllMain(
     TRUE
 }
 
-#[instrument(level = "trace")]
 unsafe extern "C" fn main() {
     info!("Main hook running");
 
@@ -119,7 +118,6 @@ unsafe extern "C" fn main() {
 
 // The following function is only necessary for the header generation.
 #[cfg(feature = "headers")] // c.f. the `Cargo.toml` section
-#[instrument(level = "trace")]
 pub fn generate_headers() -> ::std::io::Result<()> {
     ::safer_ffi::headers::builder()
         .to_file("emtk_framework.h")?
@@ -127,7 +125,6 @@ pub fn generate_headers() -> ::std::io::Result<()> {
 }
 
 /// tracing filter
-#[instrument(level = "trace")]
 pub fn env_filter() -> tracing_subscriber::EnvFilter {
     tracing_subscriber::EnvFilter::builder()
         .from_env()

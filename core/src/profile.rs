@@ -7,9 +7,9 @@ use std::{
 
 use bon::Builder;
 use getset::{Getters, MutGetters};
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tokio::{fs, io};
-use tracing::{info, instrument, warn};
 
 use crate::{Error, Result, TomlError, prelude::*};
 
@@ -28,7 +28,6 @@ pub struct LoadOrderEntry {
 }
 
 impl LoadOrderEntry {
-    #[instrument(level = "trace")]
     pub fn new(
         enabled: bool,
         priority: u32,
@@ -89,7 +88,6 @@ impl Profile {
     /// `Profile::CACHE_BUILD_DIR`.
     pub const LOAD_ORDER_RON: &str = "load_order.ron";
 
-    #[instrument(level = "trace")]
     pub async fn with_path<P: Into<PathBuf> + fmt::Debug>(
         path: P,
     ) -> Result<ProfileBuilder<profile_builder::SetLoadOrder>> {
@@ -124,7 +122,6 @@ impl Profile {
     ///
     /// - `toml::to_string`
     /// - `tokio::fs::write`
-    #[instrument(level = "trace")]
     pub async fn set_load_order(&mut self, load_order: LoadOrder) -> Result<&mut Self> {
         let buffer = toml::to_string(&load_order)
             .map_err(TomlError::from)
@@ -143,7 +140,6 @@ impl Profile {
         Ok(self)
     }
 
-    #[instrument(level = "trace")]
     pub async fn game_dir(&self) -> Result<PathBuf> {
         let mods_path = self
             .path
@@ -164,7 +160,6 @@ impl Profile {
         Ok(mods_path.into())
     }
 
-    #[instrument(level = "trace")]
     pub async fn mods_dir(&self) -> Result<PathBuf> {
         let mods_path = self.game_dir().await?.join(Instance::MODS_DIR);
 
@@ -175,7 +170,6 @@ impl Profile {
         Ok(mods_path)
     }
 
-    #[instrument(level = "trace")]
     pub async fn cache_dir(&self) -> Result<PathBuf> {
         let dir = self.path.join(Self::CACHE_DIR);
         crate::ensure_dir(&dir)
@@ -184,7 +178,6 @@ impl Profile {
         Ok(dir)
     }
 
-    #[instrument(level = "trace")]
     pub async fn cache_build_dir(&self) -> Result<PathBuf> {
         let dir = self.cache_dir().await?.join(Self::CACHE_BUILD_DIR);
         crate::ensure_dir(&dir)
@@ -194,7 +187,6 @@ impl Profile {
     }
 
     /// Return a result to the timestamp of mod files
-    #[instrument(level = "trace")]
     pub async fn cache_build_metadata(&self) -> Result<crate::cache::Metadata> {
         let cache_build_dir = self.cache_build_dir().await?;
         let metadata_path = cache_build_dir.join(crate::cache::METADATA_RON);
@@ -222,7 +214,6 @@ impl Profile {
 
     /// Return a result to true if a mod hasn't changed according to the metadata
     /// file else return false.
-    #[instrument(level = "trace")]
     pub async fn is_cache_build_valid(&self) -> Result<bool> {
         /// Recursion in a mod directory is used to support loose-files.
         async fn is_mod_valid(metadata: &mut crate::cache::Metadata, dir: &Path) -> Result<bool> {
@@ -337,7 +328,6 @@ impl Profile {
     /// - `tokio::fs::File::create_new`
     /// - `tokio::fs::read_to_string`
     /// - `toml::from_str`
-    #[instrument(level = "trace")]
     pub async fn read_load_order(&self) -> Result<LoadOrder> {
         let load_order_path = self.path.join(Profile::LOAD_ORDER_TOML);
         if !load_order_path.is_file() {
@@ -377,7 +367,6 @@ impl<S> ProfileBuilder<S>
 where
     S: profile_builder::State,
 {
-    #[instrument(level = "trace")]
     pub async fn build(self) -> Result<Profile>
     where
         S: profile_builder::IsComplete,
