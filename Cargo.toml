@@ -45,7 +45,7 @@ image = { version = "0.25", default-features = false, features = [
   "png",
 ] }
 libloading = "0.8"
-libmem = { version = "5.0.4", default-features = false }
+libmem = { version = "=5.0.4", default-features = false }
 open = "5.3"
 log = { version = "0.4.34", features = [
   "max_level_debug",
